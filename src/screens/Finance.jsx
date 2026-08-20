@@ -4,7 +4,7 @@ import Sheet from '../components/Sheet'
 import {
   ArrowUpDown, RefreshCw, Users, Plus, Receipt, Check,
 } from '../components/Icons'
-import { RATES, CURRENCIES, MEMBERS, EXPENSES } from '../data'
+import { RATES, CURRENCIES, MEMBERS, EXPENSES, FAMILIES } from '../data'
 
 const SYMBOL = { EUR: '€', USD: '$', CZK: 'Kč', THB: '฿', GBP: '£', AED: 'د.إ', CHF: 'Fr', ILS: '₪' }
 
@@ -41,22 +41,40 @@ export default function Finance() {
 
   const total = expenses.reduce((sum, e) => sum + e.amount, 0)
 
+  /* ---- how the bill is divided ---- */
+  const [splitBy, setSplitBy] = useState('person')
+
+  // Per person everyone pays an equal share; per family each household pays one
+  // share regardless of size — the usual arrangement when families travel together.
+  const parties = useMemo(() => {
+    if (splitBy === 'family') {
+      return FAMILIES.map((f) => ({ ...f, size: f.members.length })).filter((f) => !f.members.includes('u1'))
+    }
+    return MEMBERS.filter((m) => m.id !== 'u1').map((m) => ({ ...m, size: 1 }))
+  }, [splitBy])
+
+  const shares = splitBy === 'family' ? FAMILIES.length : MEMBERS.length
+
   // Net position of "you" (u1): your share of everything, minus what you fronted.
   const { owe, owed } = useMemo(() => {
+    const myFamily = FAMILIES.find((f) => f.members.includes('u1'))
     let balance = 0
     for (const e of expenses) {
-      const share = e.amount / e.split
-      if (e.payer === 'u1') balance += e.amount - share
+      const share = e.amount / shares
+      // Anyone in your household counts as you when splitting per family.
+      const mine =
+        splitBy === 'family' ? Boolean(myFamily?.members.includes(e.payer)) : e.payer === 'u1'
+      if (mine) balance += e.amount - share
       else balance -= share
     }
     return { owe: balance < 0 ? Math.abs(balance) : 0, owed: balance > 0 ? balance : 0 }
-  }, [expenses])
+  }, [expenses, shares, splitBy])
 
   const addExpense = () => {
     const n = parseFloat(value)
     if (!title.trim() || !Number.isFinite(n) || n <= 0) return
     setExpenses((list) => [
-      { id: `e${Date.now()}`, title: title.trim(), payer, amount: n, split: MEMBERS.length - 1 },
+      { id: `e${Date.now()}`, title: title.trim(), payer, amount: n, split: shares },
       ...list,
     ])
     setTitle('')
@@ -156,14 +174,31 @@ export default function Finance() {
 
         <div className="pad">
           <div className="card">
-            <span className="tiny" style={{ display: 'block', marginBottom: 12 }}>מצב החובות:</span>
+            <div className="between" style={{ marginBottom: 14 }}>
+              <span className="tiny">מצב החובות:</span>
+              {/* Splitting per family charges each household once for all of
+                  its members, instead of splitting head by head. */}
+              <div className="split-toggle" role="group" aria-label="אופן החלוקה">
+                <button className={splitBy === 'person' ? 'on' : ''} onClick={() => setSplitBy('person')}>
+                  לפי אדם
+                </button>
+                <button className={splitBy === 'family' ? 'on' : ''} onClick={() => setSplitBy('family')}>
+                  לפי משפחה
+                </button>
+              </div>
+            </div>
 
             <div className="between" style={{ alignItems: 'flex-start' }}>
               <div className="grow">
-                {MEMBERS.filter((m) => m.id !== 'u1').map((m) => (
-                  <div key={m.id} className="member">
-                    <span className="avatar" style={{ background: m.color }}>{m.short}</span>
-                    <span style={{ fontSize: 14, fontWeight: 500 }}>{m.name}</span>
+                {parties.map((p) => (
+                  <div key={p.id} className="member">
+                    <span className="avatar" style={{ background: p.color }}>{p.short}</span>
+                    <span className="col" style={{ gap: 1 }}>
+                      <span style={{ fontSize: 14, fontWeight: 500 }}>{p.name}</span>
+                      {splitBy === 'family' && (
+                        <span className="tiny"><span className="num">{p.size}</span> נוסעים</span>
+                      )}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -176,7 +211,7 @@ export default function Finance() {
                   חייבים לך <span className="num">{Math.round(owed)}₪</span>
                 </div>
                 <span className="tiny" style={{ textAlign: 'center' }}>
-                  חלוקה שווה (<span className="num">{MEMBERS.length - 1}</span>)
+                  חלוקה שווה (<span className="num">{shares}</span>)
                 </span>
               </div>
             </div>
@@ -199,7 +234,7 @@ export default function Finance() {
                   <span className="grow col" style={{ gap: 2 }}>
                     <strong style={{ fontSize: 13.5, fontWeight: 600 }}>{e.title}</strong>
                     <span className="tiny">
-                      שילם/ה {m.name} · <span className="num">₪{Math.round(e.amount / e.split)}</span> לאדם
+                      שילם/ה {m.name} · <span className="num">₪{Math.round(e.amount / shares)}</span> {splitBy === 'family' ? 'למשפחה' : 'לאדם'}
                     </span>
                   </span>
                   <strong className="num" style={{ fontSize: 14 }}>₪{e.amount}</strong>
@@ -248,7 +283,7 @@ export default function Finance() {
           {saved ? <><Check size={17} /> נשמר</> : <><Plus size={17} /> הוסף הוצאה</>}
         </button>
         <p className="tiny" style={{ textAlign: 'center', marginTop: 12 }}>
-          ההוצאה תתחלק שווה בשווה בין <span className="num">{MEMBERS.length - 1}</span> חברי הקבוצה
+          ההוצאה תתחלק שווה בשווה בין <span className="num">{shares}</span> {splitBy === 'family' ? 'המשפחות' : 'חברי הקבוצה'}
         </p>
       </Sheet>
     </>

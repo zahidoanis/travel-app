@@ -7,6 +7,7 @@ export const TRIP = {
   weather: 'מעונן חלקית',
   day: 2,
   totalDays: 5,
+  id: 'PAR-8F3K2',   // invite code shared over WhatsApp
 }
 
 export const TRAVEL_STYLES = [
@@ -41,6 +42,7 @@ export const STOPS = [
     desc: 'ארוחת בוקר פריזאית קלאסית',
     time: '09:00',
     cat: 'food',
+    who: ['f1', 'f2', 'f3'],
     rating: 4.5,
     lat: 48.85405,
     lng: 2.33249,
@@ -54,6 +56,7 @@ export const STOPS = [
     desc: 'סיור מודרך - האגף הצרפתי',
     time: '11:30',
     cat: 'museum',
+    who: ['f1', 'f2'],
     rating: 4.8,
     lat: 48.86061,
     lng: 2.33764,
@@ -67,6 +70,7 @@ export const STOPS = [
     desc: 'הליכה רגועה בין הפסלים',
     time: '14:00',
     cat: 'walking',
+    who: ['f2', 'f3'],
     rating: 4.6,
     lat: 48.86342,
     lng: 2.32725,
@@ -80,6 +84,7 @@ export const STOPS = [
     desc: 'שקיעה מהקומה השנייה',
     time: '18:30',
     cat: 'landmark',
+    who: ['f1', 'f2', 'f3'],
     rating: 4.9,
     lat: 48.85837,
     lng: 2.29448,
@@ -139,3 +144,18 @@ export const EXPENSES = [
   { id: 'e2', title: 'כרטיסים ללובר', payer: 'u1', amount: 204, split: 4 },
   { id: 'e3', title: 'מונית משדה התעופה', payer: 'u3', amount: 180, split: 3 },
 ]
+
+/**
+ * Travel parties. A trip can be split by person or by family: each stop lists
+ * which parties are attending it, so two families can share one trip while
+ * following partly different itineraries.
+ */
+export const FAMILIES = [
+  { id: 'f1', name: 'משפחת כהן', short: 'כ', color: '#6366F1', members: ['u1', 'u4'], joined: true },
+  { id: 'f2', name: 'דנה ויוסי', short: 'ד', color: '#FB7185', members: ['u2', 'u3'], joined: true },
+  { id: 'f3', name: 'עומר', short: 'ע', color: '#34D399', members: ['u5'], joined: false },
+]
+
+/** Head count for a set of party ids. */
+export const headCount = (ids) =>
+  FAMILIES.filter((f) => ids.includes(f.id)).reduce((n, f) => n + f.members.length, 0)

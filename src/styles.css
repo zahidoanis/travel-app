@@ -760,3 +760,26 @@ input, select, textarea { font: inherit; color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* ---------- Travel parties ---------- */
+
+/* Overlapping colour dots showing which parties attend a stop. */
+.stack { display: inline-flex; align-items: center; }
+.stack-dot {
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid var(--card);
+}
+.stack-dot + .stack-dot { margin-inline-start: -5px; }
+
+.split-toggle {
+  display: inline-flex; padding: 3px; border-radius: var(--r-pill);
+  background: rgba(0,0,0,0.3); border: 1px solid var(--border);
+}
+.split-toggle button {
+  padding: 6px 14px; border-radius: var(--r-pill);
+  font-size: 12px; font-weight: 600; color: var(--muted);
+  transition: background 0.2s var(--ease), color 0.2s;
+}
+.split-toggle button.on {
+  background: linear-gradient(135deg, #7C3AED, #6366F1); color: #fff;
+}

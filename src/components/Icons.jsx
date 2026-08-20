@@ -214,3 +214,30 @@ export const Video = make(
 export const Sliders = make(
   <path d="M4 20v-6M4 10V4M12 20v-9M12 7V4M20 20v-4M20 12V4M1.5 14h5M9.5 7h5M17.5 16h5" />
 )
+export const WhatsApp = make(
+  <>
+    <path d="M3.2 20.8 4.5 16.4A8.6 8.6 0 1 1 7.8 19.7l-4.6 1.1Z" />
+    <path d="M8.9 8c.3 0 .5.1.6.4l.7 1.6c.1.3 0 .5-.2.7l-.5.5c-.2.2-.2.4-.1.6a6.2 6.2 0 0 0 2.9 2.7c.2.1.5 0 .6-.1l.6-.7c.2-.2.4-.3.7-.2l1.6.8c.3.1.4.4.3.7-.2.9-1 1.5-1.9 1.5-2.9 0-6.4-3.5-6.4-6.4 0-.9.6-1.7 1.5-1.9L8.9 8Z" />
+  </>
+)
+export const Share = make(
+  <>
+    <circle cx="18" cy="5.5" r="2.8" />
+    <circle cx="6" cy="12" r="2.8" />
+    <circle cx="18" cy="18.5" r="2.8" />
+    <path d="m8.5 10.7 7-3.4M8.5 13.3l7 3.4" />
+  </>
+)
+export const Copy = make(
+  <>
+    <rect x="9" y="9" width="12" height="12" rx="3" />
+    <path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1" />
+  </>
+)
+export const Link = make(
+  <>
+    <path d="M10.5 13.5a4 4 0 0 0 5.7 0l2.6-2.6a4 4 0 0 0-5.7-5.7l-1.5 1.5" />
+    <path d="M13.5 10.5a4 4 0 0 0-5.7 0l-2.6 2.6a4 4 0 0 0 5.7 5.7l1.5-1.5" />
+  </>
+)
+export const Filter = make(<path d="M3 5h18l-7 8v6l-4 2v-8L3 5Z" />)

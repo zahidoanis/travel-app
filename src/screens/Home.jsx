@@ -1,6 +1,8 @@
+import { useMemo, useState } from 'react'
 import TopBar from '../components/TopBar'
-import { ArrowLeft, Sparkles, Bookmark, Clock } from '../components/Icons'
-import { STOPS, RECOMMENDATIONS, TRIP } from '../data'
+import ShareSheet from '../components/ShareSheet'
+import { ArrowLeft, Sparkles, Bookmark, Clock, Share, Users } from '../components/Icons'
+import { STOPS, RECOMMENDATIONS, TRIP, FAMILIES, headCount } from '../data'
 
 /** Thumbnails stand in for photography — swap the gradients for real <img>. */
 const THUMB = {
@@ -11,8 +13,18 @@ const THUMB = {
 }
 
 export default function Home({ onStartRoute, onOpenChat }) {
-  // The "next" stop is the first one still ahead of us in the day.
-  const nextId = STOPS[1].id
+  // "all" shows the shared itinerary; picking a party narrows it to the stops
+  // that party is actually attending.
+  const [party, setParty] = useState('all')
+  const [shareOpen, setShareOpen] = useState(false)
+
+  const stops = useMemo(
+    () => (party === 'all' ? STOPS : STOPS.filter((s) => s.who.includes(party))),
+    [party]
+  )
+
+  // The "next" stop is the first one still ahead of us in the filtered day.
+  const nextId = stops[1]?.id ?? stops[0]?.id
 
   return (
     <div className="screen">
@@ -20,7 +32,17 @@ export default function Home({ onStartRoute, onOpenChat }) {
 
       <div className="pad">
         <section className="hero">
-          <div className="hero-icon" aria-hidden="true">☀️</div>
+          <div className="between" style={{ alignItems: 'flex-start' }}>
+            <div className="hero-icon" aria-hidden="true">☀️</div>
+            <button
+              className="icon-btn boxed"
+              onClick={() => setShareOpen(true)}
+              aria-label="שתף את המסלול"
+              style={{ position: 'relative', zIndex: 1 }}
+            >
+              <Share size={17} />
+            </button>
+          </div>
           <h1 className="hero-title">בוקר טוב!</h1>
           <p className="sub" style={{ maxWidth: '92%' }}>
             הנה התכנון המושלם עבור היום בבוקר ב{TRIP.city}. שילבנו אמנות, קפה משובח ומזג אוויר מושלם.
@@ -31,16 +53,51 @@ export default function Home({ onStartRoute, onOpenChat }) {
         </section>
       </div>
 
+      {/* Split the day by travel party */}
+      <div className="pad section-head" style={{ marginBottom: 10 }}>
+        <div className="row" style={{ gap: 8 }}>
+          <span style={{ color: 'var(--lav)' }}><Users size={17} /></span>
+          <h2 className="h2" style={{ fontSize: 16 }}>מי מטייל</h2>
+        </div>
+        <button
+          onClick={() => setShareOpen(true)}
+          style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--lav)' }}
+        >
+          הזמן חברים +
+        </button>
+      </div>
+
+      <div className="hscroll" style={{ paddingBlock: 0 }}>
+        <button className={`pill ${party === 'all' ? 'on' : ''}`} onClick={() => setParty('all')}>
+          כולם (<span className="num">{headCount(FAMILIES.map((f) => f.id))}</span>)
+        </button>
+        {FAMILIES.map((f) => (
+          <button
+            key={f.id}
+            className={`pill ${party === f.id ? 'on' : ''}`}
+            onClick={() => setParty(f.id)}
+          >
+            <i className="dot" style={{ background: f.color, marginInlineEnd: 6 }} />
+            {f.name}
+          </button>
+        ))}
+      </div>
+
       <div className="pad section-head">
         <h2 className="h2">התכנון להיום</h2>
         <span className="tiny">
-          יום <span className="num">{TRIP.day}</span> מתוך <span className="num">{TRIP.totalDays}</span>
+          {party === 'all' ? (
+            <>יום <span className="num">{TRIP.day}</span> מתוך <span className="num">{TRIP.totalDays}</span></>
+          ) : (
+            <><span className="num">{stops.length}</span> מתוך <span className="num">{STOPS.length}</span> עצירות</>
+          )}
         </span>
       </div>
 
       <div className="hscroll">
-        {STOPS.map((s) => {
+        {stops.map((s) => {
           const isNext = s.id === nextId
+          const going = FAMILIES.filter((f) => s.who.includes(f.id))
           return (
             <button key={s.id} className={`timeline-card ${isNext ? 'next' : ''}`} onClick={onStartRoute}>
               <div className="between">
@@ -56,10 +113,30 @@ export default function Home({ onStartRoute, onOpenChat }) {
                 <span className="thumb-title">{s.name}</span>
               </div>
 
-              <p className="tiny" style={{ margin: 0 }}>{s.desc}</p>
+              <p className="tiny" style={{ margin: '0 0 10px' }}>{s.desc}</p>
+
+              {/* Who is attending this stop */}
+              <div className="row" style={{ gap: 5 }}>
+                <span className="stack">
+                  {going.map((f) => (
+                    <i key={f.id} className="stack-dot" style={{ background: f.color }} title={f.name} />
+                  ))}
+                </span>
+                <span className="tiny">
+                  {going.length === FAMILIES.length
+                    ? 'כולם'
+                    : <><span className="num">{headCount(s.who)}</span> נוסעים</>}
+                </span>
+              </div>
             </button>
           )
         })}
+
+        {stops.length === 0 && (
+          <div className="timeline-card" style={{ display: 'grid', placeItems: 'center', height: 180 }}>
+            <span className="tiny">אין עצירות משותפות ליום הזה</span>
+          </div>
+        )}
       </div>
 
       <div className="pad section-head">
@@ -93,12 +170,14 @@ export default function Home({ onStartRoute, onOpenChat }) {
             <span style={{ color: 'var(--lav)' }}><Clock size={18} /></span>
             <span className="col" style={{ gap: 2, textAlign: 'start' }}>
               <strong style={{ fontSize: 14, fontWeight: 600 }}>הלו"ז המלא של היום</strong>
-              <span className="tiny"><span className="num">{STOPS.length}</span> עצירות · מסתיים ב-<span className="num">20:15</span></span>
+              <span className="tiny"><span className="num">{stops.length}</span> עצירות · מסתיים ב-<span className="num">20:15</span></span>
             </span>
           </span>
           <ArrowLeft size={18} />
         </button>
       </div>
+
+      <ShareSheet open={shareOpen} stops={STOPS} onClose={() => setShareOpen(false)} />
     </div>
   )
 }
