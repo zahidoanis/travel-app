@@ -3,3 +3,8 @@ dist
 .env
 .env.local
 .DS_Store
+
+# Firebase
+.firebase/
+firebase-debug.log
+.runtimeconfig.json
