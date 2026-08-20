@@ -14,7 +14,8 @@ export default function Onboarding({ onDone }) {
   const toggleStyle = (id) =>
     setStyles((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]))
 
-  const next = () => (step < STEPS ? setStep(step + 1) : onDone())
+  const next = () =>
+    step < STEPS ? setStep(step + 1) : onDone({ styles, budget, note: prompt.trim() })
   const back = () => (step > 1 ? setStep(step - 1) : null)
 
   return (

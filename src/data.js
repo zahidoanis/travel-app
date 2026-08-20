@@ -143,6 +143,10 @@ export const EXPENSES = [
   { id: 'e1', title: 'ארוחת ערב - Le Comptoir', payer: 'u2', amount: 320, split: 4 },
   { id: 'e2', title: 'כרטיסים ללובר', payer: 'u1', amount: 204, split: 4 },
   { id: 'e3', title: 'מונית משדה התעופה', payer: 'u3', amount: 180, split: 3 },
+  { id: 'e4', title: 'מלון - 3 לילות', payer: 'u1', amount: 2340, split: 5 },
+  { id: 'e5', title: 'כרטיסי מטרו שבועיים', payer: 'u4', amount: 486, split: 5 },
+  { id: 'e6', title: 'שייט על הסן', payer: 'u2', amount: 420, split: 5 },
+  { id: 'e7', title: 'ארוחת בוקר בקפה דה פלור', payer: 'u5', amount: 300, split: 5 },
 ]
 
 /**

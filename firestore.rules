@@ -1,0 +1,30 @@
+rules_version = '2';
+
+// Anonymous auth gives every device a stable uid; these rules scope all data
+// to that uid. Nobody can read or write another user's documents, and an
+// unauthenticated client gets nothing.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // users/{uid} plus everything nested under it: profile, trips, routes.
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+
+      match /{document=**} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+    }
+
+    // Crash log. Write-only from the client: a device may report its own
+    // errors but must not be able to read them back or amend them, which
+    // keeps the log usable as evidence.
+    match /diagnostics/{uid}/events/{eventId} {
+      allow create: if request.auth != null
+                    && request.auth.uid == uid
+                    && request.resource.data.size() < 30;
+      allow read, update, delete: if false;
+    }
+
+    // Anything not matched above is denied.
+  }
+}
