@@ -39,6 +39,7 @@ const coord = (lat, lng) => `${lat.toFixed(5)},${lng.toFixed(5)}`
  * @param {number}   [o.scale]              - 1 or 2 (2 = retina, same billing)
  * @param {Array}    [o.markers]            - [{ lat, lng, color, label }]
  * @param {string}   [o.path]               - encoded polyline (no "enc:" prefix)
+ * @param {Array}    [o.pathPoints]         - [[lat, lng], ...] straight-line fallback
  * @param {Array}    [o.visible]            - [[lat, lng], ...] to auto-fit bounds
  * @param {string}   [o.mapType]
  */
@@ -49,6 +50,7 @@ export function buildStaticMapUrl({
   scale = 2,
   markers = [],
   path,
+  pathPoints = [],
   visible = [],
   mapType = 'roadmap',
 } = {}) {
@@ -73,8 +75,14 @@ export function buildStaticMapUrl({
     qs.push(`markers=${encodeURIComponent(parts.join('|'))}`)
   }
 
+  // Prefer an encoded polyline from the Directions API — it follows real
+  // streets and stays compact. `pathPoints` is the straight-line fallback,
+  // fine for a handful of stops but it will blow the URL limit on a long route.
   if (path) {
     qs.push(`path=${encodeURIComponent(`weight:4|color:0x22D3EECC|enc:${path}`)}`)
+  } else if (pathPoints.length > 1) {
+    const pts = pathPoints.map(([lat, lng]) => coord(lat, lng)).join('|')
+    qs.push(`path=${encodeURIComponent(`weight:4|color:0x22D3EECC|${pts}`)}`)
   }
 
   for (const v of visible) qs.push(`visible=${encodeURIComponent(coord(v[0], v[1]))}`)

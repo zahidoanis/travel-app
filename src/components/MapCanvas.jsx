@@ -64,6 +64,7 @@ export default function MapCanvas({ stops, activeId, onPinClick }) {
         label: String(i + 1),
         color: CATEGORIES[s.cat].color.replace('#', '0x'),
       })),
+      pathPoints: stops.map((s) => [s.lat, s.lng]),
     })
   }, [active.lat, active.lng, stops])
 
