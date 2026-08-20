@@ -37,7 +37,8 @@ npm run dev
 | `npm run dev` | שרת פיתוח עם hot reload |
 | `npm run build` | בונה ל-`dist/` |
 | `npm run preview` | מגיש את ה-build המקומי לבדיקה |
-| `npm run ai:check` | מאמת את מפתח Gemini ומדפיס אילו דגמים זמינים |
+| `npm run ai:check` | מאמת את המפתח ובודק שהדגם באמת עונה |
+| `npm run ai:smoke` | מריץ שיחה אמיתית מול Gemini ומדפיס זמנים וטוקנים |
 
 **דרישה:** Node.js 18 ומעלה. נבדק על Node 24.19.0 / npm 11.17.0.
 
@@ -100,7 +101,7 @@ src/
     └── Chat.jsx        Gallery.jsx  Finance.jsx
 
 worker/                     פרוקסי Cloudflare ל-Gemini (אופציונלי)
-scripts/ai-check.mjs        אימות מפתח Gemini
+scripts/                    ai:check ו-ai:smoke — אימות המפתח והדגם
 ```
 
 ### תלויות
@@ -166,20 +167,29 @@ Google עדיין נתמך אם תרצה אותו — ראה [MAPS.md](MAPS.md).
 3. צור `.env.local` בשורש הפרויקט:
 
    ```
-   VITE_GEMINI_API_KEY=AIza...
+   VITE_GEMINI_API_KEY=<המפתח שלך>
    ```
 
 4. אמת שהמפתח עובד ובדוק אילו דגמים זמינים לך:
 
    ```bash
-   npm run ai:check
+   npm run ai:check     # מאמת מפתח + מריץ קריאה אמיתית לדגם
+   npm run ai:smoke     # מדפיס תשובה מלאה עם זמנים וטוקנים
    ```
 
-   אם הדגם המוגדר לא ברשימה, הוסף שורה `VITE_GEMINI_MODEL=<שם מהרשימה>`.
+   `ai:check` מריץ קריאה אמיתית ולא מסתפק ברשימת הדגמים, כי **Google משאיר
+   דגמים שהוצאו משימוש ברשימה אבל דוחה אותם למפתחות חדשים** — `gemini-2.5-flash`
+   למשל מופיע ברשימה ומחזיר 404 בפועל.
+
+   אם הדגם נדחה, הוסף `VITE_GEMINI_MODEL=<שם מהרשימה>`.
 
 5. הפעל מחדש את שרת הפיתוח — **Vite קורא משתני סביבה רק באתחול**.
 
 עבור לטאב הצ'אט. התג בראש השיחה יראה "סוכן פעיל" ואת שם הדגם.
+
+> **על דגמי חשיבה:** Gemini 3 מוציא מאות טוקנים על "חשיבה" פנימית, והם נספרים
+> בתוך `maxOutputTokens`. לכן התקציב עומד על 2048 — עם 400 התשובה נחתכת באמצע
+> מילה. חלקי ה-`thought` מסוננים ולא מגיעים לבועת הצ'אט.
 
 ### הקמה — מצב פרודקשן
 
@@ -261,7 +271,7 @@ Business API**. במובייל, אם קיים `navigator.share`, נפתחת מג
 |---|---|---|
 | `VITE_AI_PROXY_URL` | — | פרוקסי AI. גובר על המפתח הישיר. |
 | `VITE_GEMINI_API_KEY` | — | מפתח Gemini לקריאה ישירה מהדפדפן. |
-| `VITE_GEMINI_MODEL` | `gemini-2.5-flash` | דגם. בדוק זמינות עם `npm run ai:check`. |
+| `VITE_GEMINI_MODEL` | `gemini-3.6-flash` | דגם. בדוק זמינות עם `npm run ai:check`. |
 | `VITE_GOOGLE_MAPS_KEY` | — | מעביר את המפה ל-Google Static Maps. |
 
 > **חשוב:** Vite קורא את הקבצים האלה רק באתחול. אחרי שינוי — הפעל מחדש את השרת.

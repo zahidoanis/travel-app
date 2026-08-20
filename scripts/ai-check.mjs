@@ -57,15 +57,38 @@ for (const m of usable) {
   console.log(`  ${name.padEnd(42)} ${String(m.inputTokenLimit ?? '?').padStart(9)} tokens${flash}`)
 }
 
-const wanted = env.VITE_GEMINI_MODEL ?? 'gemini-2.5-flash'
-const ok = usable.some((m) => m.name === `models/${wanted}`)
+const wanted = env.VITE_GEMINI_MODEL ?? 'gemini-3.6-flash'
 
-console.log(
-  ok
-    ? `\n✔ הדגם שמוגדר באפליקציה (${wanted}) זמין.\n`
-    : `\n✖ הדגם שמוגדר באפליקציה (${wanted}) אינו ברשימה.\n` +
-        `  הוסף ל-.env.local שורה עם אחד מהדגמים שלמעלה:\n` +
-        `  VITE_GEMINI_MODEL=<שם הדגם>\n`
+// Being in the list is not the same as being callable: Google keeps retired
+// models listed but rejects them for new keys. Probe it for real.
+console.log(`\nבודק שהדגם ${wanted} באמת עונה …`)
+
+const probe = await fetch(
+  `https://generativelanguage.googleapis.com/v1beta/models/${wanted}:generateContent?key=${encodeURIComponent(key)}`,
+  {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: 'שלום' }] }],
+      generationConfig: { maxOutputTokens: 2048 },
+    }),
+  }
 )
 
-process.exit(ok ? 0 : 1)
+if (probe.ok) {
+  console.log(`\n✔ ${wanted} זמין ועובד.\n`)
+  process.exit(0)
+}
+
+let message = ''
+try {
+  message = (await probe.json())?.error?.message ?? ''
+} catch {
+  /* non-JSON */
+}
+
+console.error(`\n✖ ${wanted} החזיר HTTP ${probe.status}`)
+if (message) console.error(`  ${message}`)
+console.error('\n  בחר דגם מהרשימה למעלה והוסף ל-.env.local:')
+console.error('  VITE_GEMINI_MODEL=<שם הדגם>\n')
+process.exit(1)

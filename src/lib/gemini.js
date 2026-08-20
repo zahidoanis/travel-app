@@ -16,7 +16,7 @@
 
 const PROXY = import.meta.env?.VITE_AI_PROXY_URL ?? ''
 const KEY = import.meta.env?.VITE_GEMINI_API_KEY ?? ''
-const MODEL = import.meta.env?.VITE_GEMINI_MODEL ?? 'gemini-2.5-flash'
+const MODEL = import.meta.env?.VITE_GEMINI_MODEL ?? 'gemini-3.6-flash'
 
 const API = 'https://generativelanguage.googleapis.com/v1beta'
 
@@ -73,7 +73,9 @@ export async function streamReply({ messages, system, signal, onChunk }) {
   const body = {
     contents: toContents(messages),
     systemInstruction: { parts: [{ text: system }] },
-    generationConfig: { temperature: 0.7, maxOutputTokens: 800 },
+    // Thinking tokens count against maxOutputTokens, and Gemini 3 spends
+    // several hundred on a question like this — leave room for both.
+    generationConfig: { temperature: 0.7, maxOutputTokens: 2048 },
   }
 
   const url = PROXY
@@ -102,38 +104,56 @@ export async function streamReply({ messages, system, signal, onChunk }) {
   let buffer = ''
   let full = ''
 
+  const emit = (frame) => {
+    const text = textOf(frame)
+    if (!text) return
+    full += text
+    onChunk?.(text)
+  }
+
   while (true) {
     const { done, value } = await reader.read()
     if (done) break
     buffer += decoder.decode(value, { stream: true })
 
-    // SSE frames are separated by a blank line.
-    const frames = buffer.split('\n\n')
+    // Google delimits frames with CRLFCRLF, so splitting on "\n\n" alone
+    // matches nothing and swallows the entire stream after the first frame.
+    const frames = buffer.split(SEP)
     buffer = frames.pop() ?? ''
-
-    for (const frame of frames) {
-      const line = frame.split('\n').find((l) => l.startsWith('data:'))
-      if (!line) continue
-      const payload = line.slice(5).trim()
-      if (!payload || payload === '[DONE]') continue
-
-      let json
-      try {
-        json = JSON.parse(payload)
-      } catch {
-        continue // partial frame; the next read completes it
-      }
-
-      const text = json?.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('') ?? ''
-      if (text) {
-        full += text
-        onChunk?.(text)
-      }
-    }
+    frames.forEach(emit)
   }
+
+  // The final frame usually arrives without a trailing blank line.
+  buffer += decoder.decode()
+  if (buffer.trim()) emit(buffer)
 
   if (!full.trim()) throw new Error('הסוכן לא החזיר תשובה. נסה לנסח מחדש.')
   return full
+}
+
+const SEP = /\r?\n\r?\n/
+
+/** Pulls the visible text out of one SSE frame, dropping reasoning parts. */
+function textOf(frame) {
+  const line = frame.split(/\r?\n/).find((l) => l.startsWith('data:'))
+  if (!line) return ''
+
+  const payload = line.slice(5).trim()
+  if (!payload || payload === '[DONE]') return ''
+
+  let json
+  try {
+    json = JSON.parse(payload)
+  } catch {
+    return '' // partial frame; the next read completes it
+  }
+
+  // Thinking models emit `thought` parts alongside the answer — those are
+  // internal reasoning and must never reach the chat bubble.
+  return (json?.candidates?.[0]?.content?.parts ?? [])
+    .filter((p) => !p.thought && p.text)
+    .map((p) => p.text)
+    .join('')
 }
 
 /** Turns an HTTP failure into something worth showing a user. */
