@@ -141,22 +141,12 @@ firebase hosting:channel:deploy preview
 
 ## מפתח Google Maps — קרא לפני שמוסיפים
 
-Vite **מטמיע** כל משתנה `VITE_*` בתוך ה-JS הסופי. כלומר המפתח יהיה גלוי לכל מי
-שיפתח את קוד המקור של האתר. זה לא באג — ככה מפתחות Static Maps עובדים בצד לקוח.
-ההגנה היא הגבלת המפתח, לא הסתרתו:
+המדריך המלא לחיבור מפתח נמצא ב-[MAPS.md](MAPS.md) — כולל הפעלת billing, הגבלת
+המפתח, והתראות תקציב.
 
-1. צור `.env.local` (כבר ב-`.gitignore`, לא ייכנס לגיט):
-
-   ```
-   VITE_GOOGLE_MAPS_KEY=AIza...
-   ```
-
-2. ב-Google Cloud Console → APIs & Services → Credentials → המפתח שלך:
-   - **Application restrictions** → HTTP referrers
-   - הוסף: `https://<project-id>.web.app/*` ו-`https://<project-id>.firebaseapp.com/*`
-   - להרצה מקומית הוסף גם `http://localhost:5173/*`
-   - **API restrictions** → הגבל ל-**Maps Static API** בלבד
-3. ב-Cloud Console → Billing → הגדר **budget alert**, כי לכל בקשת מפה יש עלות
+שתי נקודות קריטיות: נדרש חשבון חיוב גם לשימוש חינמי, והמפתח **יהיה גלוי** בקוד
+המקור של האתר כי Vite מטמיע כל `VITE_*` ב-JS הסופי. ההגנה היא הגבלת referrer,
+לא הסתרה.
 
 בלי מפתח האפליקציה עובדת מצוין — היא מציירת מפת SVG כהה משלה.
 

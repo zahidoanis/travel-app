@@ -55,7 +55,9 @@ VITE_GOOGLE_MAPS_KEY=AIza...
 `scale=2`, עיגול הקואורדינטות ל-5 ספרות (כדי שאותו מבט ייתן אותו URL וייכנס ל-cache),
 ובדיקת מגבלת 16,384 התווים. הגבל את המפתח לפי HTTP referrer ב-Google Cloud Console.
 
-הנחיות העיצוב המלאות: [prompts/google-static-maps-design.md](prompts/google-static-maps-design.md)
+מדריך מלא לחיבור המפתח: [MAPS.md](MAPS.md)
+הנחיות העיצוב: [prompts/google-static-maps-design.md](prompts/google-static-maps-design.md)
+פריסה: [DEPLOY.md](DEPLOY.md)
 
 ## מה אינטראקטיבי
 
