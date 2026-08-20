@@ -4,11 +4,13 @@ import MapCanvas from '../components/MapCanvas'
 import Sheet from '../components/Sheet'
 import { Star, Info, Navigation, Clock, Layers, Locate, Plus } from '../components/Icons'
 import { STOPS, CATEGORIES } from '../data'
+import { PROVIDERS } from '../lib/tiles'
 import { navigateUrl } from '../lib/staticMap'
 
 export default function MapScreen() {
   const [activeId, setActiveId] = useState(STOPS[1].id)
   const [details, setDetails] = useState(null)
+  const [provider, setProvider] = useState('cartoDark')
   const deckRef = useRef(null)
 
   const active = STOPS.find((s) => s.id === activeId)
@@ -23,14 +25,24 @@ export default function MapScreen() {
 
   return (
     <div className="map-screen">
-      <MapCanvas stops={STOPS} activeId={activeId} onPinClick={setActiveId} />
+      <MapCanvas stops={STOPS} activeId={activeId} onPinClick={setActiveId} provider={provider} />
 
       <div style={{ position: 'relative', zIndex: 10 }}>
         <TopBar floating />
       </div>
 
       <div className="map-tools">
-        <button className="map-tool" aria-label="שכבות מפה"><Layers size={18} /></button>
+        <button
+          className="map-tool"
+          onClick={() => {
+            const keys = Object.keys(PROVIDERS)
+            setProvider(keys[(keys.indexOf(provider) + 1) % keys.length])
+          }}
+          aria-label={`שכבת מפה: ${PROVIDERS[provider].label}`}
+          title={PROVIDERS[provider].label}
+        >
+          <Layers size={18} />
+        </button>
         <button className="map-tool" aria-label="מרכז על המיקום שלי"><Locate size={18} /></button>
         <button className="map-tool" aria-label="הוסף עצירה"><Plus size={18} /></button>
       </div>
