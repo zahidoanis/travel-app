@@ -1,0 +1,11 @@
+name = "tripai-ai"
+main = "index.js"
+compatibility_date = "2025-01-01"
+
+[vars]
+# Comma-separated list of origins allowed to call this proxy.
+# Replace <project-id> with your Firebase project id.
+ALLOWED_ORIGINS = "http://localhost:5173,https://<project-id>.web.app,https://<project-id>.firebaseapp.com"
+
+# GEMINI_API_KEY is a secret, not a var:
+#   wrangler secret put GEMINI_API_KEY

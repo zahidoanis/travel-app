@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import TopBar from '../components/TopBar'
 import {
-  AlertTriangle, Bot, Check, Mic, Paperclip, Send, Train, Plane,
+  AlertTriangle, Bot, Check, Mic, Paperclip, Send, Train, Plane, Sparkles,
 } from '../components/Icons'
+import { TRIP, STOPS, FAMILIES } from '../data'
+import { hasAI, aiMode, aiModel, systemPrompt, streamReply } from '../lib/gemini'
 
 /** Two alternatives the agent found after the delay was detected. */
 const OPTIONS = [
@@ -28,6 +30,23 @@ const CANNED_REPLY =
   'אין תוספת תשלום — הכרטיס המקורי שלך גמיש והחלפתי אותו ישירות מול SNCF. ' +
   'עדכנתי גם את הלו"ז של מחר כדי שתספיק להתארגן.'
 
+/** The scripted opening exchange, replayed to the model as prior context so a
+ *  real agent picks up mid-conversation instead of starting cold. */
+const OPENING = [
+  {
+    role: 'me',
+    text: 'הטיסה שלי מתעכבת בשעתיים. מה זה אומר לגבי ההזמנה של הרכבת למרכז העיר?',
+  },
+  {
+    role: 'ai',
+    text:
+      'זוהה עיכוב בטיסה AF 1234, נחיתה משוערת 16:30. הרכבת שהזמנת (RER B ב-15:15) תצא ' +
+      'לפני שתספיק לאסוף מזוודות. מצאתי שתי חלופות: 17:05 מ-CDG Terminal 2 שמגיעה ' +
+      'ל-Gare du Nord ב-17:42, או 17:35 מ-Terminal 1 שמגיעה ב-18:29.',
+  },
+  { role: 'me', text: 'כן זה מעולה. בבקשה תאשר את זה. צריך לשלם תוספת?' },
+]
+
 export default function Chat() {
   const [picked, setPicked] = useState('o1')
   const [approved, setApproved] = useState(false)
@@ -35,11 +54,51 @@ export default function Chat() {
   const [listening, setListening] = useState(false)
   const [typing, setTyping] = useState(false)
   const [extra, setExtra] = useState([])
+  const [error, setError] = useState(null)
   const endRef = useRef(null)
+  const abortRef = useRef(null)
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
   }, [extra, typing, approved])
+
+  // Cancel an in-flight stream if the screen goes away mid-answer.
+  useEffect(() => () => abortRef.current?.abort(), [])
+
+  const system = systemPrompt({ trip: TRIP, stops: STOPS, families: FAMILIES })
+
+  /** Streams a real answer, appending deltas to the last message as they land. */
+  const askAgent = async (history) => {
+    const controller = new AbortController()
+    abortRef.current = controller
+    setError(null)
+    setTyping(true)
+
+    const id = `a${Date.now()}`
+    let started = false
+
+    try {
+      await streamReply({
+        messages: history,
+        system,
+        signal: controller.signal,
+        onChunk: (delta) => {
+          if (!started) {
+            started = true
+            setTyping(false)
+            setExtra((m) => [...m, { id, role: 'ai', text: delta }])
+            return
+          }
+          setExtra((m) => m.map((x) => (x.id === id ? { ...x, text: x.text + delta } : x)))
+        },
+      })
+    } catch (err) {
+      if (err?.name !== 'AbortError') setError(err.message)
+    } finally {
+      setTyping(false)
+      abortRef.current = null
+    }
+  }
 
   const approve = () => {
     if (approved) return
@@ -57,14 +116,33 @@ export default function Chat() {
 
   const send = () => {
     const text = draft.trim()
-    if (!text) return
+    if (!text || typing) return
     setDraft('')
-    setExtra((m) => [...m, { id: `u${m.length}`, role: 'me', text }])
+
+    const mine = { id: `u${Date.now()}`, role: 'me', text }
+    const history = [...OPENING, ...extra, mine]
+    setExtra((m) => [...m, mine])
+
+    if (hasAI) {
+      askAgent(history)
+      return
+    }
+
+    // No key configured — keep the scripted answer so the demo still reads.
     setTyping(true)
     setTimeout(() => {
       setTyping(false)
-      setExtra((m) => [...m, { id: `a${m.length}`, role: 'ai', text: CANNED_REPLY }])
+      setExtra((m) => [...m, { id: `a${Date.now()}`, role: 'ai', text: CANNED_REPLY }])
     }, 1500)
+  }
+
+  /** Re-runs the last question after a failure. */
+  const retry = () => {
+    const lastMine = [...extra].reverse().find((m) => m.role === 'me')
+    if (!lastMine) return
+    const upTo = extra.slice(0, extra.lastIndexOf(lastMine) + 1)
+    setExtra(upTo)
+    askAgent([...OPENING, ...upTo])
   }
 
   return (
@@ -74,6 +152,22 @@ export default function Chat() {
 
         <div className="chat-thread">
           <span className="date-chip">היום, <span className="num">10:42</span></span>
+
+          {/* Say plainly whether answers are coming from a model or a script. */}
+          <span className={`ai-status ${hasAI ? 'live' : ''}`}>
+            {hasAI ? (
+              <>
+                <Sparkles size={12} />
+                סוכן פעיל · {aiModel}
+                {aiMode === 'direct' && ' · מצב פיתוח'}
+              </>
+            ) : (
+              <>
+                <Bot size={12} />
+                מצב הדגמה · תשובות מוכנות מראש
+              </>
+            )}
+          </span>
 
           <div className="bubble me msg-in">
             הטיסה שלי מתעכבת בשעתיים. מה זה אומר לגבי ההזמנה של הרכבת למרכז העיר?
@@ -174,6 +268,17 @@ export default function Chat() {
             </div>
           )}
 
+          {error && (
+            <div className="alert-card msg-in" style={{ borderColor: 'rgba(251,113,133,0.4)' }}>
+              <div className="row" style={{ marginBottom: 8 }}>
+                <span style={{ color: 'var(--rose)' }}><AlertTriangle size={16} /></span>
+                <strong style={{ fontSize: 13.5, fontWeight: 600 }}>הסוכן לא הצליח לענות</strong>
+              </div>
+              <p className="tiny" style={{ margin: '0 0 12px' }}>{error}</p>
+              <button className="btn btn-ghost btn-sm" onClick={retry}>נסה שוב</button>
+            </div>
+          )}
+
           <div ref={endRef} />
         </div>
       </div>
@@ -186,7 +291,7 @@ export default function Chat() {
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && send()}
-          placeholder="שאל את סוכן ה-AI..."
+          placeholder={hasAI ? "שאל את סוכן ה-AI..." : "מצב הדגמה — נסה בכל זאת"}
           aria-label="הודעה"
         />
         <button
@@ -198,7 +303,7 @@ export default function Chat() {
         >
           <Mic size={17} />
         </button>
-        <button className="send" onClick={send} disabled={!draft.trim()} aria-label="שלח">
+        <button className="send" onClick={send} disabled={!draft.trim() || typing} aria-label="שלח">
           <Send size={16} />
         </button>
       </div>
