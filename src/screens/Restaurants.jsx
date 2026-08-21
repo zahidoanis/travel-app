@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import TopBar from '../components/TopBar'
 import { Sparkles, Plus, Navigation, Star, Check, Utensils } from '../components/Icons'
-import { CUISINES, BUDGETS } from '../data'
+import { CUISINES } from '../data'
 import { useTrip } from '../TripProvider'
 import { hasAI, complete, parseRows } from '../lib/gemini'
 import { geocode } from '../lib/geocode'
@@ -27,7 +27,6 @@ export default function Restaurants() {
     const done = watchdog('restaurants.search', 30000, { city: trip.city })
 
     const names = CUISINES.filter((c) => cuisines.includes(c.id)).map((c) => c.label).join(', ')
-    const budget = BUDGETS.find((b) => b.id === trip.budget)?.label ?? ''
 
     try {
       const text = await complete({
@@ -37,8 +36,7 @@ export default function Restaurants() {
           'בלי כותרות, בלי מספור, בלי טקסט נוסף. בדיוק 6 שורות. הכל בעברית פרט לשם המסעדה.',
         prompt:
           `עיר: ${trip.city}${trip.country ? `, ${trip.country}` : ''}\n` +
-          `העדפות: ${names || 'ללא העדפה'}\n` +
-          `תקציב: ${budget}\n\n` +
+          `העדפות: ${names || 'ללא העדפה'}\n\n` +
           'הצע 6 מסעדות אמיתיות שמתאימות להעדפות.',
       })
 

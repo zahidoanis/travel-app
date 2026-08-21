@@ -71,6 +71,23 @@ export default {
       const kind = url.searchParams.get('kind')
       if (kind === 'city') params.featuretype = 'settlement'
 
+      // `details=1` asks for the contact information a booking needs — phone,
+      // website, opening hours. Only Nominatim carries those tags, and the
+      // call is rare enough that its rate limit is not a problem here.
+      if (url.searchParams.get('details') === '1') {
+        const detailed = await fromNominatim(
+          { ...params, extratags: '1', namedetails: '1' },
+          env
+        )
+        if (detailed === null) {
+          return json({ error: { message: 'geocoder unavailable' } }, 502, cors)
+        }
+        return json(detailed, 200, {
+          ...cors,
+          'Cache-Control': detailed.length > 0 ? 'public, max-age=86400' : 'no-store',
+        })
+      }
+
       // Photon first: same OpenStreetMap data, but built for search-as-you-type
       // and — the part that matters here — it does not throttle Cloudflare's
       // shared egress IPs the way Nominatim does. Nominatim answered 502 for
@@ -243,6 +260,12 @@ async function fromNominatim(params, env) {
       city: h.address?.city ?? h.address?.town ?? h.address?.village ?? h.address?.municipality ?? '',
       country: h.address?.country ?? '',
       type: h.addresstype ?? h.type ?? '',
+      // Contact details, when OSM has them. Absent far more often than
+      // present, so the UI has to treat every one of these as optional.
+      phone: h.extratags?.phone ?? h.extratags?.['contact:phone'] ?? null,
+      website: h.extratags?.website ?? h.extratags?.['contact:website'] ?? null,
+      hours: h.extratags?.opening_hours ?? null,
+      reservation: h.extratags?.['reservation'] ?? null,
     }))
   } catch {
     return null

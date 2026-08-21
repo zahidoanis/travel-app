@@ -1,30 +1,34 @@
-import { Bell, CloudSun } from './Icons'
+import { Bell, MapPin } from './Icons'
 import { useTrip } from '../TripProvider'
 
 /**
  * Three variants, matching the screens:
- *   "home"     — weather on the start edge + "מסונכרן" badge on the end edge
- *   "centered" — bell / centred title / weather cloud   (map, gallery, chat)
- *   "brand"    — TripAI wordmark on the end edge        (finance)
+ *   "home"     — destination on the start edge, sync badge on the end edge
+ *   "centered" — bell / destination / spacer   (map, gallery, chat)
+ *   "brand"    — TripAI wordmark on the end edge (finance)
+ *
+ * The weather readout that used to sit here was invented — no provider is
+ * wired up — so it is gone rather than showing a number nobody measured.
  */
 export default function TopBar({ variant = 'centered', floating = false, onBell }) {
-  const { trip: TRIP } = useTrip()
+  const { trip } = useTrip()
+
   const label = (
     <span className="topbar-title">
-      {TRIP.city}, <span className="num">{TRIP.temp}°C</span>
+      {trip ? trip.city : 'TripAI'}
+      {trip?.country ? <span className="tiny"> · {trip.country}</span> : null}
     </span>
   )
 
   const bell = (
     <button className="icon-btn bell" onClick={onBell} aria-label="התראות">
       <Bell size={19} />
-      <i className="bell-dot" />
     </button>
   )
 
-  const cloud = (
-    <span style={{ color: 'var(--muted)' }} aria-label={TRIP.weather}>
-      <CloudSun size={21} />
+  const pin = (
+    <span style={{ color: 'var(--muted)' }} aria-hidden="true">
+      <MapPin size={18} />
     </span>
   )
 
@@ -32,14 +36,14 @@ export default function TopBar({ variant = 'centered', floating = false, onBell 
     return (
       <header className={`topbar ${floating ? 'floating' : ''}`}>
         <div className="row" style={{ gap: 8 }}>
-          {cloud}
+          {pin}
           {label}
-          {bell}
         </div>
-        <span className="badge badge-live">
-          <i className="dot dot-amber dot-pulse" />
-          מסונכרן
-        </span>
+        {trip && (
+          <span className="badge badge-live">
+            יום <span className="num">{trip.day}</span>/<span className="num">{trip.totalDays}</span>
+          </span>
+        )}
       </header>
     )
   }
@@ -49,7 +53,7 @@ export default function TopBar({ variant = 'centered', floating = false, onBell 
       <header className={`topbar ${floating ? 'floating' : ''}`}>
         <div className="row" style={{ gap: 8 }}>
           {bell}
-          {cloud}
+          {pin}
           {label}
         </div>
         <span className="brand">TripAI</span>
@@ -59,7 +63,7 @@ export default function TopBar({ variant = 'centered', floating = false, onBell 
 
   return (
     <header className={`topbar ${floating ? 'floating' : ''}`}>
-      {cloud}
+      {pin}
       {label}
       {bell}
     </header>

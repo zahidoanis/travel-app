@@ -93,7 +93,7 @@ export default function MapCanvas({ stops, activeId, onPinClick, provider = 'car
       <div className="map-canvas">
         <img
           src={googleUrl}
-          alt={`מפת המסלול היומי בפריז, ${stops.length} עצירות, ממוקדת על ${active.he}`}
+          alt={`מפת המסלול, ${stops.length} עצירות, ממוקדת על ${active.he}`}
           width={640}
           height={640}
           loading="lazy"
@@ -109,7 +109,7 @@ export default function MapCanvas({ stops, activeId, onPinClick, provider = 'car
         className="map-pan"
         style={{ transform: `translate(${shift.x}px, ${shift.y}px)` }}
         role="img"
-        aria-label={`מפת המסלול היומי בפריז, ${stops.length} עצירות, ממוקדת על ${active.he}`}
+        aria-label={`מפת המסלול, ${stops.length} עצירות, ממוקדת על ${active.he}`}
       >
         {tiles.map((t) => (
           <img

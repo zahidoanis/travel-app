@@ -4,7 +4,7 @@ import Sheet from '../components/Sheet'
 import {
   ArrowUpDown, RefreshCw, Users, Plus, Receipt, Check,
 } from '../components/Icons'
-import { RATES, CURRENCIES, EXPENSES } from '../data'
+import { RATES, CURRENCIES } from '../data'
 import { useTrip } from '../TripProvider'
 
 const SYMBOL = { EUR: '€', USD: '$', CZK: 'Kč', THB: '฿', GBP: '£', AED: 'د.إ', CHF: 'Fr', ILS: '₪' }
@@ -16,10 +16,17 @@ export default function Finance() {
   const { families: FAMILIES } = useTrip()
   // Every traveller is a member of exactly one party.
   // "You" are the first member of the first party.
+  // Members carry the names entered during onboarding.
   const MEMBERS = FAMILIES.flatMap((f) =>
-    f.members.map((id, i) => ({ id, name: i === 0 ? f.name : `${f.name} ${i + 1}`, short: f.short, color: f.color }))
+    f.members.map((m) => ({
+      id: m.id,
+      name: m.name,
+      short: m.name.trim().charAt(0) || f.short,
+      color: f.color,
+      family: f.id,
+    }))
   )
-  const ME = MEMBERS[0]?.id ?? 'u1'
+  const ME = MEMBERS[0]?.id ?? null
   /* ---- converter ---- */
   const [from, setFrom] = useState('EUR')
   const [to, setTo] = useState('ILS')
@@ -39,16 +46,12 @@ export default function Finance() {
     setTo(from)
   }
 
-  /* ---- expenses ---- */
-  // The seed expenses reference fixture payers; map them onto whoever is
-  // actually on this trip so the list is not full of unknown names.
-  const [expenses, setExpenses] = useState(() =>
-    EXPENSES.map((e, i) => ({ ...e, payer: MEMBERS[i % MEMBERS.length]?.id ?? e.payer }))
-  )
+  // Starts empty. Seeded expenses would show as real spending that nobody made.
+  const [expenses, setExpenses] = useState([])
   const [addOpen, setAddOpen] = useState(false)
   const [title, setTitle] = useState('')
   const [value, setValue] = useState('')
-  const [payer, setPayer] = useState(MEMBERS[0]?.id ?? 'u1')
+  const [payer, setPayer] = useState(null)
   const [saved, setSaved] = useState(false)
 
   const total = expenses.reduce((sum, e) => sum + e.amount, 0)
@@ -56,26 +59,33 @@ export default function Finance() {
   /* ---- how the bill is divided ---- */
   const [splitBy, setSplitBy] = useState('person')
 
+  // MEMBERS is derived, so the default payer has to wait for it.
+  const payerId = payer ?? ME
+
   // Per person everyone pays an equal share; per family each household pays one
   // share regardless of size — the usual arrangement when families travel together.
   const parties = useMemo(() => {
     if (splitBy === 'family') {
-      return FAMILIES.map((f) => ({ ...f, size: f.members.length })).filter((f) => !f.members.includes(ME))
+      return FAMILIES.map((f) => ({ ...f, size: f.members.length }))
+        .filter((f) => !f.members.some((m) => m.id === ME))
     }
     return MEMBERS.filter((m) => m.id !== ME).map((m) => ({ ...m, size: 1 }))
   }, [splitBy, FAMILIES])
 
   const shares = splitBy === 'family' ? FAMILIES.length : MEMBERS.length
 
-  // Net position of "you" (u1): your share of everything, minus what you fronted.
+  // Net position of the first traveller: their share of everything, minus what
+  // they fronted.
   const { owe, owed } = useMemo(() => {
-    const myFamily = FAMILIES.find((f) => f.members.includes(ME))
+    const myFamily = FAMILIES.find((f) => f.members.some((m) => m.id === ME))
     let balance = 0
     for (const e of expenses) {
       const share = e.amount / shares
       // Anyone in your household counts as you when splitting per family.
       const mine =
-        splitBy === 'family' ? Boolean(myFamily?.members.includes(e.payer)) : e.payer === ME
+        splitBy === 'family'
+          ? Boolean(myFamily?.members.some((m) => m.id === e.payer))
+          : e.payer === ME
       if (mine) balance += e.amount - share
       else balance -= share
     }
@@ -86,7 +96,7 @@ export default function Finance() {
     const n = parseFloat(value)
     if (!title.trim() || !Number.isFinite(n) || n <= 0) return
     setExpenses((list) => [
-      { id: `e${Date.now()}`, title: title.trim(), payer, amount: n, split: shares },
+      { id: `e${Date.now()}`, title: title.trim(), payer: payerId, amount: n, split: shares },
       ...list,
     ])
     setTitle('')
@@ -285,7 +295,7 @@ export default function Finance() {
         <label className="label" style={{ marginTop: 16 }}>מי שילם?</label>
         <div className="pills" style={{ marginBottom: 22 }}>
           {MEMBERS.map((m) => (
-            <button key={m.id} className={`pill ${payer === m.id ? 'on' : ''}`} onClick={() => setPayer(m.id)}>
+            <button key={m.id} className={`pill ${payerId === m.id ? 'on' : ''}`} onClick={() => setPayer(m.id)}>
               {m.name}
             </button>
           ))}

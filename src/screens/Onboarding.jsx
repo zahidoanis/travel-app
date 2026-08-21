@@ -3,7 +3,7 @@ import {
   ArrowLeft, ArrowRight, Check, Mic, Bot, Plus, X, Users, MapPin, Calendar,
   Bed, Sparkles,
 } from '../components/Icons'
-import { TRAVEL_STYLES, BUDGETS, DESTINATIONS, PARTY_COLORS, CUISINES } from '../data'
+import { TRAVEL_STYLES, DESTINATIONS, PARTY_COLORS, CUISINES } from '../data'
 import { hasAI, complete, parseRows } from '../lib/gemini'
 import { search, geocode } from '../lib/geocode'
 import { searchCities } from '../cities'
@@ -37,18 +37,13 @@ const STEPS = [
     valid: (a) => a.styles.length > 0,
   },
   {
-    id: 'budget',
-    title: 'מה התקציב היומי?',
-    sub: 'לאדם, לא כולל טיסות ולינה.',
-    hint: 'אפשר גם לומר לי סכום מדויק ואתאים את ההצעות.',
-    valid: () => true,
-  },
-  {
     id: 'who',
     title: 'מי מטייל?',
-    sub: 'חלק את הקבוצה למשפחות — כך אפשר לפצל מסלולים והוצאות.',
+    sub: 'שם המשפחה ושמות המשתתפים. כך אפשר לפצל מסלולים והוצאות.',
     hint: 'כל משפחה מקבלת צבע משלה במפה ובלו"ז.',
-    valid: (a) => a.parties.length > 0 && a.parties.every((p) => p.name.trim() && p.size > 0),
+    valid: (a) =>
+      a.parties.length > 0 &&
+      a.parties.every((p) => p.name.trim() && p.members.some((m) => m.trim())),
   },
   {
     id: 'food',
@@ -79,8 +74,7 @@ export default function Onboarding({ onDone }) {
     from: '',
     to: '',
     styles: [],
-    budget: 'mid',
-    parties: [{ id: 'p1', name: 'המשפחה שלי', size: 2, color: PARTY_COLORS[0] }],
+    parties: [{ id: 'p1', name: '', members: [''], color: PARTY_COLORS[0] }],
     cuisines: ['local'],
     stays: [],
   })
@@ -157,6 +151,47 @@ export default function Onboarding({ onDone }) {
   }
 
   const set = (patch) => setAnswers((a) => ({ ...a, ...patch }))
+
+  /* ---- travel parties ---- */
+
+  const patchParty = (id, patch) =>
+    set({ parties: answers.parties.map((p) => (p.id === id ? { ...p, ...patch } : p)) })
+
+  const setMember = (id, index, value) =>
+    set({
+      parties: answers.parties.map((p) =>
+        p.id === id
+          ? { ...p, members: p.members.map((m, i) => (i === index ? value : m)) }
+          : p
+      ),
+    })
+
+  const addMember = (id) =>
+    set({
+      parties: answers.parties.map((p) =>
+        p.id === id && p.members.length < 12 ? { ...p, members: [...p.members, ''] } : p
+      ),
+    })
+
+  const removeMember = (id, index) =>
+    set({
+      parties: answers.parties.map((p) =>
+        p.id === id ? { ...p, members: p.members.filter((_, i) => i !== index) } : p
+      ),
+    })
+
+  const addParty = () =>
+    set({
+      parties: [
+        ...answers.parties,
+        {
+          id: `p${Date.now()}`,
+          name: '',
+          members: [''],
+          color: PARTY_COLORS[answers.parties.length % PARTY_COLORS.length],
+        },
+      ],
+    })
   const current = STEPS[step]
   const canAdvance = current.valid(answers)
 
@@ -166,11 +201,11 @@ export default function Onboarding({ onDone }) {
     return Math.max(0, Math.round(ms / 86400000))
   }, [answers.from, answers.to])
 
-  const travellers = answers.parties.reduce((n, p) => n + p.size, 0)
+  const travellers = answers.parties.reduce((n, p) => n + p.members.filter((m) => m.trim()).length, 0)
 
   /**
    * Asks the agent for hotels, using everything gathered so far rather than
-   * the free-text box alone — destination, dates, budget, style and headcount
+   * the free-text box alone — destination, dates, style and headcount
    * all change what a sensible answer looks like.
    */
   const findHotels = async () => {
@@ -183,7 +218,6 @@ export default function Onboarding({ onDone }) {
     const styleNames = TRAVEL_STYLES.filter((s) => answers.styles.includes(s.id))
       .map((s) => s.title)
       .join(', ')
-    const budgetName = BUDGETS.find((b) => b.id === answers.budget)?.label ?? ''
 
     try {
       const text = await complete({
@@ -194,7 +228,6 @@ export default function Onboarding({ onDone }) {
           `יעד: ${answers.destination}${answers.country ? `, ${answers.country}` : ''}\n` +
           `תאריכים: ${answers.from} עד ${answers.to} (${nights} לילות)\n` +
           `נוסעים: ${travellers} ב-${answers.parties.length} משפחות\n` +
-          `תקציב יומי לאדם: ${budgetName}\n` +
           `אופי הטיול: ${styleNames || 'לא צוין'}\n` +
           `בקשה חופשית: ${query.trim() || 'ללא העדפה מיוחדת'}\n\n` +
           'הצע 4 מלונות אמיתיים שמתאימים.',
@@ -223,7 +256,6 @@ export default function Onboarding({ onDone }) {
     answers.from && answers.to && `תאריכים: ${answers.from} עד ${answers.to} (${nights} לילות)`,
     answers.styles.length > 0 &&
       `אופי: ${TRAVEL_STYLES.filter((s) => answers.styles.includes(s.id)).map((s) => s.title).join(', ')}`,
-    `תקציב: ${BUDGETS.find((b) => b.id === answers.budget)?.label ?? ''}`,
     `נוסעים: ${travellers} ב-${answers.parties.length} משפחות`,
     answers.cuisines.length > 0 &&
       `העדפות אוכל: ${CUISINES.filter((c) => answers.cuisines.includes(c.id)).map((c) => c.label).join(', ')}`,
@@ -423,89 +455,54 @@ export default function Onboarding({ onDone }) {
             </div>
           )}
 
-          {current.id === 'budget' && (
-            <div className="col" style={{ gap: 11 }}>
-              {BUDGETS.map((b) => {
-                const on = answers.budget === b.id
-                return (
-                  <button
-                    key={b.id}
-                    className={`choice ${on ? 'on' : ''}`}
-                    style={{ display: 'flex', alignItems: 'center', gap: 12 }}
-                    onClick={() => set({ budget: b.id })}
-                    aria-pressed={on}
-                  >
-                    <span className="budget-mark">{b.label.split(' - ')[0]}</span>
-                    <span className="grow" style={{ textAlign: 'start' }}>
-                      <span className="choice-title" style={{ marginTop: 0 }}>
-                        {b.label.split(' - ')[1]}
-                      </span>
-                    </span>
-                    {on && <Check size={16} />}
-                  </button>
-                )
-              })}
-            </div>
-          )}
-
-          {current.id === 'who' && (
+          {current.id === "who" && (
             <>
-              <div className="col" style={{ gap: 10 }}>
-                {answers.parties.map((p, i) => (
-                  <div key={p.id} className="party-row">
-                    <span className="party-dot" style={{ background: p.color }} />
-                    <input
-                      className="field-bare grow"
-                      value={p.name}
-                      onChange={(e) =>
-                        set({
-                          parties: answers.parties.map((x) =>
-                            x.id === p.id ? { ...x, name: e.target.value } : x
-                          ),
-                        })
-                      }
-                      placeholder="שם המשפחה"
-                      aria-label={`שם משפחה ${i + 1}`}
-                    />
-                    <span className="stepper">
-                      <button
-                        onClick={() =>
-                          set({
-                            parties: answers.parties.map((x) =>
-                              x.id === p.id ? { ...x, size: Math.max(1, x.size - 1) } : x
-                            ),
-                          })
-                        }
-                        aria-label="פחות נוסעים"
-                      >
-                        −
-                      </button>
-                      <span className="num">{p.size}</span>
-                      <button
-                        onClick={() =>
-                          set({
-                            parties: answers.parties.map((x) =>
-                              x.id === p.id ? { ...x, size: Math.min(12, x.size + 1) } : x
-                            ),
-                          })
-                        }
-                        aria-label="עוד נוסעים"
-                      >
-                        +
-                      </button>
-                    </span>
-                    {answers.parties.length > 1 && (
-                      <button
-                        className="icon-btn"
-                        style={{ width: 30, height: 30 }}
-                        onClick={() =>
-                          set({ parties: answers.parties.filter((x) => x.id !== p.id) })
-                        }
-                        aria-label={`הסר את ${p.name}`}
-                      >
-                        <X size={14} />
-                      </button>
-                    )}
+              <div className="col" style={{ gap: 12 }}>
+                {answers.parties.map((p, pi) => (
+                  <div key={p.id} className="party-card">
+                    <div className="row" style={{ gap: 10 }}>
+                      <span className="party-dot" style={{ background: p.color }} />
+                      <input
+                        className="field-bare grow"
+                        value={p.name}
+                        onChange={(e) => patchParty(p.id, { name: e.target.value })}
+                        placeholder="שם המשפחה"
+                        aria-label={`שם משפחה ${pi + 1}`}
+                      />
+                      {answers.parties.length > 1 && (
+                        <button
+                          className="icon-btn" style={{ width: 28, height: 28 }}
+                          onClick={() => set({ parties: answers.parties.filter((x) => x.id !== p.id) })}
+                          aria-label={`הסר את ${p.name}`}
+                        ><X size={14} /></button>
+                      )}
+                    </div>
+
+                    <div className="member-list">
+                      {p.members.map((m, mi) => (
+                        <div key={mi} className="member-row">
+                          <span className="member-index num">{mi + 1}</span>
+                          <input
+                            className="field-bare grow"
+                            value={m}
+                            onChange={(e) => setMember(p.id, mi, e.target.value)}
+                            placeholder={mi === 0 ? "שם המבוגר האחראי" : "שם המשתתף"}
+                            aria-label={`משתתף ${mi + 1} ב${p.name}`}
+                          />
+                          {p.members.length > 1 && (
+                            <button
+                              className="icon-btn" style={{ width: 26, height: 26 }}
+                              onClick={() => removeMember(p.id, mi)}
+                              aria-label="הסר משתתף"
+                            ><X size={12} /></button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    <button className="add-member" onClick={() => addMember(p.id)}>
+                      <Plus size={13} /> הוסף משתתף
+                    </button>
                   </div>
                 ))}
               </div>
@@ -513,19 +510,7 @@ export default function Onboarding({ onDone }) {
               <button
                 className="btn btn-ghost btn-block"
                 style={{ marginTop: 12 }}
-                onClick={() =>
-                  set({
-                    parties: [
-                      ...answers.parties,
-                      {
-                        id: `p${Date.now()}`,
-                        name: '',
-                        size: 2,
-                        color: PARTY_COLORS[answers.parties.length % PARTY_COLORS.length],
-                      },
-                    ],
-                  })
-                }
+                onClick={addParty}
                 disabled={answers.parties.length >= 6}
               >
                 <Plus size={16} />
@@ -536,8 +521,8 @@ export default function Onboarding({ onDone }) {
                 <Users size={17} />
                 <span>
                   <strong className="num">{travellers}</strong> נוסעים ב-
-                  <strong className="num">{answers.parties.length}</strong>{' '}
-                  {answers.parties.length === 1 ? 'משפחה' : 'משפחות'}
+                  <strong className="num">{answers.parties.length}</strong>{" "}
+                  {answers.parties.length === 1 ? "משפחה" : "משפחות"}
                 </span>
               </div>
             </>

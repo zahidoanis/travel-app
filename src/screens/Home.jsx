@@ -4,7 +4,7 @@ import ShareSheet from '../components/ShareSheet'
 import {
   ArrowLeft, Sparkles, Bookmark, Clock, Share, Users, RefreshCw, Route, Utensils,
 } from '../components/Icons'
-import { RECOMMENDATIONS, headCount } from '../data'
+import { headCount } from '../data'
 import { useTrip } from '../TripProvider'
 
 /** Thumbnails stand in for photography — swap the gradients for real <img>. */
@@ -169,29 +169,21 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood 
         )}
       </div>
 
-      <div className="pad section-head">
-        <h2 className="h2">המלצות להמשך היום</h2>
-        <button className="fab-spark" onClick={onOpenChat} aria-label="שאל את סוכן ה-AI">
-          <Sparkles size={20} />
+      {/* Recommendations come from the agent, which knows the real itinerary —
+          there is no canned list to fall back on. */}
+      <div className="pad" style={{ marginTop: 20 }}>
+        <button className="card between" style={{ width: "100%" }} onClick={onOpenChat}>
+          <span className="row">
+            <span className="fab-spark" style={{ width: 34, height: 34 }}>
+              <Sparkles size={17} />
+            </span>
+            <span className="col" style={{ gap: 2, textAlign: "start" }}>
+              <strong style={{ fontSize: 14, fontWeight: 600 }}>שאל את הסוכן</strong>
+              <span className="tiny">המלצות להמשך היום, לפי המסלול שלך</span>
+            </span>
+          </span>
+          <ArrowLeft size={18} />
         </button>
-      </div>
-
-      <div className="hscroll">
-        {RECOMMENDATIONS.map((r) => (
-          <button key={r.id} className="rec-card" onClick={onOpenChat}>
-            <span
-              className="rec-thumb"
-              style={{ background: `linear-gradient(145deg, ${r.tint}33, ${r.tint}11)` }}
-              aria-hidden="true"
-            >
-              {r.emoji}
-            </span>
-            <span className="grow col" style={{ gap: 3 }}>
-              <strong style={{ fontSize: 13.5, fontWeight: 600 }}>{r.title}</strong>
-              <span className="tiny">{r.sub}</span>
-            </span>
-          </button>
-        ))}
       </div>
 
       {/* The rail carries these on desktop; on mobile this is the way in. */}

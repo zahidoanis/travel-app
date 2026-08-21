@@ -1,7 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
-import {
-  TRIP as MOCK_TRIP, STOPS as MOCK_STOPS, FAMILIES as MOCK_FAMILIES, PARTY_COLORS,
-} from './data'
+import { PARTY_COLORS } from './data'
 import { buildItinerary } from './lib/itinerary'
 import { loadProfile, saveProfile, saveRoute, listRoutes } from './lib/db'
 import { breadcrumb, record } from './lib/telemetry'
@@ -9,11 +7,10 @@ import { breadcrumb, record } from './lib/telemetry'
 /**
  * Single source of truth for the current trip.
  *
- * Screens read from here instead of importing the fixtures directly, so the
- * same components render the demo trip or a real one the user planned. Until
- * onboarding completes, `trip` is the Paris mock — which keeps every screen
- * populated rather than making each one handle an empty state that only
- * exists for a few seconds.
+ * There is deliberately no sample trip behind this. Every screen shows what
+ * the user actually entered or what the agent actually produced, and an empty
+ * state where there is nothing yet — a placeholder Paris itinerary is
+ * indistinguishable from a real one that failed to load.
  */
 const TripContext = createContext(null)
 
@@ -31,7 +28,7 @@ function toTrip(profile) {
   const to = profile.to ? new Date(profile.to) : null
   const totalDays = from && to ? Math.max(1, Math.round((to - from) / 86400000) + 1) : 1
 
-  // Which day of the trip is today, clamped into range.
+  // Which day of the trip today is, clamped into range.
   const day = from
     ? Math.min(totalDays, Math.max(1, Math.floor((Date.now() - from) / 86400000) + 1))
     : 1
@@ -44,35 +41,34 @@ function toTrip(profile) {
     day,
     totalDays,
     styles: profile.styles ?? [],
-    budget: profile.budget ?? 'mid',
-    hotel: profile.hotel ?? '',
-    // Weather is still mock — no weather provider wired up yet.
-    temp: MOCK_TRIP.temp,
-    weather: MOCK_TRIP.weather,
-    id: profile.tripId ?? MOCK_TRIP.id,
+    cuisines: profile.cuisines ?? [],
+    stays: profile.stays ?? [],
+    id: profile.tripId ?? 'trip',
   }
 }
 
 /** Onboarding parties -> the families shape used across the app. */
 function toFamilies(profile) {
-  if (!profile?.parties?.length) return null
+  if (!profile?.parties?.length) return []
 
-  return profile.parties.map((p, i) => ({
-    id: p.id,
-    name: p.name,
-    short: p.name.trim().charAt(0) || String(i + 1),
-    color: p.color ?? PARTY_COLORS[i % PARTY_COLORS.length],
-    // One synthetic member per traveller — enough for headcount and splitting.
-    members: Array.from({ length: p.size }, (_, k) => `${p.id}-m${k}`),
-    joined: i === 0,
-  }))
+  return profile.parties.map((p, i) => {
+    const names = (p.members ?? []).map((m) => String(m).trim()).filter(Boolean)
+    return {
+      id: p.id,
+      name: p.name,
+      short: p.name.trim().charAt(0) || String(i + 1),
+      color: p.color ?? PARTY_COLORS[i % PARTY_COLORS.length],
+      // Real names, entered during onboarding.
+      members: names.map((name, k) => ({ id: `${p.id}-m${k}`, name })),
+      joined: i === 0,
+    }
+  })
 }
 
 export function TripProvider({ children }) {
   const [profile, setProfile] = useState(null)
-  // One entry per trip day. The map and the day view read whichever day is
-  // selected, so a multi-day trip is the normal case rather than a special one.
-  const [days, setDays] = useState({ 1: MOCK_STOPS })
+  // One entry per trip day, so a multi-day trip is the normal case.
+  const [days, setDays] = useState({})
   const [activeDay, setActiveDay] = useState(1)
   const [planning, setPlanning] = useState(false)
   const [planWarning, setPlanWarning] = useState(null)
@@ -83,15 +79,14 @@ export function TripProvider({ children }) {
       .catch((err) => record({ kind: 'db', message: `loadProfile: ${err.message}` }))
   }, [])
 
-  const trip = useMemo(() => toTrip(profile) ?? MOCK_TRIP, [profile])
-  const families = useMemo(() => toFamilies(profile) ?? MOCK_FAMILIES, [profile])
-  const isReal = Boolean(profile?.destination)
-
+  const trip = useMemo(() => toTrip(profile), [profile])
+  const families = useMemo(() => toFamilies(profile), [profile])
+  const isReal = Boolean(trip)
   const stops = days[activeDay] ?? []
 
   /** Generates and stores one day's stops. */
   const plan = async (day = activeDay) => {
-    if (planning || !isReal) return
+    if (planning || !trip) return
     setPlanning(true)
     setPlanWarning(null)
 
@@ -111,7 +106,7 @@ export function TripProvider({ children }) {
   /** Replaces one day's stops — used by reorder, add and remove. */
   const setDayStops = (day, next) => {
     setDays((d) => ({ ...d, [day]: next }))
-    saveRoute(trip.id, { day, city: trip.city, stops: next })
+    if (trip) saveRoute(trip.id, { day, city: trip.city, stops: next })
   }
 
   const moveStop = (day, id, delta) => {
@@ -138,9 +133,23 @@ export function TripProvider({ children }) {
   const removeStop = (day, id) =>
     setDayStops(day, (days[day] ?? []).filter((s) => s.id !== id))
 
+  /* ---- reservations ---- */
+
+  const [reservations, setReservations] = useState([])
+
+  const addReservation = (r) => {
+    const entry = { ...r, id: `r${Date.now()}`, createdAt: Date.now() }
+    setReservations((list) => [entry, ...list])
+    breadcrumb('action', `reservation noted: ${r.place}`)
+    return entry
+  }
+
+  const removeReservation = (id) =>
+    setReservations((list) => list.filter((r) => r.id !== id))
+
   // Restore whatever is stored, then generate only the days that are missing.
   useEffect(() => {
-    if (!isReal) return
+    if (!trip) return
     let cancelled = false
 
     listRoutes(trip.id).then((routes) => {
@@ -154,15 +163,14 @@ export function TripProvider({ children }) {
         setDays(restored)
         setActiveDay(restored[trip.day] ? trip.day : Number(Object.keys(restored)[0]))
       } else {
-        setDays({})
-        setActiveDay(1)
-        plan(1)
+        setActiveDay(trip.day)
+        plan(trip.day)
       }
     })
 
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isReal, trip.id])
+  }, [trip?.id])
 
   const completeOnboarding = async (answers) => {
     const next = { ...answers, tripId: `T-${Date.now().toString(36).toUpperCase()}` }
@@ -185,6 +193,9 @@ export function TripProvider({ children }) {
     moveStop,
     addStop,
     removeStop,
+    reservations,
+    addReservation,
+    removeReservation,
     profile,
     completeOnboarding,
   }
