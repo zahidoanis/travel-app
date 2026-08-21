@@ -72,7 +72,9 @@ export function search(query, limit = 5, kind) {
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
 
       const hits = (await res.json()).map(normalise)
-      cache.set(key, hits)
+      // Only remember hits. An empty result is more often a throttled request
+      // than a place that does not exist, and caching it makes the miss stick.
+      if (hits.length > 0) cache.set(key, hits)
       return hits
     } catch (err) {
       record({
@@ -81,7 +83,6 @@ export function search(query, limit = 5, kind) {
         message: `חיפוש מיקום נכשל עבור "${q}"`,
         context: { query: q, error: err?.message },
       })
-      cache.set(key, [])
       return []
     }
   })

@@ -12,8 +12,12 @@
  */
 import { writeFileSync } from 'node:fs'
 
-const WORKER = 'https://tripai-ai.tripai-app.workers.dev'
-const ORIGIN = 'https://travel-ai-6de47.web.app'
+// Straight to Nominatim, not through the worker. Cloudflare's egress IPs are
+// shared and Nominatim rate-limits them hard — the worker returned 502 for
+// half these lookups while the same query answered fine from here. A
+// build-time script can set the User-Agent their policy asks for.
+const NOMINATIM = 'https://nominatim.openstreetmap.org/search'
+const UA = 'TripAI-citybuilder/1.0 (+https://travel-ai-6de47.web.app)'
 
 // he | en (for geocoding) | country in Hebrew | emoji
 const CITIES = `
@@ -135,11 +139,20 @@ for (const c of CITIES) {
   // empty results rather than an error, which looks like bad data.
   await new Promise((r) => setTimeout(r, 1200))
 
-  const r = await fetch(
-    `${WORKER}/geocode?limit=1&q=${encodeURIComponent(c.en)}`,
-    { headers: { Origin: ORIGIN } }
-  )
-  const [hit] = r.ok ? await r.json() : []
+  let hit = null
+
+  // One retry: a rate-limited lookup comes back empty rather than as an
+  // error, which is indistinguishable from "this place does not exist".
+  for (let attempt = 0; attempt < 2 && !hit; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, 3000))
+
+    const r = await fetch(
+      `${NOMINATIM}?${new URLSearchParams({ q: c.en, format: 'json', limit: '1' })}`,
+      { headers: { Accept: 'application/json', 'User-Agent': UA } }
+    )
+    if (!r.ok) continue
+    ;[hit] = await r.json()
+  }
 
   if (!hit) {
     console.log(`  ✖ ${c.he} (${c.en})`)
@@ -152,8 +165,8 @@ for (const c of CITIES) {
     en: c.en.split(',')[0].trim(),
     country: c.country,
     emoji: c.emoji,
-    lat: +hit.lat.toFixed(4),
-    lng: +hit.lng.toFixed(4),
+    lat: +Number(hit.lat).toFixed(4),
+    lng: +Number(hit.lon).toFixed(4),
   })
   process.stdout.write('.')
 }

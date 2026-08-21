@@ -71,37 +71,30 @@ export default {
       const kind = url.searchParams.get('kind')
       if (kind === 'city') params.featuretype = 'settlement'
 
-      const upstream = await fetch(
-        `https://nominatim.openstreetmap.org/search?${new URLSearchParams(params)}`,
-        {
-          headers: {
-            Accept: 'application/json',
-            'User-Agent': env.NOMINATIM_UA ?? 'TripAI/1.0 (+https://travel-ai-6de47.web.app)',
-          },
-        }
-      )
+      // Photon first: same OpenStreetMap data, but built for search-as-you-type
+      // and — the part that matters here — it does not throttle Cloudflare's
+      // shared egress IPs the way Nominatim does. Nominatim answered 502 for
+      // most lookups from this worker while Photon returned all of them.
+      let hits = await fromPhoton(q, limit)
 
-      if (!upstream.ok) {
-        return json({ error: { message: `nominatim ${upstream.status}` } }, 502, cors)
+      // Nominatim stays as the fallback so one provider being down is not an
+      // outage, and because it handles some address-shaped queries better.
+      if (hits === null || hits.length === 0) {
+        const viaNominatim = await fromNominatim(params, env)
+        if (viaNominatim !== null) hits = viaNominatim
       }
 
-      const hits = await upstream.json()
+      if (hits === null) {
+        return json({ error: { message: 'geocoder unavailable' } }, 502, cors)
+      }
 
-      return json(
-        hits.map((h) => ({
-          lat: +h.lat,
-          lng: +h.lon,
-          label: h.display_name,
-          name: h.name || h.display_name.split(',')[0],
-          city:
-            h.address?.city ?? h.address?.town ?? h.address?.village ?? h.address?.municipality ?? '',
-          country: h.address?.country ?? '',
-          type: h.addresstype ?? h.type ?? '',
-        })),
-        200,
-        // The same place resolves to the same point — let the edge remember it.
-        { ...cors, 'Cache-Control': 'public, max-age=86400' }
-      )
+      return json(hits, 200, {
+        ...cors,
+        // Cache hits, never misses. An empty result is more often a throttle
+        // than a place that does not exist, and caching it makes one blocked
+        // lookup look permanent for the next 24 hours.
+        'Cache-Control': hits.length > 0 ? 'public, max-age=86400' : 'no-store',
+      })
     }
 
     // Liveness probe. Reveals nothing secret — only whether the key is
@@ -195,3 +188,63 @@ const json = (data, status, cors) =>
     status,
     headers: { ...cors, 'Content-Type': 'application/json' },
   })
+
+/** Photon returns GeoJSON; normalise it to the shape the app expects. */
+async function fromPhoton(q, limit) {
+  try {
+    const res = await fetch(
+      `https://photon.komoot.io/api/?${new URLSearchParams({ q, limit: String(limit) })}`,
+      { headers: { Accept: 'application/json' } }
+    )
+    if (!res.ok) return null
+
+    const { features = [] } = await res.json()
+
+    return features.map((f) => {
+      const p = f.properties ?? {}
+      const [lng, lat] = f.geometry?.coordinates ?? []
+      const place = p.city ?? p.town ?? p.village ?? p.county ?? ''
+
+      return {
+        lat,
+        lng,
+        name: p.name ?? [p.street, p.housenumber].filter(Boolean).join(' ') ?? '',
+        // Build the address from parts — Photon has no single display string.
+        label: [p.name, p.street, place, p.state, p.country].filter(Boolean).join(', '),
+        city: place,
+        country: p.country ?? '',
+        type: p.osm_value ?? p.type ?? '',
+      }
+    })
+  } catch {
+    return null
+  }
+}
+
+/** Nominatim fallback. Requires the identifying User-Agent their policy asks for. */
+async function fromNominatim(params, env) {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?${new URLSearchParams(params)}`,
+      {
+        headers: {
+          Accept: 'application/json',
+          'User-Agent': env.NOMINATIM_UA ?? 'TripAI/1.0 (+https://travel-ai-6de47.web.app)',
+        },
+      }
+    )
+    if (!res.ok) return null
+
+    return (await res.json()).map((h) => ({
+      lat: +h.lat,
+      lng: +h.lon,
+      label: h.display_name,
+      name: h.name || h.display_name.split(',')[0],
+      city: h.address?.city ?? h.address?.town ?? h.address?.village ?? h.address?.municipality ?? '',
+      country: h.address?.country ?? '',
+      type: h.addresstype ?? h.type ?? '',
+    }))
+  } catch {
+    return null
+  }
+}
