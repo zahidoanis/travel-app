@@ -10,6 +10,7 @@ import Gallery from './screens/Gallery'
 import Finance from './screens/Finance'
 import Days from './screens/Days'
 import Restaurants from './screens/Restaurants'
+import Arrival from './screens/Arrival'
 import Diagnostics from './screens/Diagnostics'
 import { TripProvider, useTrip } from './TripProvider'
 import { initTelemetry, breadcrumb, attachSink } from './lib/telemetry'
@@ -104,6 +105,7 @@ function Shell() {
                 {tab === 'finance' && <Finance />}
                 {tab === 'days' && <Days />}
                 {tab === 'food' && <Restaurants />}
+                {tab === 'arrival' && <Arrival />}
               </ErrorBoundary>
             </div>
 

@@ -43,6 +43,7 @@ function toTrip(profile) {
     styles: profile.styles ?? [],
     cuisines: profile.cuisines ?? [],
     stays: profile.stays ?? [],
+    flight: profile.flight ?? {},
     id: profile.tripId ?? 'trip',
   }
 }

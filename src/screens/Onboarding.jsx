@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import {
   ArrowLeft, ArrowRight, Check, Mic, Bot, Plus, X, Users, MapPin, Calendar,
-  Bed, Sparkles,
+  Bed, Sparkles, Info,
 } from '../components/Icons'
 import { TRAVEL_STYLES, DESTINATIONS, PARTY_COLORS, CUISINES } from '../data'
 import { hasAI, complete, parseRows } from '../lib/gemini'
@@ -53,6 +53,13 @@ const STEPS = [
     valid: (a) => a.cuisines.length > 0,
   },
   {
+    id: 'flight',
+    title: 'איך מגיעים?',
+    sub: 'מספר טיסה וחברת תעופה — כדי שנוכל לתכנן את ההגעה למלון.',
+    hint: 'לא זוכר את מספר הטיסה? אפשר לדלג ולהוסיף אחר כך.',
+    valid: () => true,
+  },
+  {
     id: 'stay',
     title: 'איפה תישנו?',
     sub: 'אם כבר הזמנתם — נאתר את המלון על המפה. אם לא, הסוכן ימצא לכם.',
@@ -76,6 +83,7 @@ export default function Onboarding({ onDone }) {
     styles: [],
     parties: [{ id: 'p1', name: '', members: [''], color: PARTY_COLORS[0] }],
     cuisines: ['local'],
+    flight: { airline: '', number: '', arrivalAirport: '', date: '' },
     stays: [],
   })
 
@@ -151,6 +159,8 @@ export default function Onboarding({ onDone }) {
   }
 
   const set = (patch) => setAnswers((a) => ({ ...a, ...patch }))
+  const setFlight = (patch) =>
+    setAnswers((a) => ({ ...a, flight: { ...a.flight, ...patch, date: a.from } }))
 
   /* ---- travel parties ---- */
 
@@ -551,6 +561,61 @@ export default function Onboarding({ onDone }) {
                 )
               })}
             </div>
+          )}
+
+          {current.id === 'flight' && (
+            <>
+              <span className="label">טיסת הלוך</span>
+              <div className="flight-grid">
+                <label>
+                  <span className="label">חברת תעופה</span>
+                  <input
+                    className="field"
+                    value={answers.flight.airline}
+                    onChange={(e) => setFlight({ airline: e.target.value })}
+                    placeholder="El Al / Wizz Air"
+                    aria-label="חברת תעופה"
+                  />
+                </label>
+                <label>
+                  <span className="label">מספר טיסה</span>
+                  <input
+                    className="field ltr"
+                    value={answers.flight.number}
+                    onChange={(e) => setFlight({ number: e.target.value.toUpperCase() })}
+                    placeholder="LY381"
+                    aria-label="מספר טיסה"
+                  />
+                </label>
+              </div>
+
+              <label style={{ display: 'block', marginTop: 12 }}>
+                <span className="label">שדה תעופה בהגעה</span>
+                <input
+                  className="field"
+                  value={answers.flight.arrivalAirport}
+                  onChange={(e) => setFlight({ arrivalAirport: e.target.value })}
+                  placeholder={`נמל התעופה של ${answers.destination || 'היעד'}`}
+                  aria-label="שדה תעופה בהגעה"
+                />
+              </label>
+
+              <div className="card" style={{ marginTop: 18, background: 'var(--sunken)' }}>
+                <div className="row" style={{ alignItems: 'flex-start', gap: 9 }}>
+                  <span style={{ color: 'var(--muted)' }}><Info size={15} /></span>
+                  <p className="tiny" style={{ margin: 0 }}>
+                    שעות ההמראה והנחיתה מגיעות מחברת התעופה, לא מהסוכן — אין לו גישה
+                    למאגר טיסות חי, והוא היה מנחש. נשמור את הפרטים וניתן לך קישור
+                    ישיר למעקב אחרי הטיסה.
+                  </p>
+                </div>
+              </div>
+
+              <p className="tiny" style={{ marginTop: 14 }}>
+                אחרי שנדע את שדה התעופה והמלון, הסוכן ימליץ איך להגיע ביניהם —
+                רכבת, שאטל, מונית או הסעה פרטית.
+              </p>
+            </>
           )}
 
           {current.id === 'stay' && (

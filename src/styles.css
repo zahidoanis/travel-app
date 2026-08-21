@@ -1539,3 +1539,35 @@ input, select, textarea { font: inherit; color: inherit; }
 }
 .starter:hover { border-color: var(--accent); color: var(--text); }
 .starter:disabled { opacity: 0.5; pointer-events: none; }
+
+/* ---------- Booking ---------- */
+
+.contact-row {
+  display: flex; align-items: center; gap: 11px;
+  padding: 10px 12px; border-radius: var(--r-sm);
+  background: var(--sunken); color: var(--text-2);
+  transition: background 0.16s;
+}
+a.contact-row:hover { background: var(--tint-2); color: var(--text); }
+.contact-row strong { display: block; font-size: 13.5px; font-weight: 600; }
+.contact-row .tiny { display: block; }
+.contact-icon {
+  width: 30px; height: 30px; border-radius: 9px; flex: none;
+  display: grid; place-items: center;
+  background: var(--accent-soft); color: var(--accent);
+}
+
+.reservation {
+  display: flex; align-items: center; gap: 11px;
+  padding: 12px 13px; border-radius: var(--r-md);
+  background: var(--card); border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+.reservation-when {
+  flex: none; min-width: 52px; text-align: center;
+  padding: 6px 8px; border-radius: var(--r-sm);
+  background: var(--accent-soft); color: var(--accent);
+}
+.reservation-when strong { display: block; font-size: 13px; font-weight: 700; }
+
+.flight-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 11px; }

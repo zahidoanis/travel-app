@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import TopBar from '../components/TopBar'
-import { Sparkles, Plus, Navigation, Star, Check, Utensils } from '../components/Icons'
+import { Sparkles, Plus, Navigation, Check, Ticket } from '../components/Icons'
+import BookingSheet from '../components/BookingSheet'
 import { CUISINES } from '../data'
 import { useTrip } from '../TripProvider'
 import { hasAI, complete, parseRows } from '../lib/gemini'
@@ -18,6 +19,7 @@ export default function Restaurants() {
   const [error, setError] = useState(null)
   const [adding, setAdding] = useState(null)
   const [added, setAdded] = useState([])
+  const [booking, setBooking] = useState(null)
 
   const find = async (cuisines = picked) => {
     if (loading || !hasAI) return
@@ -167,6 +169,10 @@ export default function Restaurants() {
                       <><Plus size={14} /> הוסף ליום {activeDay}</>
                     )}
                   </button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => setBooking(r)}>
+                    <Ticket size={14} />
+                    הזמן מקום
+                  </button>
                   <a
                     className="btn btn-ghost btn-sm"
                     href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
@@ -183,6 +189,13 @@ export default function Restaurants() {
             )
           })}
         </div>
+
+        <BookingSheet
+          open={Boolean(booking)}
+          place={booking}
+          kind="food"
+          onClose={() => setBooking(null)}
+        />
 
         {list.length > 0 && (
           <p className="tiny" style={{ marginTop: 14 }}>

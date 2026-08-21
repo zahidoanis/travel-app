@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import TopBar from '../components/TopBar'
 import {
-  Sparkles, Plus, X, ArrowUp, ArrowDown, RefreshCw, MapPin, Check, Clock,
+  Sparkles, Plus, X, ArrowUp, ArrowDown, RefreshCw, Clock, Ticket, Phone,
 } from '../components/Icons'
 import { CATEGORIES } from '../data'
+import BookingSheet from '../components/BookingSheet'
 import { useTrip } from '../TripProvider'
 import { hasAI, complete, parseRows } from '../lib/gemini'
 import { geocode } from '../lib/geocode'
@@ -20,12 +21,14 @@ export default function Days() {
   const {
     trip, days, activeDay, setActiveDay, stops,
     planning, planWarning, plan, moveStop, addStop, removeStop,
+    reservations, removeReservation,
   } = useTrip()
 
   const [suggestions, setSuggestions] = useState([])
   const [asking, setAsking] = useState(false)
   const [error, setError] = useState(null)
   const [adding, setAdding] = useState(null)
+  const [booking, setBooking] = useState(null)
 
   const dayList = Array.from({ length: trip.totalDays }, (_, i) => i + 1)
 
@@ -191,6 +194,12 @@ export default function Days() {
                     ><ArrowDown size={13} /></button>
                     <button
                       className="icon-btn" style={{ width: 26, height: 26 }}
+                      onClick={() => setBooking(s)}
+                      aria-label={`הזמן מקום ב${s.he}`}
+                      title="הזמנת מקום או כרטיסים"
+                    ><Ticket size={13} /></button>
+                    <button
+                      className="icon-btn" style={{ width: 26, height: 26 }}
                       onClick={() => removeStop(activeDay, s.id)}
                       aria-label={`הסר את ${s.he}`}
                     ><X size={13} /></button>
@@ -253,7 +262,54 @@ export default function Days() {
             </p>
           </div>
         )}
+
+        {/* Reservations kept for this trip */}
+        {reservations.length > 0 && (
+          <>
+            <div className="section-head" style={{ marginBottom: 12 }}>
+              <h2 className="h2" style={{ fontSize: 15 }}>
+                ההזמנות שלך (<span className="num">{reservations.length}</span>)
+              </h2>
+            </div>
+            <div className="col" style={{ gap: 9 }}>
+              {reservations.map((r) => (
+                <div key={r.id} className="reservation">
+                  <span className="reservation-when">
+                    <strong className="num">{r.time}</strong>
+                    <span className="tiny num">{r.date?.slice(5)}</span>
+                  </span>
+                  <span className="grow col" style={{ gap: 2, minWidth: 0 }}>
+                    <strong style={{ fontSize: 13.5, fontWeight: 600 }}>{r.place}</strong>
+                    <span className="tiny">
+                      <span className="num">{r.party}</span> {r.kind === 'food' ? 'סועדים' : 'משתתפים'}
+                      {r.phone ? ' · יש טלפון' : ''}
+                    </span>
+                  </span>
+                  {r.phone && (
+                    <a
+                      className="icon-btn" style={{ width: 30, height: 30 }}
+                      href={`tel:${r.phone.replace(/\s/g, '')}`}
+                      aria-label={`התקשר ל${r.place}`}
+                    ><Phone size={14} /></a>
+                  )}
+                  <button
+                    className="icon-btn" style={{ width: 30, height: 30 }}
+                    onClick={() => removeReservation(r.id)}
+                    aria-label={`בטל את ההזמנה ב${r.place}`}
+                  ><X size={13} /></button>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </div>
+
+      <BookingSheet
+        open={Boolean(booking)}
+        place={booking}
+        kind={booking?.cat === 'food' ? 'food' : 'attraction'}
+        onClose={() => setBooking(null)}
+      />
     </div>
   )
 }

@@ -256,3 +256,26 @@ export const Route = make(
     <path d="M8.5 19h6a3.5 3.5 0 0 0 0-7h-5a3.5 3.5 0 0 1 0-7h6" />
   </>
 )
+export const Phone = make(
+  <path d="M21.5 16.9v2.6a2 2 0 0 1-2.2 2 19.6 19.6 0 0 1-8.5-3 19.3 19.3 0 0 1-6-6 19.6 19.6 0 0 1-3-8.6A2 2 0 0 1 3.8 1.7h2.6a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L7.5 9.4a16 16 0 0 0 6 6l1.1-1.1a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2Z" />
+)
+export const Globe = make(
+  <>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18" />
+  </>
+)
+export const Ticket = make(
+  <>
+    <path d="M3 8.5V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2.5a2.5 2.5 0 0 0 0 7V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2.5a2.5 2.5 0 0 0 0-7Z" />
+    <path d="M14 4v3M14 10.5v3M14 17v3" />
+  </>
+)
+export const Car = make(
+  <>
+    <path d="M5 17h14M3.5 17v-4.2L5.6 7a2 2 0 0 1 1.9-1.3h9a2 2 0 0 1 1.9 1.3l2.1 5.8V17" />
+    <path d="M3.5 12.8h17M6.5 17v2M17.5 17v2" />
+    <circle cx="7.5" cy="14.6" r="1" fill="currentColor" stroke="none" />
+    <circle cx="16.5" cy="14.6" r="1" fill="currentColor" stroke="none" />
+  </>
+)

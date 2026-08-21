@@ -46,6 +46,10 @@ const normalise = (h) => ({
   city: h.city ?? h.address?.city ?? h.address?.town ?? h.address?.village ?? '',
   country: h.country ?? h.address?.country ?? '',
   type: h.type ?? h.addresstype ?? '',
+  // Only present on a details lookup.
+  phone: h.phone ?? h.extratags?.phone ?? null,
+  website: h.website ?? h.extratags?.website ?? null,
+  hours: h.hours ?? h.extratags?.opening_hours ?? null,
 })
 
 /**
@@ -53,17 +57,24 @@ const normalise = (h) => ({
  * `kind: 'city'` restricts results to settlements rather than shops that
  * happen to share the name.
  */
-export function search(query, limit = 5, kind) {
+export function search(query, limit = 5, kind, details = false) {
   const q = query.trim()
   if (q.length < 2) return Promise.resolve([])
 
-  const key = `${q}|${limit}|${kind ?? ''}`.toLowerCase()
+  const key = `${q}|${limit}|${kind ?? ''}|${details ? 'd' : ''}`.toLowerCase()
   if (cache.has(key)) return Promise.resolve(cache.get(key))
 
   return enqueue(async () => {
+    // `details` asks for contact information — phone, website, hours — which
+    // only Nominatim carries, so the proxy routes that query differently.
     const params = PROXY
-      ? { q, limit: String(limit), ...(kind ? { kind } : {}) }
-      : { q, format: 'json', limit: String(limit), addressdetails: '1' }
+      ? {
+          q,
+          limit: String(limit),
+          ...(kind ? { kind } : {}),
+          ...(details ? { details: '1' } : {}),
+        }
+      : { q, format: 'json', limit: String(limit), addressdetails: '1', extratags: details ? '1' : '0' }
 
     try {
       const res = await fetch(`${ENDPOINT}?${new URLSearchParams(params)}`, {
