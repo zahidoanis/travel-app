@@ -101,7 +101,12 @@ export default {
     }
 
     const upstream = await fetch(
-      `${API}/models/${model}:streamGenerateContent?alt=sse&key=${env.GEMINI_API_KEY}`,
+      // Trim and encode: piping a secret in from a shell easily leaves a
+      // trailing newline, which produces an opaque "API key not valid" from
+      // Google rather than anything pointing at the real cause.
+      `${API}/models/${model}:streamGenerateContent?alt=sse&key=${encodeURIComponent(
+        env.GEMINI_API_KEY.trim()
+      )}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
