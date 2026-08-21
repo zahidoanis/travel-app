@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "ai:check": "node scripts/ai-check.mjs",
     "ai:smoke": "node scripts/ai-smoke.mjs",
-    "fb:check": "node scripts/fb-check.mjs"
+    "fb:check": "node scripts/fb-check.mjs",
+    "worker:check": "node scripts/worker-check.mjs"
   },
   "dependencies": {
     "firebase": "^12.18.0",
