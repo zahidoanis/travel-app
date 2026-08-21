@@ -7,13 +7,27 @@
     ],
     "headers": [
       {
+        "comment": "Hashed filenames, so the content behind a URL never changes.",
         "source": "/assets/**",
         "headers": [
           { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
         ]
       },
       {
+        "comment": "Every route that serves the shell. Without the bare '/' and the extensionless patterns, Firebase applies its own max-age=3600 and a redeploy stays invisible for an hour.",
+        "source": "/",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+        ]
+      },
+      {
         "source": "/index.html",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+        ]
+      },
+      {
+        "source": "**/!(*.*)",
         "headers": [
           { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
         ]
