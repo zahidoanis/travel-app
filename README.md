@@ -438,6 +438,7 @@ SPA (בלעדיו רענון בנתיב פנימי מחזיר 404), cache immuta
 | קובץ | תוכן |
 |---|---|
 | [FREE-STACK.md](FREE-STACK.md) | מה חינם, מה מדומה, ומה יעלה כסף. כולל למה אסור לגרד מפות מ-Google. |
+| [FIREBASE-SETUP.md](FIREBASE-SETUP.md) | הקמת פרויקט Firebase — קונסולה, Firestore, Anonymous Auth. |
 | [DEPLOY.md](DEPLOY.md) | פריסה ל-Firebase Hosting, שלב אחר שלב. |
 | [MAPS.md](MAPS.md) | חיבור מפתח Google Maps, אם תרצה אותו במקום האריחים החינמיים. |
 | [prompts/google-static-maps-design.md](prompts/google-static-maps-design.md) | הנחיות העיצוב המקוריות. |
