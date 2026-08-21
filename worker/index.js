@@ -58,12 +58,21 @@ export default {
       const q = url.searchParams.get('q')
       if (!q) return json({ error: { message: 'missing q' } }, 400, cors)
 
+      // Autocomplete needs several candidates; a single lookup needs one.
+      const limit = Math.min(8, Math.max(1, Number(url.searchParams.get('limit')) || 1))
+      const params = {
+        q,
+        format: 'json',
+        limit: String(limit),
+        addressdetails: '1',
+      }
+
+      // Narrows autocomplete to places rather than shops with the same name.
+      const kind = url.searchParams.get('kind')
+      if (kind === 'city') params.featuretype = 'settlement'
+
       const upstream = await fetch(
-        `https://nominatim.openstreetmap.org/search?${new URLSearchParams({
-          q,
-          format: 'json',
-          limit: '1',
-        })}`,
+        `https://nominatim.openstreetmap.org/search?${new URLSearchParams(params)}`,
         {
           headers: {
             Accept: 'application/json',
@@ -76,11 +85,21 @@ export default {
         return json({ error: { message: `nominatim ${upstream.status}` } }, 502, cors)
       }
 
-      const [hit] = await upstream.json()
+      const hits = await upstream.json()
+
       return json(
-        hit ? { lat: +hit.lat, lng: +hit.lon, label: hit.display_name } : null,
+        hits.map((h) => ({
+          lat: +h.lat,
+          lng: +h.lon,
+          label: h.display_name,
+          name: h.name || h.display_name.split(',')[0],
+          city:
+            h.address?.city ?? h.address?.town ?? h.address?.village ?? h.address?.municipality ?? '',
+          country: h.address?.country ?? '',
+          type: h.addresstype ?? h.type ?? '',
+        })),
         200,
-        // Same place resolves to the same point — let the edge remember it.
+        // The same place resolves to the same point — let the edge remember it.
         { ...cors, 'Cache-Control': 'public, max-age=86400' }
       )
     }

@@ -1,10 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import {
   ArrowLeft, ArrowRight, Check, Mic, Bot, Plus, X, Users, MapPin, Calendar,
   Bed, Sparkles,
 } from '../components/Icons'
 import { TRAVEL_STYLES, BUDGETS, DESTINATIONS, PARTY_COLORS } from '../data'
 import { hasAI, complete, parseRows } from '../lib/gemini'
+import { search, geocode } from '../lib/geocode'
+import { searchCities } from '../cities'
 import { breadcrumb, watchdog } from '../lib/telemetry'
 
 /**
@@ -50,8 +52,8 @@ const STEPS = [
   {
     id: 'stay',
     title: 'איפה תישנו?',
-    sub: 'הקלד מה חשוב לך, והסוכן יחפש מלונות שמתאימים ליעד ולתקציב.',
-    hint: 'לדוגמה: "קרוב למרכז, עם בריכה, שקט בלילה".',
+    sub: 'אם כבר הזמנתם — נאתר את המלון על המפה. אם לא, הסוכן ימצא לכם.',
+    hint: 'אפשר להוסיף כמה מלונות, אם הטיול עובר בין ערים.',
     // Optional — a trip is plannable without a hotel picked yet.
     valid: () => true,
   },
@@ -72,14 +74,77 @@ export default function Onboarding({ onDone }) {
     styles: [],
     budget: 'mid',
     parties: [{ id: 'p1', name: 'המשפחה שלי', size: 2, color: PARTY_COLORS[0] }],
-    hotel: '',
+    stays: [],
   })
 
-  /* ---- hotel search ---- */
+  /* ---- destination autocomplete ---- */
+  const [cityHits, setCityHits] = useState([])
+  const [cityLoading, setCityLoading] = useState(false)
+  const cityTimer = useRef(null)
+
+  /**
+   * The curated list answers instantly and matches prefixes, which is what
+   * autocomplete needs. Nominatim only gets asked when nothing local matches,
+   * so obscure destinations still work without slowing down the common case.
+   */
+  const lookupCity = (text) => {
+    clearTimeout(cityTimer.current)
+    const q = text.trim()
+
+    if (q.length < 1) {
+      setCityHits([])
+      setCityLoading(false)
+      return
+    }
+
+    const local = searchCities(q, 6)
+    setCityHits(local.map((c) => ({ ...c, name: c.he, source: 'local' })))
+
+    if (local.length > 0 || q.length < 3) {
+      setCityLoading(false)
+      return
+    }
+
+    setCityLoading(true)
+    cityTimer.current = setTimeout(async () => {
+      const hits = await search(q, 5, 'city')
+      setCityHits(hits.map((h) => ({ ...h, source: 'remote' })))
+      setCityLoading(false)
+    }, 500)
+  }
+
+  /* ---- hotel ---- */
+  const [booked, setBooked] = useState(null)   // null | 'yes' | 'no'
   const [query, setQuery] = useState('')
   const [hotels, setHotels] = useState([])
   const [searching, setSearching] = useState(false)
   const [hotelError, setHotelError] = useState(null)
+
+  // A booked hotel is looked up by name and pinned to a real address.
+  const [hotelName, setHotelName] = useState('')
+  const [hotelHits, setHotelHits] = useState([])
+  const [locating, setLocating] = useState(false)
+
+  const findBookedHotel = async () => {
+    const q = hotelName.trim()
+    if (!q || locating) return
+    setLocating(true)
+    setHotelError(null)
+    breadcrumb('action', 'locate booked hotel')
+
+    // Scoped to the destination so "Hilton" resolves in the right city.
+    const hits = await search(`${q}, ${answers.destination}`, 5)
+    setHotelHits(hits)
+    if (hits.length === 0) setHotelError('לא מצאתי מלון בשם הזה ביעד. נסה שם מדויק יותר.')
+    setLocating(false)
+  }
+
+  const addStay = (stay) => {
+    if (answers.stays.some((s) => s.label === stay.label)) return
+    set({ stays: [...answers.stays, stay] })
+    setHotelName('')
+    setHotelHits([])
+  }
 
   const set = (patch) => setAnswers((a) => ({ ...a, ...patch }))
   const current = STEPS[step]
@@ -146,7 +211,7 @@ export default function Onboarding({ onDone }) {
 
   return (
     <>
-      <div className="screen" style={{ paddingBottom: 210 }}>
+      <div className="screen onboarding-screen">
         <header className="pad" style={{ paddingTop: 18 }}>
           <div className="between" style={{ marginBottom: 14 }}>
             <button
@@ -174,19 +239,53 @@ export default function Onboarding({ onDone }) {
 
           {current.id === 'where' && (
             <>
-              <div className="row field-row" style={{ marginBottom: 18 }}>
-                <MapPin size={18} />
-                <input
-                  className="field-bare"
-                  value={answers.destination}
-                  onChange={(e) => set({ destination: e.target.value, country: '' })}
-                  placeholder="עיר או מדינה"
-                  aria-label="יעד הטיול"
-                  autoFocus
-                />
+              <div className="autocomplete">
+                <div className="row field-row">
+                  <MapPin size={18} />
+                  <input
+                    className="field-bare"
+                    value={answers.destination}
+                    onChange={(e) => {
+                      set({ destination: e.target.value, country: '' })
+                      lookupCity(e.target.value)
+                    }}
+                    placeholder="עיר או מדינה"
+                    aria-label="יעד הטיול"
+                    aria-autocomplete="list"
+                    autoComplete="off"
+                    autoFocus
+                  />
+                  {cityLoading && <span className="typing"><i /><i /><i /></span>}
+                </div>
+
+                {cityHits.length > 0 && (
+                  <ul className="suggestions" role="listbox">
+                    {cityHits.map((h) => (
+                      <li key={`${h.lat},${h.lng}`}>
+                        <button
+                          onClick={() => {
+                            set({ destination: h.name, country: h.country })
+                            setCityHits([])
+                          }}
+                        >
+                          <span className="sug-emoji" aria-hidden="true">
+                            {h.emoji ?? <MapPin size={14} />}
+                          </span>
+                          <span className="grow">
+                            <strong>{h.name}</strong>
+                            <span className="tiny">
+                              {h.country}
+                              {h.en && h.en !== h.name ? ` · ${h.en}` : ''}
+                            </span>
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
 
-              <span className="label">יעדים פופולריים</span>
+              <span className="label" style={{ marginTop: 18 }}>יעדים פופולריים</span>
               <div className="dest-grid">
                 {DESTINATIONS.map((d) => {
                   const on = answers.destination === d.city
@@ -418,17 +517,119 @@ export default function Onboarding({ onDone }) {
 
           {current.id === 'stay' && (
             <>
-              <div className="row field-row" style={{ marginBottom: 12 }}>
-                <Bed size={18} />
-                <input
-                  className="field-bare"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && findHotels()}
-                  placeholder="מה חשוב לך במלון?"
-                  aria-label="חיפוש חופשי של מלון"
-                />
+              {/* The first question decides which of two flows follows. */}
+              <div className="segmented" role="group" aria-label="האם הוזמן מלון">
+                <button className={booked === 'yes' ? 'on' : ''} onClick={() => setBooked('yes')}>
+                  <Check size={15} /> כבר הזמנו
+                </button>
+                <button className={booked === 'no' ? 'on' : ''} onClick={() => setBooked('no')}>
+                  <Sparkles size={15} /> עוד מחפשים
+                </button>
               </div>
+
+              {/* Stays chosen so far, in either flow. */}
+              {answers.stays.length > 0 && (
+                <div className="col" style={{ gap: 9, marginTop: 20 }}>
+                  <span className="label" style={{ marginBottom: 0 }}>
+                    הלינה שלכם ({answers.stays.length})
+                  </span>
+                  {answers.stays.map((s, i) => (
+                    <div key={s.label} className="party-row">
+                      <span className="stay-index num">{i + 1}</span>
+                      <span className="grow col" style={{ gap: 2, minWidth: 0 }}>
+                        <strong style={{ fontSize: 13.5, fontWeight: 600 }}>{s.name}</strong>
+                        <span className="tiny stay-address">{s.label}</span>
+                      </span>
+                      <button
+                        className="icon-btn"
+                        style={{ width: 30, height: 30 }}
+                        onClick={() => set({ stays: answers.stays.filter((x) => x.label !== s.label) })}
+                        aria-label={`הסר את ${s.name}`}
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))}
+                  <p className="tiny">
+                    אפשר להוסיף עוד מלון — שימושי כשהטיול עובר בין ערים או כשכל משפחה ישנה במקום אחר.
+                  </p>
+                </div>
+              )}
+
+              {booked === 'yes' && (
+                <div style={{ marginTop: 20 }}>
+                  <span className="label">שם המלון</span>
+                  <div className="row field-row">
+                    <Bed size={18} />
+                    <input
+                      className="field-bare"
+                      value={hotelName}
+                      onChange={(e) => setHotelName(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && findBookedHotel()}
+                      placeholder={`לדוגמה: Hilton ${answers.destination}`}
+                      aria-label="שם המלון שהוזמן"
+                    />
+                    {locating && <span className="typing"><i /><i /><i /></span>}
+                  </div>
+
+                  <button
+                    className="btn btn-ghost btn-block"
+                    style={{ marginTop: 10 }}
+                    onClick={findBookedHotel}
+                    disabled={locating || !hotelName.trim()}
+                  >
+                    <MapPin size={16} />
+                    אתר את המיקום
+                  </button>
+
+                  {hotelHits.length > 0 && (
+                    <>
+                      <span className="label" style={{ marginTop: 20 }}>
+                        {hotelHits.length === 1 ? 'נמצא' : 'נמצאו כמה — בחר את הנכון'}
+                      </span>
+                      <div className="col" style={{ gap: 9 }}>
+                        {hotelHits.map((h) => (
+                          <button
+                            key={`${h.lat},${h.lng}`}
+                            className="choice"
+                            style={{ padding: 13 }}
+                            onClick={() =>
+                              addStay({ name: h.name, label: h.label, lat: h.lat, lng: h.lng })
+                            }
+                          >
+                            <span className="row" style={{ alignItems: 'flex-start', gap: 10 }}>
+                              <span style={{ color: 'var(--lav)', marginTop: 2 }}><MapPin size={15} /></span>
+                              <span className="grow" style={{ textAlign: 'start', minWidth: 0 }}>
+                                <span className="choice-title" style={{ marginTop: 0 }}>{h.name}</span>
+                                <span className="choice-sub stay-address">{h.label}</span>
+                                <span className="tiny num" style={{ display: 'block', marginTop: 5 }}>
+                                  {h.lat.toFixed(4)}, {h.lng.toFixed(4)}
+                                </span>
+                              </span>
+                              <Plus size={16} />
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {booked === 'no' && (
+                <div style={{ marginTop: 20 }}>
+                  <span className="label">מה חשוב לך?</span>
+                  <div className="row field-row" style={{ marginBottom: 12 }}>
+                    <Sparkles size={18} />
+                    <input
+                      className="field-bare"
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && findHotels()}
+                      placeholder="קרוב למרכז, עם בריכה, שקט בלילה..."
+                      aria-label="חיפוש חופשי של מלון"
+                    />
+                  </div>
 
               {hasAI ? (
                 <button
@@ -465,13 +666,29 @@ export default function Onboarding({ onDone }) {
                   <span className="label" style={{ marginTop: 22 }}>הצעות הסוכן</span>
                   <div className="col" style={{ gap: 10 }}>
                     {hotels.map((h) => {
-                      const on = answers.hotel === h.name
+                      const on = answers.stays.some((s) => s.name === h.name)
                       return (
                         <button
                           key={h.name}
                           className={`choice ${on ? 'on' : ''}`}
                           style={{ padding: 14 }}
-                          onClick={() => set({ hotel: on ? '' : h.name })}
+                          // Suggestions come back as names; pin the chosen one
+                          // to a real address before it joins the list.
+                          onClick={async () => {
+                            if (on) {
+                              set({ stays: answers.stays.filter((s) => s.name !== h.name) })
+                              return
+                            }
+                            setLocating(true)
+                            const hit = await geocode(`${h.name}, ${answers.destination}`)
+                            setLocating(false)
+                            addStay({
+                              name: h.name,
+                              label: hit?.label ?? `${h.area}, ${answers.destination}`,
+                              lat: hit?.lat ?? null,
+                              lng: hit?.lng ?? null,
+                            })
+                          }}
                           aria-pressed={on}
                         >
                           <span className="between" style={{ alignItems: 'flex-start' }}>
@@ -497,6 +714,14 @@ export default function Onboarding({ onDone }) {
                     ההצעות נוצרו על ידי מודל שפה — ודא זמינות ומחיר לפני הזמנה.
                   </p>
                 </>
+              )}
+                </div>
+              )}
+
+              {booked === null && (
+                <p className="tiny" style={{ marginTop: 20 }}>
+                  אפשר גם לדלג — המסלול ייבנה בלי נקודת לינה, ותוכל להוסיף אותה אחר כך.
+                </p>
               )}
             </>
           )}

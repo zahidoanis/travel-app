@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import BottomNav, { TABS } from './components/BottomNav'
 import ErrorBoundary from './components/ErrorBoundary'
+import Welcome from './screens/Welcome'
 import Onboarding from './screens/Onboarding'
 import Home from './screens/Home'
 import MapScreen from './screens/MapScreen'
@@ -29,6 +30,7 @@ export default function App() {
 function Shell() {
   const { isReal, completeOnboarding, profile } = useTrip()
   const [tab, setTab] = useState('home')
+  const [started, setStarted] = useState(false)
   const [debug, setDebug] = useState(
     () => new URLSearchParams(location.search).get('debug') === '1'
   )
@@ -55,7 +57,11 @@ function Shell() {
   return (
     <div className="shell">
       <div className="app" dir="rtl">
-        {onboarding ? (
+        {onboarding && !started ? (
+          <ErrorBoundary scope="welcome">
+            <Welcome onStart={() => setStarted(true)} />
+          </ErrorBoundary>
+        ) : onboarding ? (
           <ErrorBoundary scope="onboarding">
             <Onboarding onDone={completeOnboarding} />
           </ErrorBoundary>
