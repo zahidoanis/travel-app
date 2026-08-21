@@ -3,7 +3,7 @@ import TopBar from '../components/TopBar'
 import {
   AlertTriangle, Bot, Check, Mic, Paperclip, Send, Train, Plane, Sparkles,
 } from '../components/Icons'
-import { TRIP, STOPS, FAMILIES } from '../data'
+import { useTrip } from '../TripProvider'
 import { hasAI, aiMode, aiModel, systemPrompt, streamReply } from '../lib/gemini'
 
 /** Two alternatives the agent found after the delay was detected. */
@@ -48,6 +48,7 @@ const OPENING = [
 ]
 
 export default function Chat() {
+  const { trip: TRIP, stops: STOPS, families: FAMILIES } = useTrip()
   const [picked, setPicked] = useState('o1')
   const [approved, setApproved] = useState(false)
   const [draft, setDraft] = useState('')

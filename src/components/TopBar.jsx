@@ -1,5 +1,5 @@
 import { Bell, CloudSun } from './Icons'
-import { TRIP } from '../data'
+import { useTrip } from '../TripProvider'
 
 /**
  * Three variants, matching the screens:
@@ -8,6 +8,7 @@ import { TRIP } from '../data'
  *   "brand"    — TripAI wordmark on the end edge        (finance)
  */
 export default function TopBar({ variant = 'centered', floating = false, onBell }) {
+  const { trip: TRIP } = useTrip()
   const label = (
     <span className="topbar-title">
       {TRIP.city}, <span className="num">{TRIP.temp}°C</span>

@@ -154,7 +154,10 @@ export function complete({ prompt, system, signal }) {
 export function parseRows(text, columns) {
   return text
     .split('\n')
-    .map((line) => line.trim().replace(/^[-*\d.)\s]+/, ''))
+    // Strip a list marker only when it is followed by whitespace. A bare
+    // `[\d.)]+` class also eats the leading digits of real content — it turned
+    // every "09:00" into ":00".
+    .map((line) => line.trim().replace(/^(?:[-*•]|\d{1,2}[.)])\s+/, ''))
     .filter((line) => line.includes('|'))
     .map((line) => line.split('|').map((c) => c.trim()))
     .filter((cells) => cells.length >= columns.length && cells[0])

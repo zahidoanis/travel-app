@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 import TopBar from '../components/TopBar'
 import ShareSheet from '../components/ShareSheet'
-import { ArrowLeft, Sparkles, Bookmark, Clock, Share, Users } from '../components/Icons'
-import { STOPS, RECOMMENDATIONS, TRIP, FAMILIES, headCount } from '../data'
+import { ArrowLeft, Sparkles, Bookmark, Clock, Share, Users, RefreshCw } from '../components/Icons'
+import { RECOMMENDATIONS, headCount } from '../data'
+import { useTrip } from '../TripProvider'
 
 /** Thumbnails stand in for photography — swap the gradients for real <img>. */
 const THUMB = {
@@ -15,12 +16,13 @@ const THUMB = {
 export default function Home({ onStartRoute, onOpenChat }) {
   // "all" shows the shared itinerary; picking a party narrows it to the stops
   // that party is actually attending.
+  const { trip: TRIP, stops: STOPS, families: FAMILIES, planning, planWarning, plan } = useTrip()
   const [party, setParty] = useState('all')
   const [shareOpen, setShareOpen] = useState(false)
 
   const stops = useMemo(
     () => (party === 'all' ? STOPS : STOPS.filter((s) => s.who.includes(party))),
-    [party]
+    [party, STOPS]
   )
 
   // The "next" stop is the first one still ahead of us in the filtered day.
@@ -45,7 +47,9 @@ export default function Home({ onStartRoute, onOpenChat }) {
           </div>
           <h1 className="hero-title">בוקר טוב!</h1>
           <p className="sub" style={{ maxWidth: '92%' }}>
-            הנה התכנון המושלם עבור היום בבוקר ב{TRIP.city}. שילבנו אמנות, קפה משובח ומזג אוויר מושלם.
+            {planning
+              ? `הסוכן בונה עכשיו מסלול ל${TRIP.city}...`
+              : `הנה התכנון ליום ${TRIP.day} ב${TRIP.city}, מותאם לסגנון שבחרת.`}
           </p>
           <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={onStartRoute}>
             התחל מסלול
@@ -69,7 +73,7 @@ export default function Home({ onStartRoute, onOpenChat }) {
 
       <div className="hscroll" style={{ paddingBlock: 0 }}>
         <button className={`pill ${party === 'all' ? 'on' : ''}`} onClick={() => setParty('all')}>
-          כולם (<span className="num">{headCount(FAMILIES.map((f) => f.id))}</span>)
+          כולם (<span className="num">{headCount(FAMILIES.map((f) => f.id), FAMILIES)}</span>)
         </button>
         {FAMILIES.map((f) => (
           <button
@@ -85,14 +89,32 @@ export default function Home({ onStartRoute, onOpenChat }) {
 
       <div className="pad section-head">
         <h2 className="h2">התכנון להיום</h2>
-        <span className="tiny">
-          {party === 'all' ? (
-            <>יום <span className="num">{TRIP.day}</span> מתוך <span className="num">{TRIP.totalDays}</span></>
-          ) : (
-            <><span className="num">{stops.length}</span> מתוך <span className="num">{STOPS.length}</span> עצירות</>
-          )}
+        <span className="row" style={{ gap: 10 }}>
+          <span className="tiny">
+            {party === 'all' ? (
+              <>יום <span className="num">{TRIP.day}</span> מתוך <span className="num">{TRIP.totalDays}</span></>
+            ) : (
+              <><span className="num">{stops.length}</span> מתוך <span className="num">{STOPS.length}</span> עצירות</>
+            )}
+          </span>
+          <button
+            className="icon-btn"
+            style={{ width: 30, height: 30 }}
+            onClick={plan}
+            disabled={planning}
+            aria-label="בנה מסלול מחדש"
+            title="בנה מסלול מחדש"
+          >
+            <RefreshCw size={15} />
+          </button>
         </span>
       </div>
+
+      {planWarning && (
+        <div className="pad" style={{ marginBottom: 10 }}>
+          <p className="tiny" style={{ color: 'var(--amber)' }}>{planWarning}</p>
+        </div>
+      )}
 
       <div className="hscroll">
         {stops.map((s) => {
@@ -109,7 +131,7 @@ export default function Home({ onStartRoute, onOpenChat }) {
                 <span style={{ color: 'var(--muted-2)' }}><Bookmark size={15} /></span>
               </div>
 
-              <div className="thumb" style={{ background: THUMB[s.id] }}>
+              <div className="thumb" style={{ background: THUMB[((s.id - 1) % 4) + 1] }}>
                 <span className="thumb-title">{s.name}</span>
               </div>
 
@@ -125,14 +147,20 @@ export default function Home({ onStartRoute, onOpenChat }) {
                 <span className="tiny">
                   {going.length === FAMILIES.length
                     ? 'כולם'
-                    : <><span className="num">{headCount(s.who)}</span> נוסעים</>}
+                    : <><span className="num">{headCount(s.who, FAMILIES)}</span> נוסעים</>}
                 </span>
               </div>
             </button>
           )
         })}
 
-        {stops.length === 0 && (
+        {planning && stops.length === 0 && (
+          <div className="timeline-card" style={{ display: 'grid', placeItems: 'center', height: 180 }}>
+            <span className="typing"><i /><i /><i /></span>
+          </div>
+        )}
+
+        {!planning && stops.length === 0 && (
           <div className="timeline-card" style={{ display: 'grid', placeItems: 'center', height: 180 }}>
             <span className="tiny">אין עצירות משותפות ליום הזה</span>
           </div>
@@ -170,7 +198,7 @@ export default function Home({ onStartRoute, onOpenChat }) {
             <span style={{ color: 'var(--lav)' }}><Clock size={18} /></span>
             <span className="col" style={{ gap: 2, textAlign: 'start' }}>
               <strong style={{ fontSize: 14, fontWeight: 600 }}>הלו"ז המלא של היום</strong>
-              <span className="tiny"><span className="num">{stops.length}</span> עצירות · מסתיים ב-<span className="num">20:15</span></span>
+              <span className="tiny"><span className="num">{stops.length}</span> עצירות · מסתיים ב-<span className="num">{STOPS[STOPS.length - 1]?.time ?? '—'}</span></span>
             </span>
           </span>
           <ArrowLeft size={18} />

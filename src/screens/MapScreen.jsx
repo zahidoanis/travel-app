@@ -3,25 +3,51 @@ import TopBar from '../components/TopBar'
 import MapCanvas from '../components/MapCanvas'
 import Sheet from '../components/Sheet'
 import { Star, Info, Navigation, Clock, Layers, Locate, Plus } from '../components/Icons'
-import { STOPS, CATEGORIES } from '../data'
+import { CATEGORIES } from '../data'
+import { useTrip } from '../TripProvider'
 import { PROVIDERS } from '../lib/tiles'
 import { navigateUrl } from '../lib/staticMap'
 
 export default function MapScreen() {
-  const [activeId, setActiveId] = useState(STOPS[1].id)
+  const { stops: STOPS, planning } = useTrip()
+  const [activeId, setActiveId] = useState(null)
   const [details, setDetails] = useState(null)
   const [provider, setProvider] = useState('cartoDark')
   const deckRef = useRef(null)
 
-  const active = STOPS.find((s) => s.id === activeId)
+  // The itinerary is regenerated per destination, so the active id has to
+  // follow it rather than being captured once at mount.
+  useEffect(() => {
+    if (STOPS.length === 0) return
+    if (!STOPS.some((s) => s.id === activeId)) {
+      setActiveId(STOPS[Math.min(1, STOPS.length - 1)].id)
+    }
+  }, [STOPS, activeId])
 
   // Keep the carousel and the map pin in sync in both directions.
   useEffect(() => {
     const deck = deckRef.current
-    if (!deck) return
+    if (!deck || activeId == null) return
     const card = deck.querySelector(`[data-stop="${activeId}"]`)
     card?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
   }, [activeId])
+
+  if (STOPS.length === 0) {
+    return (
+      <div className="map-screen" style={{ display: 'grid', placeItems: 'center' }}>
+        <div className="card" style={{ textAlign: 'center', maxWidth: 300 }}>
+          {planning ? (
+            <>
+              <span className="typing"><i /><i /><i /></span>
+              <p className="sub" style={{ marginTop: 12 }}>הסוכן בונה את המסלול...</p>
+            </>
+          ) : (
+            <p className="sub">אין עדיין עצירות במסלול. חזור למסך הבית ובנה מסלול.</p>
+          )}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="map-screen">

@@ -47,6 +47,44 @@ export default {
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: cors })
     }
+    // Geocoding proxy.
+    //
+    // Nominatim refuses requests without an identifying User-Agent, and a
+    // browser cannot set that header — the fetch is rejected 403 before it
+    // starts. Doing the lookup here satisfies their policy and gives us one
+    // place to hold the contact address they ask for.
+    const url = new URL(request.url)
+    if (request.method === 'GET' && url.pathname === '/geocode') {
+      const q = url.searchParams.get('q')
+      if (!q) return json({ error: { message: 'missing q' } }, 400, cors)
+
+      const upstream = await fetch(
+        `https://nominatim.openstreetmap.org/search?${new URLSearchParams({
+          q,
+          format: 'json',
+          limit: '1',
+        })}`,
+        {
+          headers: {
+            Accept: 'application/json',
+            'User-Agent': env.NOMINATIM_UA ?? 'TripAI/1.0 (+https://travel-ai-6de47.web.app)',
+          },
+        }
+      )
+
+      if (!upstream.ok) {
+        return json({ error: { message: `nominatim ${upstream.status}` } }, 502, cors)
+      }
+
+      const [hit] = await upstream.json()
+      return json(
+        hit ? { lat: +hit.lat, lng: +hit.lon, label: hit.display_name } : null,
+        200,
+        // Same place resolves to the same point — let the edge remember it.
+        { ...cors, 'Cache-Control': 'public, max-age=86400' }
+      )
+    }
+
     // Liveness probe. Reveals nothing secret — only whether the key is
     // present — so deployment can be verified without spending Gemini quota.
     if (request.method === 'GET') {

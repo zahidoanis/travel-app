@@ -161,8 +161,8 @@ export const FAMILIES = [
 ]
 
 /** Head count for a set of party ids. */
-export const headCount = (ids) =>
-  FAMILIES.filter((f) => ids.includes(f.id)).reduce((n, f) => n + f.members.length, 0)
+export const headCount = (ids, families = FAMILIES) =>
+  families.filter((f) => ids.includes(f.id)).reduce((n, f) => n + f.members.length, 0)
 
 /** Suggested destinations on the first onboarding question. */
 export const DESTINATIONS = [

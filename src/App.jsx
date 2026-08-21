@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import BottomNav, { TABS } from './components/BottomNav'
 import ErrorBoundary from './components/ErrorBoundary'
 import Onboarding from './screens/Onboarding'
@@ -8,9 +8,10 @@ import Chat from './screens/Chat'
 import Gallery from './screens/Gallery'
 import Finance from './screens/Finance'
 import Diagnostics from './screens/Diagnostics'
-import { initTelemetry, breadcrumb, attachSink, record } from './lib/telemetry'
+import { TripProvider, useTrip } from './TripProvider'
+import { initTelemetry, breadcrumb, attachSink } from './lib/telemetry'
 import { hasFirebase } from './lib/firebase'
-import { pushDiagnostics, loadProfile, saveProfile } from './lib/db'
+import { pushDiagnostics } from './lib/db'
 
 initTelemetry()
 
@@ -18,31 +19,23 @@ initTelemetry()
 if (hasFirebase) attachSink(pushDiagnostics)
 
 export default function App() {
-  const [onboarded, setOnboarded] = useState(false)
+  return (
+    <TripProvider>
+      <Shell />
+    </TripProvider>
+  )
+}
+
+function Shell() {
+  const { isReal, completeOnboarding, profile } = useTrip()
   const [tab, setTab] = useState('home')
   const [debug, setDebug] = useState(
     () => new URLSearchParams(location.search).get('debug') === '1'
   )
 
-  // Returning users skip onboarding; the profile also seeds their preferences.
-  useEffect(() => {
-    loadProfile()
-      .then((profile) => {
-        if (profile?.styles?.length > 0) setOnboarded(true)
-        breadcrumb('lifecycle', `profile loaded (${profile?.uid ?? 'none'})`)
-      })
-      .catch((err) => record({ kind: 'db', message: `loadProfile: ${err.message}` }))
-  }, [])
-
   const go = (next) => {
     breadcrumb('nav', `tab -> ${next}`)
     setTab(next)
-  }
-
-  const finishOnboarding = (prefs) => {
-    saveProfile(prefs)
-    breadcrumb('lifecycle', 'onboarding complete')
-    setOnboarded(true)
   }
 
   if (debug) {
@@ -55,16 +48,19 @@ export default function App() {
     )
   }
 
+  // `profile === null` means the load is still in flight; showing onboarding
+  // then would flash it at a returning user before their trip appears.
+  const onboarding = profile !== null && !isReal
+
   return (
     <div className="shell">
       <div className="app" dir="rtl">
-        {!onboarded ? (
+        {onboarding ? (
           <ErrorBoundary scope="onboarding">
-            <Onboarding onDone={finishOnboarding} />
+            <Onboarding onDone={completeOnboarding} />
           </ErrorBoundary>
         ) : (
           <>
-            {/* Wide screens get a side rail; narrow ones the floating bottom bar. */}
             <aside className="rail" aria-label="ניווט ראשי">
               <span className="rail-brand">TripAI</span>
               {TABS.map(({ id, label, Icon }) => (

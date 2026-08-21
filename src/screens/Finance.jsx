@@ -4,7 +4,8 @@ import Sheet from '../components/Sheet'
 import {
   ArrowUpDown, RefreshCw, Users, Plus, Receipt, Check,
 } from '../components/Icons'
-import { RATES, CURRENCIES, MEMBERS, EXPENSES, FAMILIES } from '../data'
+import { RATES, CURRENCIES, EXPENSES } from '../data'
+import { useTrip } from '../TripProvider'
 
 const SYMBOL = { EUR: '€', USD: '$', CZK: 'Kč', THB: '฿', GBP: '£', AED: 'د.إ', CHF: 'Fr', ILS: '₪' }
 
@@ -12,6 +13,13 @@ const fmt = (n) =>
   n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 export default function Finance() {
+  const { families: FAMILIES } = useTrip()
+  // Every traveller is a member of exactly one party.
+  // "You" are the first member of the first party.
+  const MEMBERS = FAMILIES.flatMap((f) =>
+    f.members.map((id, i) => ({ id, name: i === 0 ? f.name : `${f.name} ${i + 1}`, short: f.short, color: f.color }))
+  )
+  const ME = MEMBERS[0]?.id ?? 'u1'
   /* ---- converter ---- */
   const [from, setFrom] = useState('EUR')
   const [to, setTo] = useState('ILS')
@@ -32,11 +40,15 @@ export default function Finance() {
   }
 
   /* ---- expenses ---- */
-  const [expenses, setExpenses] = useState(EXPENSES)
+  // The seed expenses reference fixture payers; map them onto whoever is
+  // actually on this trip so the list is not full of unknown names.
+  const [expenses, setExpenses] = useState(() =>
+    EXPENSES.map((e, i) => ({ ...e, payer: MEMBERS[i % MEMBERS.length]?.id ?? e.payer }))
+  )
   const [addOpen, setAddOpen] = useState(false)
   const [title, setTitle] = useState('')
   const [value, setValue] = useState('')
-  const [payer, setPayer] = useState('u1')
+  const [payer, setPayer] = useState(MEMBERS[0]?.id ?? 'u1')
   const [saved, setSaved] = useState(false)
 
   const total = expenses.reduce((sum, e) => sum + e.amount, 0)
@@ -48,27 +60,27 @@ export default function Finance() {
   // share regardless of size — the usual arrangement when families travel together.
   const parties = useMemo(() => {
     if (splitBy === 'family') {
-      return FAMILIES.map((f) => ({ ...f, size: f.members.length })).filter((f) => !f.members.includes('u1'))
+      return FAMILIES.map((f) => ({ ...f, size: f.members.length })).filter((f) => !f.members.includes(ME))
     }
-    return MEMBERS.filter((m) => m.id !== 'u1').map((m) => ({ ...m, size: 1 }))
-  }, [splitBy])
+    return MEMBERS.filter((m) => m.id !== ME).map((m) => ({ ...m, size: 1 }))
+  }, [splitBy, FAMILIES])
 
   const shares = splitBy === 'family' ? FAMILIES.length : MEMBERS.length
 
   // Net position of "you" (u1): your share of everything, minus what you fronted.
   const { owe, owed } = useMemo(() => {
-    const myFamily = FAMILIES.find((f) => f.members.includes('u1'))
+    const myFamily = FAMILIES.find((f) => f.members.includes(ME))
     let balance = 0
     for (const e of expenses) {
       const share = e.amount / shares
       // Anyone in your household counts as you when splitting per family.
       const mine =
-        splitBy === 'family' ? Boolean(myFamily?.members.includes(e.payer)) : e.payer === 'u1'
+        splitBy === 'family' ? Boolean(myFamily?.members.includes(e.payer)) : e.payer === ME
       if (mine) balance += e.amount - share
       else balance -= share
     }
     return { owe: balance < 0 ? Math.abs(balance) : 0, owed: balance > 0 ? balance : 0 }
-  }, [expenses, shares, splitBy])
+  }, [expenses, shares, splitBy, FAMILIES, ME])
 
   const addExpense = () => {
     const n = parseFloat(value)

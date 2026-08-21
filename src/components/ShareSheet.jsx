@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import Sheet from './Sheet'
 import { WhatsApp, Copy, Check, Users, Link as LinkIcon } from './Icons'
-import { TRIP, FAMILIES, headCount } from '../data'
+import { headCount } from '../data'
+import { useTrip } from '../TripProvider'
 import { inviteText, inviteUrl, shareTrip, copyText } from '../lib/share'
 
 export default function ShareSheet({ open, stops, onClose }) {
+  const { trip: TRIP, families: FAMILIES } = useTrip()
   const [copied, setCopied] = useState(null)
 
   const text = inviteText(TRIP, stops, TRIP.id)
@@ -62,7 +64,7 @@ export default function ShareSheet({ open, stops, onClose }) {
         <span style={{ color: 'var(--lav)' }}><Users size={17} /></span>
         <h3 className="h3">מי כבר בטיול</h3>
         <span className="badge" style={{ marginInlineStart: 'auto' }}>
-          <span className="num">{headCount(FAMILIES.filter((f) => f.joined).map((f) => f.id))}</span> נוסעים
+          <span className="num">{headCount(FAMILIES.filter((f) => f.joined).map((f) => f.id), FAMILIES)}</span> נוסעים
         </span>
       </div>
 
