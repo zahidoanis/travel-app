@@ -241,3 +241,9 @@ export const Link = make(
   </>
 )
 export const Filter = make(<path d="M3 5h18l-7 8v6l-4 2v-8L3 5Z" />)
+export const Bed = make(
+  <>
+    <path d="M3 20V6M3 12h18a2 2 0 0 1 2 2v6M21 20v-3M3 16h18" />
+    <path d="M7.5 12V9.5A1.5 1.5 0 0 1 9 8h9a3 3 0 0 1 3 3v1" />
+  </>
+)

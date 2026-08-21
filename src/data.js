@@ -163,3 +163,18 @@ export const FAMILIES = [
 /** Head count for a set of party ids. */
 export const headCount = (ids) =>
   FAMILIES.filter((f) => ids.includes(f.id)).reduce((n, f) => n + f.members.length, 0)
+
+/** Suggested destinations on the first onboarding question. */
+export const DESTINATIONS = [
+  { id: 'paris', city: 'פריז', country: 'צרפת', emoji: '🗼' },
+  { id: 'rome', city: 'רומא', country: 'איטליה', emoji: '🏛️' },
+  { id: 'prague', city: 'פראג', country: 'צ׳כיה', emoji: '🏰' },
+  { id: 'athens', city: 'אתונה', country: 'יוון', emoji: '🏺' },
+  { id: 'barcelona', city: 'ברצלונה', country: 'ספרד', emoji: '🎨' },
+  { id: 'bangkok', city: 'בנגקוק', country: 'תאילנד', emoji: '🛕' },
+  { id: 'dubai', city: 'דובאי', country: 'איחוד האמירויות', emoji: '🌇' },
+  { id: 'london', city: 'לונדון', country: 'אנגליה', emoji: '☂️' },
+]
+
+/** Colours handed out to travel parties as they are created. */
+export const PARTY_COLORS = ['#6366F1', '#FB7185', '#34D399', '#FBBF24', '#22D3EE', '#A855F7']

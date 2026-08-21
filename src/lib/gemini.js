@@ -131,6 +131,36 @@ export async function streamReply({ messages, system, signal, onChunk }) {
   return full
 }
 
+/**
+ * One-shot completion: same transport, but collects the whole answer instead
+ * of streaming it. For places that need the full text before they can render,
+ * like parsing a list of suggestions.
+ */
+export function complete({ prompt, system, signal }) {
+  return streamReply({
+    messages: [{ role: 'me', text: prompt }],
+    system,
+    signal,
+  })
+}
+
+/**
+ * Parses `name | area | price | reason` lines.
+ *
+ * A delimited line format rather than JSON on purpose: a model that drifts
+ * produces one unusable row here, whereas a single stray character makes a
+ * whole JSON document unparseable.
+ */
+export function parseRows(text, columns) {
+  return text
+    .split('\n')
+    .map((line) => line.trim().replace(/^[-*\d.)\s]+/, ''))
+    .filter((line) => line.includes('|'))
+    .map((line) => line.split('|').map((c) => c.trim()))
+    .filter((cells) => cells.length >= columns.length && cells[0])
+    .map((cells) => Object.fromEntries(columns.map((c, i) => [c, cells[i] ?? ''])))
+}
+
 const SEP = /\r?\n\r?\n/
 
 /** Pulls the visible text out of one SSE frame, dropping reasoning parts. */
