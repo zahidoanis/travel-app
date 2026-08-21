@@ -8,6 +8,7 @@ import { hasAI, complete, parseRows } from '../lib/gemini'
 import { search, geocode } from '../lib/geocode'
 import { searchCities } from '../cities'
 import { breadcrumb, watchdog } from '../lib/telemetry'
+import AgentCard from '../components/AgentCard'
 
 /**
  * One question per screen. Each step declares its own validity, so the CTA
@@ -70,8 +71,7 @@ const today = new Date().toISOString().slice(0, 10)
 
 export default function Onboarding({ onDone }) {
   const [step, setStep] = useState(0)
-  const [listening, setListening] = useState(false)
-  const [note, setNote] = useState('')
+
 
   const [answers, setAnswers] = useState({
     destination: '',
@@ -213,10 +213,28 @@ export default function Onboarding({ onDone }) {
     }
   }
 
+  /**
+   * What the agent knows when the user asks it something. Everything answered
+   * so far, so a question on step 4 is not answered as if it were step 1.
+   */
+  const agentContext = [
+    `השאלה הנוכחית: ${current.title}`,
+    answers.destination && `יעד שנבחר: ${answers.destination} ${answers.country}`,
+    answers.from && answers.to && `תאריכים: ${answers.from} עד ${answers.to} (${nights} לילות)`,
+    answers.styles.length > 0 &&
+      `אופי: ${TRAVEL_STYLES.filter((s) => answers.styles.includes(s.id)).map((s) => s.title).join(', ')}`,
+    `תקציב: ${BUDGETS.find((b) => b.id === answers.budget)?.label ?? ''}`,
+    `נוסעים: ${travellers} ב-${answers.parties.length} משפחות`,
+    answers.cuisines.length > 0 &&
+      `העדפות אוכל: ${CUISINES.filter((c) => answers.cuisines.includes(c.id)).map((c) => c.label).join(', ')}`,
+  ]
+    .filter(Boolean)
+    .join('\n')
+
   const next = () => {
     if (!canAdvance) return
     if (step < STEPS.length - 1) setStep(step + 1)
-    else onDone({ ...answers, nights, travellers, note: note.trim() })
+    else onDone({ ...answers, nights, travellers })
   }
 
   return (
@@ -764,30 +782,16 @@ export default function Onboarding({ onDone }) {
       </div>
 
       {/* The agent's prompt follows the question being asked. */}
-      <div className="ai-overlay glass">
-        <div className="row" style={{ alignItems: 'flex-start' }}>
-          <div className="ai-avatar"><Bot size={17} /></div>
-          <p className="grow" style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: 'var(--text-2)' }}>
-            <strong style={{ color: 'var(--lav)' }}>סוכן AI:</strong> {current.hint}
-          </p>
-        </div>
-        <div className="input-wrap">
-          <input
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="הקלד או לחץ לדבר..."
-            aria-label="הערה לסוכן"
-          />
-          <button
-            className={`mic-btn ${listening ? 'on' : ''}`}
-            onClick={() => setListening((v) => !v)}
-            aria-label={listening ? 'עצור הקלטה' : 'התחל הקלטה'}
-            aria-pressed={listening}
-          >
-            <Mic size={15} />
-          </button>
-        </div>
-      </div>
+      <AgentCard
+        step={current.id}
+        hint={current.hint}
+        context={agentContext}
+        onPick={
+          current.id === "where"
+            ? (p) => { set({ destination: p.city, country: p.country }); setCityHits([]) }
+            : undefined
+        }
+      />
 
       <div className="cta-bar">
         <button className="btn btn-primary btn-block" onClick={next} disabled={!canAdvance}>
