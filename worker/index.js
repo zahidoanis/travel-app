@@ -16,7 +16,9 @@
  */
 
 const API = 'https://generativelanguage.googleapis.com/v1beta'
-const DEFAULT_MODEL = 'gemini-2.5-flash'
+// gemini-2.5-flash still appears in the models listing but returns 404 for
+// new API keys; Google's own error points here instead.
+const DEFAULT_MODEL = 'gemini-3.6-flash'
 
 /** Only these origins may call the proxy. Set ALLOWED_ORIGINS in wrangler.toml. */
 function corsHeaders(request, env) {
@@ -45,6 +47,22 @@ export default {
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: cors })
     }
+    // Liveness probe. Reveals nothing secret — only whether the key is
+    // present — so deployment can be verified without spending Gemini quota.
+    if (request.method === 'GET') {
+      return json(
+        {
+          ok: true,
+          service: 'tripai-ai',
+          model: DEFAULT_MODEL,
+          keyConfigured: Boolean(env.GEMINI_API_KEY),
+          allowedOrigins: (env.ALLOWED_ORIGINS ?? '').split(',').filter(Boolean).length,
+        },
+        200,
+        cors
+      )
+    }
+
     if (request.method !== 'POST') {
       return new Response('Method Not Allowed', { status: 405, headers: cors })
     }
@@ -71,7 +89,9 @@ export default {
       systemInstruction: body.systemInstruction,
       generationConfig: {
         temperature: 0.7,
-        maxOutputTokens: 800,
+        // Thinking tokens count against this budget and Gemini 3 spends several
+        // hundred of them, so 800 leaves almost nothing for the actual answer.
+        maxOutputTokens: 2048,
         ...(body.generationConfig ?? {}),
       },
     }

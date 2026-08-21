@@ -2,10 +2,10 @@ name = "tripai-ai"
 main = "index.js"
 compatibility_date = "2025-01-01"
 
+# Only these origins may call the proxy. Anything else is refused before the
+# request ever reaches Gemini, so a leaked worker URL is not a usable key.
 [vars]
-# Comma-separated list of origins allowed to call this proxy.
-# Replace <project-id> with your Firebase project id.
-ALLOWED_ORIGINS = "http://localhost:5173,https://<project-id>.web.app,https://<project-id>.firebaseapp.com"
+ALLOWED_ORIGINS = "http://localhost:5173,http://localhost:4173,https://travel-ai-6de47.web.app,https://travel-ai-6de47.firebaseapp.com"
 
-# GEMINI_API_KEY is a secret, not a var:
+# GEMINI_API_KEY is a secret, never a var:
 #   wrangler secret put GEMINI_API_KEY
