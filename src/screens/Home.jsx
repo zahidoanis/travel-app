@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react'
 import TopBar from '../components/TopBar'
 import ShareSheet from '../components/ShareSheet'
-import { ArrowLeft, Sparkles, Bookmark, Clock, Share, Users, RefreshCw } from '../components/Icons'
+import {
+  ArrowLeft, Sparkles, Bookmark, Clock, Share, Users, RefreshCw, Route, Utensils,
+} from '../components/Icons'
 import { RECOMMENDATIONS, headCount } from '../data'
 import { useTrip } from '../TripProvider'
 
@@ -13,7 +15,7 @@ const THUMB = {
   4: 'linear-gradient(150deg, #3A2450, #140F22 70%), radial-gradient(circle at 55% 45%, #A855F7, transparent 60%)',
 }
 
-export default function Home({ onStartRoute, onOpenChat }) {
+export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood }) {
   // "all" shows the shared itinerary; picking a party narrows it to the stops
   // that party is actually attending.
   const { trip: TRIP, stops: STOPS, families: FAMILIES, planning, planWarning, plan } = useTrip()
@@ -192,17 +194,47 @@ export default function Home({ onStartRoute, onOpenChat }) {
         ))}
       </div>
 
+      {/* The rail carries these on desktop; on mobile this is the way in. */}
       <div className="pad" style={{ marginTop: 20 }}>
-        <button className="card between" style={{ width: '100%' }} onClick={onStartRoute}>
-          <span className="row">
-            <span style={{ color: 'var(--lav)' }}><Clock size={18} /></span>
-            <span className="col" style={{ gap: 2, textAlign: 'start' }}>
-              <strong style={{ fontSize: 14, fontWeight: 600 }}>הלו"ז המלא של היום</strong>
-              <span className="tiny"><span className="num">{stops.length}</span> עצירות · מסתיים ב-<span className="num">{STOPS[STOPS.length - 1]?.time ?? '—'}</span></span>
+        <div className="col" style={{ gap: 10 }}>
+          <button className="card between" style={{ width: '100%' }} onClick={onOpenDays}>
+            <span className="row">
+              <span style={{ color: 'var(--lav)' }}><Route size={18} /></span>
+              <span className="col" style={{ gap: 2, textAlign: 'start' }}>
+                <strong style={{ fontSize: 14, fontWeight: 600 }}>מסלול הטיול</strong>
+                <span className="tiny">
+                  <span className="num">{TRIP.totalDays}</span> ימים · הוסף עצירות ושנה סדר
+                </span>
+              </span>
             </span>
-          </span>
-          <ArrowLeft size={18} />
-        </button>
+            <ArrowLeft size={18} />
+          </button>
+
+          <button className="card between" style={{ width: '100%' }} onClick={onOpenFood}>
+            <span className="row">
+              <span style={{ color: 'var(--lav)' }}><Utensils size={18} /></span>
+              <span className="col" style={{ gap: 2, textAlign: 'start' }}>
+                <strong style={{ fontSize: 14, fontWeight: 600 }}>איפה אוכלים</strong>
+                <span className="tiny">המלצות מסעדות לפי ההעדפות שלכם</span>
+              </span>
+            </span>
+            <ArrowLeft size={18} />
+          </button>
+
+          <button className="card between" style={{ width: '100%' }} onClick={onStartRoute}>
+            <span className="row">
+              <span style={{ color: 'var(--lav)' }}><Clock size={18} /></span>
+              <span className="col" style={{ gap: 2, textAlign: 'start' }}>
+                <strong style={{ fontSize: 14, fontWeight: 600 }}>הלו"ז המלא של היום</strong>
+                <span className="tiny">
+                  <span className="num">{stops.length}</span> עצירות · מסתיים ב-
+                  <span className="num">{STOPS[STOPS.length - 1]?.time ?? '—'}</span>
+                </span>
+              </span>
+            </span>
+            <ArrowLeft size={18} />
+          </button>
+        </div>
       </div>
 
       <ShareSheet open={shareOpen} stops={STOPS} onClose={() => setShareOpen(false)} />

@@ -12,7 +12,7 @@ export default function MapScreen() {
   const { stops: STOPS, planning } = useTrip()
   const [activeId, setActiveId] = useState(null)
   const [details, setDetails] = useState(null)
-  const [provider, setProvider] = useState('cartoDark')
+  const [provider, setProvider] = useState('cartoLight')
   const deckRef = useRef(null)
 
   // The itinerary is regenerated per destination, so the active id has to
@@ -135,7 +135,7 @@ export default function MapScreen() {
               style={{
                 height: 130, borderRadius: 16, marginBottom: 16,
                 border: '1px solid var(--border)',
-                background: `linear-gradient(150deg, ${CATEGORIES[details.cat].color}44, #14121F)`,
+                background: `linear-gradient(150deg, ${CATEGORIES[details.cat].color}26, var(--card-2))`,
               }}
             />
             <div className="between" style={{ marginBottom: 14 }}>

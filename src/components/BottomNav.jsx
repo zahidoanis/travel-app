@@ -1,4 +1,10 @@
-import { Calendar, MapIcon, Bot, Images, Wallet } from './Icons'
+import { Calendar, MapIcon, Bot, Images, Wallet, Route, Utensils } from './Icons'
+
+/** Bottom bar keeps five; the desktop rail shows everything. */
+export const RAIL_ONLY = [
+  { id: 'days', label: 'מסלול', Icon: Route },
+  { id: 'food', label: 'מסעדות', Icon: Utensils },
+]
 
 export const TABS = [
   { id: 'home', label: 'בית/לו"ז', Icon: Calendar },

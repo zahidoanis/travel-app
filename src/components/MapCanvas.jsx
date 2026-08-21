@@ -36,9 +36,9 @@ function routePath(pts) {
   return d
 }
 
-export default function MapCanvas({ stops, activeId, onPinClick, provider = 'cartoDark' }) {
+export default function MapCanvas({ stops, activeId, onPinClick, provider = 'cartoLight' }) {
   const active = stops.find((s) => s.id === activeId) ?? stops[0]
-  const src = PROVIDERS[provider] ?? PROVIDERS.cartoDark
+  const src = PROVIDERS[provider] ?? PROVIDERS.cartoLight
 
   const layout = useMemo(() => {
     // The frame follows one stop at a time, so zoom is a design constant rather
@@ -145,13 +145,13 @@ export default function MapCanvas({ stops, activeId, onPinClick, provider = 'car
               <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
             </filter>
             <filter id="pinShadow" x="-60%" y="-60%" width="220%" height="220%">
-              <feDropShadow dx="0" dy="3" stdDeviation="4" floodColor="#000" floodOpacity="0.75" />
+              <feDropShadow dx="0" dy="3" stdDeviation="4" floodColor="#0A0A16" floodOpacity="0.28" />
             </filter>
           </defs>
 
-          <path d={routePath(local)} stroke="#22D3EE" strokeWidth="10" fill="none"
+          <path d={routePath(local)} stroke="var(--accent)" strokeWidth="10" fill="none"
                 strokeLinecap="round" opacity="0.22" filter="url(#glow)" />
-          <path d={routePath(local)} stroke="#67E8F9" strokeWidth="3" fill="none"
+          <path d={routePath(local)} stroke="var(--accent)" strokeWidth="3" fill="none"
                 strokeLinecap="round" strokeDasharray="1 10" opacity="0.95" />
 
           {local.map((s, i) => {
@@ -175,7 +175,7 @@ export default function MapCanvas({ stops, activeId, onPinClick, provider = 'car
                 )}
                 <g filter="url(#pinShadow)">
                   <circle cx={s.x} cy={s.y} r="16" fill={color}
-                          stroke="rgba(255,255,255,0.75)" strokeWidth={on ? 2 : 1.2} />
+                          stroke="#fff" strokeWidth={on ? 2 : 1.2} />
                   <g
                     transform={`translate(${s.x - 8} ${s.y - 8}) scale(0.667)`}
                     fill="none" stroke="#fff" strokeWidth="2.4"

@@ -19,24 +19,38 @@ export const TILE_SIZE = 256
  * provider (CARTO, MapTiler, Stadia all have free tiers) or self-host.
  */
 export const PROVIDERS = {
-  cartoDark: {
-    label: 'CARTO Dark Matter',
+  // Positron is the light counterpart to Dark Matter: desaturated, minimal
+  // labels, almost no colour of its own — which is what lets the route and
+  // pins be the only saturated thing on the screen.
+  cartoLight: {
+    label: 'בהיר',
     attribution: '© OpenStreetMap · © CARTO',
     maxZoom: 20,
+    dark: false,
+    url: (z, x, y, retina) =>
+      `https://${'abcd'[(x + y) % 4]}.basemaps.cartocdn.com/light_all/${z}/${x}/${y}${retina ? '@2x' : ''}.png`,
+  },
+  cartoLightNoLabels: {
+    label: 'בהיר ללא תוויות',
+    attribution: '© OpenStreetMap · © CARTO',
+    maxZoom: 20,
+    dark: false,
+    url: (z, x, y, retina) =>
+      `https://${'abcd'[(x + y) % 4]}.basemaps.cartocdn.com/light_nolabels/${z}/${x}/${y}${retina ? '@2x' : ''}.png`,
+  },
+  cartoDark: {
+    label: 'כהה',
+    attribution: '© OpenStreetMap · © CARTO',
+    maxZoom: 20,
+    dark: true,
     url: (z, x, y, retina) =>
       `https://${'abcd'[(x + y) % 4]}.basemaps.cartocdn.com/dark_all/${z}/${x}/${y}${retina ? '@2x' : ''}.png`,
   },
-  cartoDarkNoLabels: {
-    label: 'CARTO Dark (ללא תוויות)',
-    attribution: '© OpenStreetMap · © CARTO',
-    maxZoom: 20,
-    url: (z, x, y, retina) =>
-      `https://${'abcd'[(x + y) % 4]}.basemaps.cartocdn.com/dark_nolabels/${z}/${x}/${y}${retina ? '@2x' : ''}.png`,
-  },
   osm: {
-    label: 'OpenStreetMap (בהיר)',
+    label: 'OpenStreetMap',
     attribution: '© OpenStreetMap contributors',
     maxZoom: 19,
+    dark: false,
     url: (z, x, y) => `https://tile.openstreetmap.org/${z}/${x}/${y}.png`,
   },
 }

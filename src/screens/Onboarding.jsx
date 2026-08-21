@@ -3,7 +3,7 @@ import {
   ArrowLeft, ArrowRight, Check, Mic, Bot, Plus, X, Users, MapPin, Calendar,
   Bed, Sparkles,
 } from '../components/Icons'
-import { TRAVEL_STYLES, BUDGETS, DESTINATIONS, PARTY_COLORS } from '../data'
+import { TRAVEL_STYLES, BUDGETS, DESTINATIONS, PARTY_COLORS, CUISINES } from '../data'
 import { hasAI, complete, parseRows } from '../lib/gemini'
 import { search, geocode } from '../lib/geocode'
 import { searchCities } from '../cities'
@@ -50,6 +50,13 @@ const STEPS = [
     valid: (a) => a.parties.length > 0 && a.parties.every((p) => p.name.trim() && p.size > 0),
   },
   {
+    id: 'food',
+    title: 'מה אוהבים לאכול?',
+    sub: 'ההעדפות האלה מסננות את המלצות המסעדות לאורך כל הטיול.',
+    hint: 'יש אלרגיה או משהו שאתם לא אוכלים? כתבו לי ואתחשב בזה.',
+    valid: (a) => a.cuisines.length > 0,
+  },
+  {
     id: 'stay',
     title: 'איפה תישנו?',
     sub: 'אם כבר הזמנתם — נאתר את המלון על המפה. אם לא, הסוכן ימצא לכם.',
@@ -74,6 +81,7 @@ export default function Onboarding({ onDone }) {
     styles: [],
     budget: 'mid',
     parties: [{ id: 'p1', name: 'המשפחה שלי', size: 2, color: PARTY_COLORS[0] }],
+    cuisines: ['local'],
     stays: [],
   })
 
@@ -114,7 +122,9 @@ export default function Onboarding({ onDone }) {
   }
 
   /* ---- hotel ---- */
-  const [booked, setBooked] = useState(null)   // null | 'yes' | 'no'
+  // Defaults to the search flow. Starting at null left the screen showing a
+  // title and two buttons with nothing under them, which reads as broken.
+  const [booked, setBooked] = useState('no')   // null | 'yes' | 'no'
   const [query, setQuery] = useState('')
   const [hotels, setHotels] = useState([])
   const [searching, setSearching] = useState(false)
@@ -513,6 +523,31 @@ export default function Onboarding({ onDone }) {
                 </span>
               </div>
             </>
+          )}
+
+          {current.id === 'food' && (
+            <div className="pills">
+              {CUISINES.map((c) => {
+                const on = answers.cuisines.includes(c.id)
+                return (
+                  <button
+                    key={c.id}
+                    className={`pill ${on ? 'on' : ''}`}
+                    onClick={() =>
+                      set({
+                        cuisines: on
+                          ? answers.cuisines.filter((x) => x !== c.id)
+                          : [...answers.cuisines, c.id],
+                      })
+                    }
+                    aria-pressed={on}
+                  >
+                    <span style={{ marginInlineEnd: 6 }} aria-hidden="true">{c.emoji}</span>
+                    {c.label}
+                  </button>
+                )
+              })}
+            </div>
           )}
 
           {current.id === 'stay' && (

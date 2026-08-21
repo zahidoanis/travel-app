@@ -247,3 +247,12 @@ export const Bed = make(
     <path d="M7.5 12V9.5A1.5 1.5 0 0 1 9 8h9a3 3 0 0 1 3 3v1" />
   </>
 )
+export const ArrowUp = make(<path d="M12 19V5M6 11l6-6 6 6" />)
+export const ArrowDown = make(<path d="M12 5v14M6 13l6 6 6-6" />)
+export const Route = make(
+  <>
+    <circle cx="6" cy="19" r="2.6" />
+    <circle cx="18" cy="5" r="2.6" />
+    <path d="M8.5 19h6a3.5 3.5 0 0 0 0-7h-5a3.5 3.5 0 0 1 0-7h6" />
+  </>
+)

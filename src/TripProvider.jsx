@@ -70,7 +70,10 @@ function toFamilies(profile) {
 
 export function TripProvider({ children }) {
   const [profile, setProfile] = useState(null)
-  const [stops, setStops] = useState(MOCK_STOPS)
+  // One entry per trip day. The map and the day view read whichever day is
+  // selected, so a multi-day trip is the normal case rather than a special one.
+  const [days, setDays] = useState({ 1: MOCK_STOPS })
+  const [activeDay, setActiveDay] = useState(1)
   const [planning, setPlanning] = useState(false)
   const [planWarning, setPlanWarning] = useState(null)
 
@@ -84,42 +87,82 @@ export function TripProvider({ children }) {
   const families = useMemo(() => toFamilies(profile) ?? MOCK_FAMILIES, [profile])
   const isReal = Boolean(profile?.destination)
 
-  /** Generates and stores the day's stops for the chosen city. */
-  const plan = async () => {
+  const stops = days[activeDay] ?? []
+
+  /** Generates and stores one day's stops. */
+  const plan = async (day = activeDay) => {
     if (planning || !isReal) return
     setPlanning(true)
     setPlanWarning(null)
 
-    const { stops: fresh, warning } = await buildItinerary({ trip, families })
+    const { stops: fresh, warning } = await buildItinerary({
+      trip: { ...trip, day },
+      families,
+    })
 
     if (fresh.length > 0) {
-      setStops(fresh)
-      saveRoute(trip.id, { day: trip.day, city: trip.city, stops: fresh })
+      setDays((d) => ({ ...d, [day]: fresh }))
+      saveRoute(trip.id, { day, city: trip.city, stops: fresh })
     }
     setPlanWarning(warning ?? null)
     setPlanning(false)
   }
 
-  // On first arrival with a real destination, reuse a stored route if there is
-  // one and only call the model when there isn't.
+  /** Replaces one day's stops — used by reorder, add and remove. */
+  const setDayStops = (day, next) => {
+    setDays((d) => ({ ...d, [day]: next }))
+    saveRoute(trip.id, { day, city: trip.city, stops: next })
+  }
+
+  const moveStop = (day, id, delta) => {
+    const list = [...(days[day] ?? [])]
+    const i = list.findIndex((s) => s.id === id)
+    const j = i + delta
+    if (i < 0 || j < 0 || j >= list.length) return
+    ;[list[i], list[j]] = [list[j], list[i]]
+    breadcrumb('action', `reorder day ${day}`)
+    setDayStops(day, list)
+  }
+
+  const addStop = (day, stop) => {
+    const list = days[day] ?? []
+    if (list.some((s) => s.name === stop.name)) return
+    // Keep the day in time order after an insert.
+    const next = [...list, { ...stop, id: Date.now() }].sort((a, b) =>
+      String(a.time).localeCompare(String(b.time))
+    )
+    breadcrumb('action', `add stop to day ${day}`)
+    setDayStops(day, next)
+  }
+
+  const removeStop = (day, id) =>
+    setDayStops(day, (days[day] ?? []).filter((s) => s.id !== id))
+
+  // Restore whatever is stored, then generate only the days that are missing.
   useEffect(() => {
     if (!isReal) return
     let cancelled = false
 
     listRoutes(trip.id).then((routes) => {
       if (cancelled) return
-      const stored = routes.find((r) => r.day === trip.day)
-      if (stored?.stops?.length) {
-        breadcrumb('data', `route restored for day ${trip.day}`)
-        setStops(stored.stops)
+
+      const restored = {}
+      for (const r of routes) if (r.stops?.length) restored[r.day] = r.stops
+
+      if (Object.keys(restored).length > 0) {
+        breadcrumb('data', `${Object.keys(restored).length} days restored`)
+        setDays(restored)
+        setActiveDay(restored[trip.day] ? trip.day : Number(Object.keys(restored)[0]))
       } else {
-        plan()
+        setDays({})
+        setActiveDay(1)
+        plan(1)
       }
     })
 
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isReal, trip.id, trip.day])
+  }, [isReal, trip.id])
 
   const completeOnboarding = async (answers) => {
     const next = { ...answers, tripId: `T-${Date.now().toString(36).toUpperCase()}` }
@@ -131,11 +174,17 @@ export function TripProvider({ children }) {
   const value = {
     trip,
     stops,
+    days,
+    activeDay,
+    setActiveDay,
     families,
     isReal,
     planning,
     planWarning,
     plan,
+    moveStop,
+    addStop,
+    removeStop,
     profile,
     completeOnboarding,
   }

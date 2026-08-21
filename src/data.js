@@ -26,10 +26,10 @@ export const BUDGETS = [
 
 /** Stop categories drive both the pin color on the map and the card accent. */
 export const CATEGORIES = {
-  museum: { label: 'מוזיאון', color: '#7C3AED' },
-  food: { label: 'מסעדה', color: '#FB7185' },
-  walking: { label: 'הליכה', color: '#22D3EE' },
-  landmark: { label: 'אתר', color: '#FBBF24' },
+  museum: { label: 'מוזיאון', color: '#6D4AC8' },
+  food: { label: 'מסעדה', color: '#D14B68' },
+  walking: { label: 'הליכה', color: '#0E8E9B' },
+  landmark: { label: 'אתר', color: '#B5842A' },
 }
 
 /** Real Paris coordinates — used by buildStaticMapUrl when a key is present,
@@ -178,3 +178,18 @@ export const DESTINATIONS = [
 
 /** Colours handed out to travel parties as they are created. */
 export const PARTY_COLORS = ['#6366F1', '#FB7185', '#34D399', '#FBBF24', '#22D3EE', '#A855F7']
+
+/** Cuisine preferences, asked during onboarding and used to filter
+ *  restaurant recommendations. */
+export const CUISINES = [
+  { id: 'local', label: 'מטבח מקומי', emoji: '📍' },
+  { id: 'italian', label: 'איטלקי', emoji: '🍝' },
+  { id: 'asian', label: 'אסייתי', emoji: '🍜' },
+  { id: 'seafood', label: 'דגים ופירות ים', emoji: '🦞' },
+  { id: 'meat', label: 'בשרים', emoji: '🥩' },
+  { id: 'vegan', label: 'צמחוני / טבעוני', emoji: '🌱' },
+  { id: 'kosher', label: 'כשר', emoji: '✡️' },
+  { id: 'street', label: 'אוכל רחוב', emoji: '🌮' },
+  { id: 'fine', label: 'שף / מסעדות יוקרה', emoji: '🍷' },
+  { id: 'cafe', label: 'בתי קפה ומאפיות', emoji: '☕' },
+]

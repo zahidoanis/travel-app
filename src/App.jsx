@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import BottomNav, { TABS } from './components/BottomNav'
+import BottomNav, { TABS, RAIL_ONLY } from './components/BottomNav'
 import ErrorBoundary from './components/ErrorBoundary'
 import Welcome from './screens/Welcome'
 import Onboarding from './screens/Onboarding'
@@ -8,6 +8,8 @@ import MapScreen from './screens/MapScreen'
 import Chat from './screens/Chat'
 import Gallery from './screens/Gallery'
 import Finance from './screens/Finance'
+import Days from './screens/Days'
+import Restaurants from './screens/Restaurants'
 import Diagnostics from './screens/Diagnostics'
 import { TripProvider, useTrip } from './TripProvider'
 import { initTelemetry, breadcrumb, attachSink } from './lib/telemetry'
@@ -69,7 +71,7 @@ function Shell() {
           <>
             <aside className="rail" aria-label="ניווט ראשי">
               <span className="rail-brand">TripAI</span>
-              {TABS.map(({ id, label, Icon }) => (
+              {[...TABS, ...RAIL_ONLY].map(({ id, label, Icon }) => (
                 <button
                   key={id}
                   className={`rail-item ${tab === id ? 'active' : ''}`}
@@ -89,12 +91,19 @@ function Shell() {
             <div className="stage">
               <ErrorBoundary scope={tab} key={tab}>
                 {tab === 'home' && (
-                  <Home onStartRoute={() => go('map')} onOpenChat={() => go('chat')} />
+                  <Home
+                    onStartRoute={() => go('map')}
+                    onOpenChat={() => go('chat')}
+                    onOpenDays={() => go('days')}
+                    onOpenFood={() => go('food')}
+                  />
                 )}
                 {tab === 'map' && <MapScreen />}
                 {tab === 'chat' && <Chat />}
                 {tab === 'gallery' && <Gallery />}
                 {tab === 'finance' && <Finance />}
+                {tab === 'days' && <Days />}
+                {tab === 'food' && <Restaurants />}
               </ErrorBoundary>
             </div>
 
