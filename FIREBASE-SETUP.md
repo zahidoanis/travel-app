@@ -32,7 +32,32 @@ Firebase לא יעבור לחיוב מעצמו; מעבר ל-Blaze דורש פע�
 1. בתפריט הצד: **Build → Firestore Database**
 2. **Create database**
 
-### בחירת מצב — כאן טועים
+### איזה סוג מסד נתונים
+
+לפי גרסת הקונסולה ייתכן שתישאל אחת מהשאלות הבאות, או שתיהן:
+
+**Cloud Firestore או Realtime Database?** → **Cloud Firestore**
+
+`db.js` כתוב מול Firestore SDK. Realtime Database הוא עץ JSON יחיד עם API שונה
+לחלוטין — שום דבר לא יעבוד מולו.
+
+**Native mode או Datastore mode?** → **Native mode**
+
+זו לא העדפה אלא דרישה:
+
+| | Native mode | Datastore mode |
+|---|---|---|
+| SDK לדפדפן | יש | **אין** |
+| מאזינים בזמן אמת (`onSnapshot`) | יש | **אין** |
+| מיועד ל- | web ומובייל | שרתים, App Engine |
+
+בלי Native mode אין `watchRoutes()` — כלומר אין סנכרון בזמן אמת בין מי שהצטרף
+דרך וואטסאפ, ובכלל אי אפשר לפנות למסד מהדפדפן.
+**לא ניתן להמיר מסד נתונים בין המצבים אחרי היצירה.**
+
+**Database ID?** → השאר `(default)`. הקוד קורא ל-`getFirestore(app)` בלי שם.
+
+### בחירת מצב אבטחה — כאן טועים
 
 יוצגו שתי אפשרויות:
 
