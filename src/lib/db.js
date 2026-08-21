@@ -14,7 +14,7 @@
  *                                        one day's ordered stops
  *   diagnostics/{uid}/events/{eventId}   crash + error log
  *
- * Rules in firestore.rules scope every path to the signed-in uid.
+ * Rules in firebase.rules scope every path to the signed-in uid.
  */
 
 import { firebase, hasFirebase } from './firebase'

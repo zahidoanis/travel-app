@@ -115,7 +115,7 @@ src/
     ├── Chat.jsx        Gallery.jsx  Finance.jsx
     └── Diagnostics.jsx יומן התקלות
 
-firestore.rules             כללי אבטחה — כל נתיב מוצמד ל-uid
+firebase.rules              כללי אבטחה ל-Firestore — כל נתיב מוצמד ל-uid
 worker/                     פרוקסי Cloudflare ל-Gemini (אופציונלי)
 scripts/                    ai:check ו-ai:smoke — אימות המפתח והדגם
 ```
@@ -297,7 +297,7 @@ users/{uid}/trips/{tripId}/routes/{routeId}  מסלול של יום אחד
 diagnostics/{uid}/events/{eventId}           יומן קריסות
 ```
 
-`firestore.rules` מצמיד כל נתיב ל-uid המחובר. יומן הקריסות הוא **כתיבה בלבד**
+`firebase.rules` מצמיד כל נתיב ל-uid המחובר. יומן הקריסות הוא **כתיבה בלבד**
 מהלקוח — מכשיר יכול לדווח על שגיאות שלו אבל לא לקרוא או לשנות אותן, מה
 שמשאיר את היומן שמיש כראיה.
 
