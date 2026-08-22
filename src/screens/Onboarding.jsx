@@ -21,6 +21,7 @@ const STEPS = [
     sub: 'בחר יעד מהרשימה או הקלד יעד משלך.',
     hint: 'יש יעד שאתה מתלבט לגביו? ספר לי ואעזור להחליט.',
     valid: (a) => a.destination.trim().length > 1,
+    blocker: () => 'בחר או הקלד יעד כדי להמשיך.',
   },
   {
     id: 'when',
@@ -28,6 +29,10 @@ const STEPS = [
     sub: 'טווח התאריכים קובע את חלוקת הימים במסלול.',
     hint: 'לא בטוח בתאריכים? אמור לי כמה ימים בערך ואציע חלון.',
     valid: (a) => Boolean(a.from && a.to && a.to > a.from),
+    blocker: (a) =>
+      !a.from ? 'בחר תאריך יציאה.'
+        : !a.to ? 'בחר תאריך חזרה.'
+        : 'תאריך החזרה חייב להיות אחרי היציאה.',
   },
   {
     id: 'style',
@@ -35,6 +40,7 @@ const STEPS = [
     sub: 'אפשר לבחור כמה. זה משפיע על סוג העצירות שנציע.',
     hint: 'רוצה לפרט יותר על חופשת החלומות שלך? אני כאן כדי להקשיב.',
     valid: (a) => a.styles.length > 0,
+    blocker: () => 'בחר לפחות סגנון אחד.',
   },
   {
     id: 'who',
@@ -44,6 +50,13 @@ const STEPS = [
     valid: (a) =>
       a.parties.length > 0 &&
       a.parties.every((p) => p.name.trim() && p.members.some((m) => m.trim())),
+    blocker: (a) => {
+      const i = a.parties.findIndex((p) => !p.name.trim())
+      if (i >= 0) return `למשפחה ${i + 1} חסר שם.`
+      const j = a.parties.findIndex((p) => !p.members.some((m) => m.trim()))
+      if (j >= 0) return `למשפחת ${a.parties[j].name} חסר לפחות משתתף אחד.`
+      return 'מלא את פרטי המשפחות.'
+    },
   },
   {
     id: 'food',
@@ -51,6 +64,7 @@ const STEPS = [
     sub: 'ההעדפות האלה מסננות את המלצות המסעדות לאורך כל הטיול.',
     hint: 'יש אלרגיה או משהו שאתם לא אוכלים? כתבו לי ואתחשב בזה.',
     valid: (a) => a.cuisines.length > 0,
+    blocker: () => 'בחר לפחות סוג מטבח אחד.',
   },
   {
     id: 'flight',
@@ -469,7 +483,7 @@ export default function Onboarding({ onDone }) {
             <>
               <div className="col" style={{ gap: 12 }}>
                 {answers.parties.map((p, pi) => (
-                  <div key={p.id} className="party-card">
+                  <div key={p.id} className={`party-card ${p.name.trim() ? "" : "needs"}`}>
                     <div className="row" style={{ gap: 10 }}>
                       <span className="party-dot" style={{ background: p.color }} />
                       <input
@@ -844,6 +858,14 @@ export default function Onboarding({ onDone }) {
       />
 
       <div className="cta-bar">
+        {/* A disabled button with no explanation is a dead end — the user can
+            see it is grey but not why. Say what is missing. */}
+        {!canAdvance && current.blocker && (
+          <p className="cta-blocker">
+            <Info size={13} />
+            {current.blocker(answers)}
+          </p>
+        )}
         <button className="btn btn-primary btn-block" onClick={next} disabled={!canAdvance}>
           {step < STEPS.length - 1 ? 'הבא' : 'בוא נתחיל'}
           <ArrowLeft size={18} />

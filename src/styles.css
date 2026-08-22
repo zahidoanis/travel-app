@@ -1674,3 +1674,29 @@ a.contact-row:hover { background: var(--tint-2); color: var(--text); }
 /* The badge carries a live state now, so give it room for the longest label. */
 .topbar .badge { white-space: nowrap; }
 .topbar .typing i { width: 4px; height: 4px; }
+
+/* ---------- Blocked CTA ---------- */
+
+.cta-blocker {
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  margin: 0 0 10px;
+  font-size: 12.5px; color: var(--amber);
+  animation: msg-in 0.24s var(--ease);
+}
+
+/* An unnamed family is what usually blocks the step — point at it. */
+.party-card.needs { border-color: rgba(168,121,12,0.4); background: #FFFCF5; }
+.party-card.needs .party-dot { box-shadow: 0 0 0 3px rgba(168,121,12,0.14); }
+
+/* Onboarding renders its screen, agent card and CTA as siblings. At >=1024px
+   `.app` is a row so the rail can sit beside the stage, which laid those
+   three out as columns — the CTA ended up floating beside the questions
+   instead of under them. Keep onboarding in its own column. */
+.onboarding {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  overflow: hidden;
+}

@@ -85,7 +85,9 @@ function Shell() {
           </ErrorBoundary>
         ) : onboarding ? (
           <ErrorBoundary scope="onboarding">
-            <Onboarding onDone={completeOnboarding} />
+            <div className="onboarding">
+              <Onboarding onDone={completeOnboarding} />
+            </div>
           </ErrorBoundary>
         ) : (
           <>
