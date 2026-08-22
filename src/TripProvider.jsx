@@ -84,6 +84,7 @@ export function TripProvider({ children }) {
   const [planning, setPlanning] = useState(false)
   const [planWarning, setPlanWarning] = useState(null)
   const [syncing, setSyncing] = useState(false)
+  const [skipWelcome, setSkipWelcome] = useState(false)
   const stopWatch = useRef(null)
 
   const trip = useMemo(() => toTrip(raw), [raw])
@@ -270,6 +271,21 @@ export function TripProvider({ children }) {
     breadcrumb('lifecycle', `trip created: ${answers.destination}`)
   }
 
+  /**
+   * Drops back to onboarding to plan a second trip. The current one is not
+   * touched — createTrip() always writes a new document rather than
+   * overwriting — so it stays reachable afterwards through the account
+   * sheet's trip list for anyone signed in. For a local-only session there
+   * is no list to bring it back from, which is why the UI warns before this
+   * runs rather than after.
+   */
+  const startNewTrip = () => {
+    breadcrumb('lifecycle', 'starting a new trip')
+    setSkipWelcome(true)
+    setRaw(null)
+    setDays({})
+  }
+
   const switchTrip = async (tripId) => {
     setLoading(true)
     const doc = await loadTrip(tripId)
@@ -287,12 +303,12 @@ export function TripProvider({ children }) {
   }
 
   const value = {
-    user, trip, trips, loading, syncState,
+    user, trip, trips, loading, syncState, skipWelcome,
     stops, days, activeDay, setActiveDay,
     families, isReal, planning, planWarning,
     plan, moveStop, addStop, removeStop, moveStopToDay,
     reservations, addReservation, removeReservation,
-    profile: raw, completeOnboarding, switchTrip, updateTrip,
+    profile: raw, completeOnboarding, switchTrip, updateTrip, startNewTrip,
   }
 
   return <TripContext.Provider value={value}>{children}</TripContext.Provider>

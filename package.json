@@ -12,6 +12,7 @@
     "fb:check": "node scripts/fb-check.mjs",
     "worker:check": "node scripts/worker-check.mjs",
     "cities:build": "node scripts/build-cities.mjs",
+    "icons:build": "node scripts/build-icons.mjs",
     "rules:deploy": "node scripts/deploy-rules.mjs",
     "rules:check": "node scripts/rules-check.mjs",
     "auth:check": "node scripts/auth-check.mjs",

@@ -3,8 +3,21 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#0D0E15" />
+    <!-- Matches --bg-2: the app has been light since the dark theme read
+         "ילדותי". A dark theme-color here would tint the phone's status bar
+         near-black over a white app underneath it. -->
+    <meta name="theme-color" content="#FAFAFB" />
     <title>TripAI — עוזר הנסיעות שלך</title>
+
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <!-- iOS ignores the manifest entirely for "הוסף למסך הבית" — this is the
+         only icon reference it reads. -->
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="TripAI" />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

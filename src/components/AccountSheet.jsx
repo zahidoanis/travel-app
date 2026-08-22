@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import Sheet from './Sheet'
-import { Check, Users, Info, Globe, X } from './Icons'
+import { Check, Users, Info, Globe, X, Plus } from './Icons'
 import { useTrip } from '../TripProvider'
 import { joinTrip } from '../lib/db'
 import { signInWithGoogle, signOutUser, hasFirebase } from '../lib/firebase'
@@ -14,7 +14,7 @@ import { breadcrumb } from '../lib/telemetry'
  * exists, so the thing being protected is already visible.
  */
 export default function AccountSheet({ open, onClose }) {
-  const { user, trip, trips, switchTrip } = useTrip()
+  const { user, trip, trips, switchTrip, startNewTrip } = useTrip()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
   const [merged, setMerged] = useState(false)
@@ -54,10 +54,27 @@ export default function AccountSheet({ open, onClose }) {
 
   const signedIn = user && !user.anonymous
 
+  const planAnother = () => {
+    startNewTrip()
+    onClose()
+  }
+
   return (
     <Sheet open={open} title={signedIn ? 'החשבון שלך' : 'שמור את הטיול'} onClose={onClose}>
       {!hasFirebase && (
-        <p className="sub">אחסון בענן אינו מוגדר. הטיול נשמר על המכשיר הזה בלבד.</p>
+        <>
+          <p className="sub" style={{ marginBottom: 18 }}>
+            אחסון בענן אינו מוגדר. הטיול נשמר על המכשיר הזה בלבד.
+          </p>
+          <button className="btn btn-primary btn-block" onClick={planAnother}>
+            <Plus size={16} />
+            תכנן טיול נוסף
+          </button>
+          <p className="tiny" style={{ marginTop: 10 }}>
+            הטיול הנוכחי לא נמחק, אבל בלי חיבור לענן אין רשימה שממנה אפשר
+            לחזור אליו.
+          </p>
+        </>
       )}
 
       {hasFirebase && !signedIn && (
@@ -81,6 +98,17 @@ export default function AccountSheet({ open, onClose }) {
             <p className="tiny" style={{ margin: 0 }}>
               שום דבר ממה שכבר תכננת לא יאבד — החשבון הנוכחי משודרג, לא מוחלף.
               אנחנו לא מקבלים גישה לגוגל שלך מעבר לשם ולכתובת המייל.
+            </p>
+          </div>
+
+          <div style={{ borderTop: '1px solid var(--border)', marginTop: 20, paddingTop: 18 }}>
+            <button className="btn btn-ghost btn-block" onClick={planAnother}>
+              <Plus size={16} />
+              תכנן טיול נוסף בלי להתחבר
+            </button>
+            <p className="tiny" style={{ marginTop: 10 }}>
+              בלי להתחבר, הטיול הנוכחי לא יופיע יותר ברשימה — ההתחברות למעלה
+              היא הדרך היחידה לשמור גישה לשניהם.
             </p>
           </div>
         </>
@@ -136,6 +164,11 @@ export default function AccountSheet({ open, onClose }) {
               </div>
             </>
           )}
+
+          <button className="btn btn-primary btn-block" onClick={planAnother} style={{ marginBottom: 10 }}>
+            <Plus size={16} />
+            טיול נוסף
+          </button>
 
           <button className="btn btn-ghost btn-block" onClick={disconnect} disabled={busy}>
             <X size={16} />

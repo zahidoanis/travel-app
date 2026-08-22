@@ -33,7 +33,7 @@ export default function App() {
 }
 
 function Shell() {
-  const { isReal, completeOnboarding, loading, user, syncState } = useTrip()
+  const { isReal, completeOnboarding, loading, user, syncState, skipWelcome } = useTrip()
   const [tab, setTab] = useState('home')
   const [started, setStarted] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
@@ -79,7 +79,9 @@ function Shell() {
   return (
     <div className="shell">
       <div className="app" dir="rtl">
-        {onboarding && !started ? (
+        {/* skipWelcome means this is a returning user planning a second
+            trip, not a first visit — the marketing screen would be noise. */}
+        {onboarding && !started && !skipWelcome ? (
           <ErrorBoundary scope="welcome">
             <Welcome onStart={() => setStarted(true)} />
           </ErrorBoundary>
