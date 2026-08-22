@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import TopBar from '../components/TopBar'
 import ShareSheet from '../components/ShareSheet'
 import {
@@ -7,6 +7,8 @@ import {
 import { headCount } from '../data'
 import { useTrip } from '../TripProvider'
 import PlacePhoto from '../components/PlacePhoto'
+import { fetchWeather, GREETING } from '../lib/weather'
+import { geocode } from '../lib/geocode'
 
 
 export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood, onOpenArrival }) {
@@ -18,6 +20,29 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
   } = useTrip()
   const [party, setParty] = useState('all')
   const [shareOpen, setShareOpen] = useState(false)
+  const [weather, setWeather] = useState(null)
+
+  // Real temperature and local time of day at the destination, not the
+  // visitor's own clock. Trips created before this existed have no stored
+  // coordinates, so a trip missing them is geocoded here once rather than
+  // left permanently without a reading.
+  useEffect(() => {
+    if (!TRIP) return
+    let cancelled = false
+
+    ;(async () => {
+      let { lat, lng } = TRIP
+      if (lat == null || lng == null) {
+        const hit = await geocode(TRIP.city, TRIP.country)
+        lat = hit?.lat ?? null
+        lng = hit?.lng ?? null
+      }
+      const w = await fetchWeather(lat, lng)
+      if (!cancelled) setWeather(w)
+    })()
+
+    return () => { cancelled = true }
+  }, [TRIP?.id, TRIP?.lat, TRIP?.lng])
 
   const stops = useMemo(
     () => (party === 'all' ? STOPS : STOPS.filter((s) => s.who.includes(party))),
@@ -38,7 +63,7 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
       <div className="pad">
         <section className="hero">
           <div className="between" style={{ alignItems: 'flex-start' }}>
-            <div className="hero-icon" aria-hidden="true">☀️</div>
+            <div className="hero-icon" aria-hidden="true">{weather?.icon ?? '☀️'}</div>
             <button
               className="icon-btn boxed"
               onClick={() => setShareOpen(true)}
@@ -48,8 +73,19 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
               <Share size={17} />
             </button>
           </div>
-          <h1 className="hero-title">בוקר טוב!</h1>
-          <p className="sub" style={{ maxWidth: '92%' }}>
+          {/* Neutral until the destination's real local time resolves — a
+              placeholder greeting is fine, a wrong one (guessed from the
+              visitor's own clock) is not. */}
+          <h1 className="hero-title">
+            {weather ? `${GREETING[weather.period]}!` : 'שלום!'}
+          </h1>
+          {weather && (
+            <span className="tiny row" style={{ gap: 5, marginTop: 2 }}>
+              <span aria-hidden="true">{weather.icon}</span>
+              <span className="num">{weather.tempC}°</span> ב{TRIP.city} עכשיו
+            </span>
+          )}
+          <p className="sub" style={{ maxWidth: '92%', marginTop: weather ? 8 : undefined }}>
             {planning
               ? `הסוכן בונה עכשיו מסלול ל${TRIP.city}...`
               : `הנה התכנון ליום ${TRIP.day} ב${TRIP.city}, מותאם לסגנון שבחרת.`}

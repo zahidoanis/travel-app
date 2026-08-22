@@ -6,7 +6,7 @@ import {
 import { TRAVEL_STYLES, DESTINATIONS, PARTY_COLORS, CUISINES } from '../data'
 import { hasAI, complete, parseRows } from '../lib/gemini'
 import { search, geocode } from '../lib/geocode'
-import { searchCities } from '../cities'
+import { CITIES, searchCities } from '../cities'
 import { breadcrumb, watchdog } from '../lib/telemetry'
 import AgentCard from '../components/AgentCard'
 
@@ -353,6 +353,11 @@ export default function Onboarding({ onDone }) {
                               country: h.country,
                               // Kept for searches that need Latin text.
                               destinationEn: h.en ?? h.name,
+                              // The coordinates behind the temperature/local
+                              // time readout on Home — already resolved here,
+                              // no reason to geocode the city again later.
+                              lat: h.lat,
+                              lng: h.lng,
                             })
                             setCityHits([])
                           }}
@@ -382,11 +387,21 @@ export default function Onboarding({ onDone }) {
                     <button
                       key={d.id}
                       className={`dest ${on ? 'on' : ''}`}
-                      onClick={() =>
+                      onClick={() => {
                         // The Latin name rides along: flight and hotel searches
-                        // return nothing for a Hebrew city name.
-                        set({ destination: d.city, country: d.country, destinationEn: d.en })
-                      }
+                        // return nothing for a Hebrew city name. Coordinates
+                        // come from the same curated list this card's own
+                        // city already lives in — no reason to geocode a
+                        // place we already have the answer for.
+                        const known = CITIES.find((c) => c.he === d.city)
+                        set({
+                          destination: d.city,
+                          country: d.country,
+                          destinationEn: d.en,
+                          lat: known?.lat ?? null,
+                          lng: known?.lng ?? null,
+                        })
+                      }}
                       aria-pressed={on}
                     >
                       <span className="dest-emoji" aria-hidden="true">{d.emoji}</span>

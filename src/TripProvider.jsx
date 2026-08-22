@@ -7,6 +7,7 @@ import {
 } from './lib/db'
 import { onUser, hasFirebase } from './lib/firebase'
 import { invitedTripId } from './lib/share'
+import { geocode } from './lib/geocode'
 import { breadcrumb, record } from './lib/telemetry'
 
 /**
@@ -45,6 +46,8 @@ function toTrip(raw) {
     city: raw.destination,
     cityEn: raw.destinationEn ?? raw.destination,
     country: raw.country ?? '',
+    lat: raw.lat ?? null,
+    lng: raw.lng ?? null,
     from: raw.from,
     to: raw.to,
     day,
@@ -270,8 +273,21 @@ export function TripProvider({ children }) {
 
   const completeOnboarding = async (answers) => {
     setSyncing(true)
-    const { id, code } = await createTrip(answers)
-    setRaw({ ...answers, id, code, memberIds: [user?.uid ?? 'local'] })
+
+    // Picking a destination from the city search or a popular-destination
+    // card already carries real coordinates; typing a free-text name or
+    // taking the agent's suggestion doesn't. One geocode call here — rather
+    // than at every place that reads them later — is what lets Home show a
+    // real temperature and local time of day regardless of how the
+    // destination was chosen.
+    let located = answers
+    if (answers.lat == null || answers.lng == null) {
+      const hit = await geocode(answers.destination, answers.country)
+      located = { ...answers, lat: hit?.lat ?? null, lng: hit?.lng ?? null }
+    }
+
+    const { id, code } = await createTrip(located)
+    setRaw({ ...located, id, code, memberIds: [user?.uid ?? 'local'] })
     setSyncing(false)
     breadcrumb('lifecycle', `trip created: ${answers.destination}`)
   }

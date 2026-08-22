@@ -20,6 +20,7 @@ export const TRAVEL_STYLES = [
   { id: 'adventure', emoji: '🧗', title: 'הרפתקאות', sub: 'אקסטרים ואקשן' },
   { id: 'culture', emoji: '🏛️', title: 'תרבות והיסטוריה', sub: 'מוזיאונים ואתרים' },
   { id: 'food', emoji: '🍜', title: 'אוכל וקולינריה', sub: 'שווקים ומסעדות' },
+  { id: 'nature', emoji: '🌿', title: 'טבע', sub: 'שבילים, פארקים ונופים' },
 ]
 
 /** Cuisine preferences, asked during onboarding and used to filter
