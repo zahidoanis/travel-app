@@ -9,6 +9,8 @@ export default function ShareSheet({ open, stops, onClose }) {
   const { trip: TRIP, families: FAMILIES } = useTrip()
   const [copied, setCopied] = useState(null)
 
+  if (!TRIP) return null
+
   const text = inviteText(TRIP, stops, TRIP.id)
   const url = inviteUrl(TRIP.id)
 

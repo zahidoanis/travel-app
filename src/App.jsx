@@ -53,9 +53,25 @@ function Shell() {
     )
   }
 
-  // `profile === null` means the load is still in flight; showing onboarding
-  // then would flash it at a returning user before their trip appears.
-  const onboarding = profile !== null && !isReal
+  // `profile === null` means the load is still in flight. Rendering the tabs
+  // then handed every screen a null trip and they crashed on trip.city — which
+  // is why the first load showed the error boundary and a retry looked fine:
+  // by the second attempt anonymous auth was cached and the profile arrived
+  // sooner. Wait for it instead.
+  if (profile === null) {
+    return (
+      <div className="shell">
+        <div className="app" dir="rtl">
+          <div className="boot">
+            <span className="boot-mark">Travel<span className="boot-ai">-AI</span></span>
+            <span className="typing"><i /><i /><i /></span>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const onboarding = !isReal
 
   return (
     <div className="shell">

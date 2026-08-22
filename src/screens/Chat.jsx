@@ -122,7 +122,7 @@ export default function Chat() {
               </div>
               <h2 className="h2" style={{ marginTop: 14 }}>מה תרצה לדעת?</h2>
               <p className="sub" style={{ marginTop: 6, maxWidth: '30ch' }}>
-                הסוכן מכיר את המסלול שלך ב{trip.city} — את השעות, המקומות ומי מטייל.
+                הסוכן מכיר את המסלול שלך{trip ? ` ב${trip.city}` : ''} — את השעות, המקומות ומי מטייל.
               </p>
 
               <div className="starters">

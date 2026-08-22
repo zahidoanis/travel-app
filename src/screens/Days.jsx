@@ -30,6 +30,8 @@ export default function Days() {
   const [adding, setAdding] = useState(null)
   const [booking, setBooking] = useState(null)
 
+  if (!trip) return null
+
   const dayList = Array.from({ length: trip.totalDays }, (_, i) => i + 1)
 
   /** Asks for stops that are not already in the day, so repeats are unlikely. */

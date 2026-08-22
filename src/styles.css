@@ -102,7 +102,11 @@ input, select, textarea { font: inherit; color: inherit; }
 .app {
   position: relative;
   width: 100%;
-  min-height: 100dvh;
+  /* A definite height, not min-height. With min-height the container grew
+     with its content, so `.screen` never scrolled internally and the bottom
+     nav — positioned against this element — ended up at the bottom of the
+     page rather than the bottom of the screen. */
+  height: 100dvh;
   overflow: hidden;
   background: var(--bg-2);
   display: flex;
@@ -1571,3 +1575,56 @@ a.contact-row:hover { background: var(--tint-2); color: var(--text); }
 .reservation-when strong { display: block; font-size: 13px; font-weight: 700; }
 
 .flight-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 11px; }
+
+/* ---------- Mobile corrections ---------- */
+
+.boot {
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 18px;
+}
+.boot-mark {
+  font-size: 26px; font-weight: 300; letter-spacing: 0.02em; direction: ltr;
+  color: var(--text);
+}
+.boot-ai {
+  font-weight: 600;
+  background: linear-gradient(120deg, var(--gold) 10%, var(--accent) 90%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+
+/* Keep the floating bar and its clearance above the home indicator on iOS,
+   and off the on-screen keyboard's way. */
+.nav { inset-block-end: calc(12px + env(safe-area-inset-bottom)); }
+.chat-bar { inset-block-end: calc(var(--nav-h) + 6px + env(safe-area-inset-bottom)); }
+.fab { inset-block-end: calc(var(--nav-h) + 10px + env(safe-area-inset-bottom)); }
+.stop-deck { inset-block-end: calc(var(--nav-h) + 8px + env(safe-area-inset-bottom)); }
+.ai-overlay { inset-block-end: calc(96px + env(safe-area-inset-bottom)); }
+
+@media (max-width: 699px) {
+  /* Five labels across a narrow phone need the room. */
+  .nav { inset-inline: 8px; }
+  .nav-item { font-size: 9.5px; }
+  .nav-glyph { width: 32px; height: 30px; }
+
+  /* Two columns of destination cards get cramped below ~360px. */
+  .dest-grid, .choice-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+
+  .h1 { font-size: 24px; }
+  .pad { padding-inline: 16px; }
+  .hscroll { padding-inline: 16px; }
+
+  /* iOS zooms the page when a focused input is under 16px. */
+  input, select, textarea { font-size: 16px; }
+  .field-bare, .chat-bar input, .input-wrap input { font-size: 16px; }
+
+  /* A tall onboarding step plus the agent card needs the clearance. */
+  .onboarding-screen { padding-bottom: 240px; }
+}
+
+/* Landscape phones have almost no vertical room; drop the decorative height. */
+@media (max-height: 520px) {
+  .welcome-inner { padding-top: 4vh; }
+  .welcome-mark { width: 46px; height: 46px; margin-bottom: 12px; }
+  .welcome-features { display: none; }
+}

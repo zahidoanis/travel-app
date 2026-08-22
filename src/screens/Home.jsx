@@ -27,6 +27,10 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood 
     [party, STOPS]
   )
 
+  // After every hook: an early return above them changes the hook count
+  // between renders, which React rejects outright.
+  if (!TRIP) return null
+
   // The "next" stop is the first one still ahead of us in the filtered day.
   const nextId = stops[1]?.id ?? stops[0]?.id
 

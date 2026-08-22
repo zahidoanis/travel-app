@@ -21,6 +21,7 @@ export default function Restaurants() {
   const [added, setAdded] = useState([])
   const [booking, setBooking] = useState(null)
 
+
   const find = async (cuisines = picked) => {
     if (loading || !hasAI) return
     breadcrumb('action', 'restaurant search')
@@ -55,9 +56,13 @@ export default function Restaurants() {
 
   // Fetch once on arrival so the screen is never empty for no reason.
   useEffect(() => {
-    if (hasAI && list.length === 0) find()
+    if (trip && hasAI && list.length === 0) find()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [trip])
+
+  // After every hook: an early return above them changes the hook count
+  // between renders, which React rejects outright.
+  if (!trip) return null
 
   const toggle = (id) => {
     const next = picked.includes(id) ? picked.filter((x) => x !== id) : [...picked, id]
