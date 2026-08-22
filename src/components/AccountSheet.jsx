@@ -125,13 +125,13 @@ export default function AccountSheet({ open, onClose }) {
           </div>
 
           <div style={{ borderTop: '1px solid var(--border)', marginTop: 20, paddingTop: 18 }}>
-            <span className="label"><Globe size={13} /> יש לי קוד הצטרפות</span>
+            <span className="label"><Globe size={13} /> יש לי קוד או קישור הצטרפות</span>
             <div className="row" style={{ gap: 8, marginTop: 10 }}>
               <input
                 className="field grow"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
-                placeholder="הדבק כאן את הקוד שקיבלת"
+                placeholder="הדבק כאן את הקוד או הקישור שקיבלת"
               />
               <button className="btn btn-primary" onClick={joinNow} disabled={joining || !code.trim()}>
                 {joining ? <span className="typing"><i /><i /><i /></span> : 'הצטרף'}
@@ -179,13 +179,13 @@ export default function AccountSheet({ open, onClose }) {
           </button>
 
           <div style={{ marginBottom: 22 }}>
-            <span className="label"><Globe size={13} /> יש לי קוד הצטרפות</span>
+            <span className="label"><Globe size={13} /> יש לי קוד או קישור הצטרפות</span>
             <div className="row" style={{ gap: 8, marginTop: 10 }}>
               <input
                 className="field grow"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
-                placeholder="הדבק כאן את הקוד שקיבלת"
+                placeholder="הדבק כאן את הקוד או הקישור שקיבלת"
               />
               <button className="btn btn-ghost" onClick={joinNow} disabled={joining || !code.trim()}>
                 {joining ? <span className="typing"><i /><i /><i /></span> : 'הצטרף'}

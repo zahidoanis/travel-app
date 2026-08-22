@@ -6,7 +6,7 @@ import {
   listRoutes, saveRoute, watchRoutes,
 } from './lib/db'
 import { onUser, hasFirebase } from './lib/firebase'
-import { invitedTripId } from './lib/share'
+import { invitedTripId, extractTripId } from './lib/share'
 import { geocode } from './lib/geocode'
 import { breadcrumb, record } from './lib/telemetry'
 
@@ -313,12 +313,12 @@ export function TripProvider({ children }) {
    * whether it worked, since a wrong or already-used code is an everyday
    * mistake here, not an error to log.
    */
-  const joinByCode = async (code) => {
-    const trimmed = code.trim()
-    if (!trimmed) return { ok: false, message: 'הזן קוד הצטרפות' }
+  const joinByCode = async (input) => {
+    if (!input.trim()) return { ok: false, message: 'הזן קוד או קישור הצטרפות' }
+    const tripId = extractTripId(input)
 
     setSyncing(true)
-    const joined = await joinTrip(trimmed)
+    const joined = await joinTrip(tripId)
     setSyncing(false)
 
     if (!joined) return { ok: false, message: 'הקוד לא נמצא, או שאין הרשאה להצטרף' }

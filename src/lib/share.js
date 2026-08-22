@@ -22,6 +22,24 @@ export function invitedTripId() {
   return new URLSearchParams(window.location.search).get('trip')
 }
 
+/**
+ * Pulls a trip id out of whatever someone pasted into the "I have a code"
+ * field — the bare id, or the whole shared link. There is only ever one
+ * thing to share now (the link, which already contains the id), so the
+ * field on the receiving end has to accept it in either form.
+ */
+export function extractTripId(input) {
+  const trimmed = input.trim()
+  try {
+    return new URL(trimmed).searchParams.get('trip') ?? trimmed
+  } catch {
+    // Not a parseable URL — a protocol-less paste like "site.com/?trip=x"
+    // still has the param in it even though `new URL` rejects it outright.
+    const m = trimmed.match(/[?&]trip=([^&\s]+)/)
+    return m ? decodeURIComponent(m[1]) : trimmed
+  }
+}
+
 /** The message body — itinerary preview plus the join link. */
 export function inviteText(trip, stops, tripId) {
   const lines = stops.map((s) => `${s.time} · ${s.he}`)

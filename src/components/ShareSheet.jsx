@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import Sheet from './Sheet'
-import { WhatsApp, Copy, Check, Users, Link as LinkIcon } from './Icons'
+import { WhatsApp, Check, Users, Link as LinkIcon } from './Icons'
 import { headCount } from '../data'
 import { useTrip } from '../TripProvider'
 import { inviteText, inviteUrl, shareTrip, copyText } from '../lib/share'
@@ -14,10 +14,10 @@ export default function ShareSheet({ open, stops, onClose }) {
   const text = inviteText(TRIP, stops, TRIP.id)
   const url = inviteUrl(TRIP.id)
 
-  const copy = async (what, value) => {
-    if (await copyText(value)) {
-      setCopied(what)
-      setTimeout(() => setCopied(null), 1600)
+  const copy = async () => {
+    if (await copyText(url)) {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1600)
     }
   }
 
@@ -51,16 +51,15 @@ export default function ShareSheet({ open, stops, onClose }) {
         שלח בוואטסאפ
       </button>
 
-      <div className="row" style={{ gap: 10, marginBottom: 22 }}>
-        <button className="btn btn-ghost grow" onClick={() => copy('link', url)}>
-          {copied === 'link' ? <Check size={16} /> : <LinkIcon size={16} />}
-          {copied === 'link' ? 'הקישור הועתק' : 'העתק קישור'}
-        </button>
-        <button className="btn btn-ghost grow" onClick={() => copy('code', TRIP.id)}>
-          {copied === 'code' ? <Check size={16} /> : <Copy size={16} />}
-          {copied === 'code' ? 'הקוד הועתק' : `קוד ${TRIP.id}`}
-        </button>
-      </div>
+      {/* One thing to share, not two — the "code" that used to sit beside
+          this was the exact same id already inside the link, copied to a
+          second button with nowhere of its own to be used. The join field
+          in the account sheet now reads a pasted link just as well as a
+          bare code, so the link alone covers every way of sharing this. */}
+      <button className="btn btn-ghost btn-block" style={{ marginBottom: 22 }} onClick={copy}>
+        {copied ? <Check size={16} /> : <LinkIcon size={16} />}
+        {copied ? 'הקישור הועתק' : 'העתק קישור'}
+      </button>
 
       <div className="row" style={{ gap: 8, marginBottom: 12 }}>
         <span style={{ color: 'var(--lav)' }}><Users size={17} /></span>
