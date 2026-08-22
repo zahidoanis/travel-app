@@ -2,10 +2,10 @@ import { useEffect, useMemo, useState } from 'react'
 import TopBar from '../components/TopBar'
 import Sheet from '../components/Sheet'
 import {
-  ArrowUpDown, RefreshCw, Users, Plus, Receipt, Check, Info,
+  ArrowUpDown, RefreshCw, Users, Plus, Receipt, Check, Info, X,
 } from '../components/Icons'
 import { useTrip } from '../TripProvider'
-import { SUPPORTED, SYMBOL, localCurrency, fetchRates } from '../lib/currency'
+import { SUPPORTED, SYMBOL, localCurrency, fetchRates, isConvertible } from '../lib/currency'
 
 const fmt = (n) =>
   n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -27,13 +27,20 @@ export default function Finance() {
   const ME = MEMBERS[0]?.id ?? null
   /* ---- converter ---- */
 
-  // The currency you will actually be handing over at the destination.
+  // The currency you will actually be handing over at the destination. This
+  // is always the real one — AED for Dubai, KES for Kenya — regardless of
+  // whether the free rate feed below can convert it.
   const local = useMemo(
     () => localCurrency(trip?.country ?? '', trip?.city ?? ''),
     [trip?.country, trip?.city]
   )
+  // Frankfurter (ECB) only tracks ~30 currencies. For everything outside
+  // that — a third of the curated destination list — there is no free live
+  // rate to show, so the calculator falls back to USD as a reference point
+  // rather than silently mislabelling the destination's own currency.
+  const localOk = isConvertible(local)
 
-  const [from, setFrom] = useState(local)
+  const [from, setFrom] = useState(localOk ? local : 'USD')
   const [to, setTo] = useState('ILS')
   const [amount, setAmount] = useState('100')
   const [spin, setSpin] = useState(false)
@@ -43,8 +50,8 @@ export default function Finance() {
   // Follow the destination unless the user has picked something else.
   const [touched, setTouched] = useState(false)
   useEffect(() => {
-    if (!touched) setFrom(local)
-  }, [local, touched])
+    if (!touched) setFrom(localOk ? local : 'USD')
+  }, [local, localOk, touched])
 
   // Live rates, quoted against ILS so every cross-rate goes through one base.
   useEffect(() => {
@@ -83,6 +90,10 @@ export default function Finance() {
   const [value, setValue] = useState('')
   const [payer, setPayer] = useState(null)
   const [saved, setSaved] = useState(false)
+  // Set while editing an existing expense; null means the sheet is adding a
+  // new one. Same sheet either way — the only difference is what it does on
+  // save and whether a delete button shows up.
+  const [editingId, setEditingId] = useState(null)
 
   const total = expenses.reduce((sum, e) => sum + e.amount, 0)
 
@@ -122,20 +133,49 @@ export default function Finance() {
     return { owe: balance < 0 ? Math.abs(balance) : 0, owed: balance > 0 ? balance : 0 }
   }, [expenses, shares, splitBy, FAMILIES, ME])
 
-  const addExpense = () => {
-    const n = parseFloat(value)
-    if (!title.trim() || !Number.isFinite(n) || n <= 0) return
-    setExpenses((list) => [
-      { id: `e${Date.now()}`, title: title.trim(), payer: payerId, amount: n, split: shares },
-      ...list,
-    ])
+  const closeSheet = () => {
+    setAddOpen(false)
+    setEditingId(null)
     setTitle('')
     setValue('')
+    setPayer(null)
+  }
+
+  const openEdit = (e) => {
+    setEditingId(e.id)
+    setTitle(e.title)
+    setValue(String(e.amount))
+    setPayer(e.payer)
+    setAddOpen(true)
+  }
+
+  const saveExpense = () => {
+    const n = parseFloat(value)
+    if (!title.trim() || !Number.isFinite(n) || n <= 0) return
+
+    if (editingId) {
+      setExpenses((list) =>
+        list.map((e) =>
+          e.id === editingId ? { ...e, title: title.trim(), payer: payerId, amount: n } : e
+        )
+      )
+    } else {
+      setExpenses((list) => [
+        { id: `e${Date.now()}`, title: title.trim(), payer: payerId, amount: n, split: shares },
+        ...list,
+      ])
+    }
+
     setSaved(true)
     setTimeout(() => {
       setSaved(false)
-      setAddOpen(false)
+      closeSheet()
     }, 900)
+  }
+
+  const removeExpense = () => {
+    setExpenses((list) => list.filter((e) => e.id !== editingId))
+    closeSheet()
   }
 
   return (
@@ -223,10 +263,24 @@ export default function Finance() {
 
             {trip && !touched && (
               <div className="row" style={{ alignItems: 'flex-start', gap: 8, marginTop: 10 }}>
-                <span style={{ color: 'var(--muted)' }}><Info size={13} /></span>
+                <span style={{ color: localOk ? 'var(--muted)' : 'var(--amber)' }}>
+                  <Info size={13} />
+                </span>
                 <span className="tiny">
-                  <strong className="ltr">{from}</strong> הוא המטבע ב{trip.city}.
-                  אפשר לשנות אם צריך.
+                  {localOk ? (
+                    <>
+                      <strong className="ltr">{from}</strong> הוא המטבע ב{trip.city}.
+                      אפשר לשנות אם צריך.
+                    </>
+                  ) : (
+                    <>
+                      המטבע המקומי ב{trip.city} הוא{' '}
+                      <strong className="ltr">{local} ({SYMBOL[local] ?? local})</strong>,
+                      אבל אין לו שער חי בשירות החינמי שבו האפליקציה משתמשת.
+                      המחשבון כאן מציג <strong className="ltr">USD</strong> כברירת מחדל —
+                      אפשר לבחור מטבע אחר.
+                    </>
+                  )}
                 </span>
               </div>
             )}
@@ -299,10 +353,21 @@ export default function Finance() {
 
         <div className="pad" style={{ paddingBottom: 30 }}>
           <div className="card" style={{ paddingBlock: 4 }}>
+            {expenses.length === 0 && (
+              <p className="tiny" style={{ padding: 16, textAlign: 'center' }}>
+                עדיין אין הוצאות רשומות
+              </p>
+            )}
             {expenses.map((e) => {
               const m = MEMBERS.find((x) => x.id === e.payer) ?? MEMBERS[0]
               return (
-                <div key={e.id} className="expense-row">
+                <button
+                  key={e.id}
+                  className="expense-row"
+                  style={{ width: '100%', textAlign: 'start' }}
+                  onClick={() => openEdit(e)}
+                  aria-label={`ערוך את ההוצאה ${e.title}`}
+                >
                   <span className="avatar" style={{ background: m.color, width: 34, height: 34 }}>
                     {m.short}
                   </span>
@@ -313,7 +378,7 @@ export default function Finance() {
                     </span>
                   </span>
                   <strong className="num" style={{ fontSize: 14 }}>₪{e.amount}</strong>
-                </div>
+                </button>
               )
             })}
           </div>
@@ -325,7 +390,11 @@ export default function Finance() {
         הוסף הוצאה
       </button>
 
-      <Sheet open={addOpen} title="הוצאה קבוצתית חדשה" onClose={() => setAddOpen(false)}>
+      <Sheet
+        open={addOpen}
+        title={editingId ? 'עריכת הוצאה' : 'הוצאה קבוצתית חדשה'}
+        onClose={closeSheet}
+      >
         <label className="label" htmlFor="exp-title">על מה שילמתם?</label>
         <input
           id="exp-title"
@@ -354,9 +423,20 @@ export default function Finance() {
           ))}
         </div>
 
-        <button className="btn btn-primary btn-block" onClick={addExpense}>
-          {saved ? <><Check size={17} /> נשמר</> : <><Plus size={17} /> הוסף הוצאה</>}
-        </button>
+        <div className="row" style={{ gap: 9 }}>
+          {editingId && (
+            <button className="btn btn-ghost" onClick={removeExpense} aria-label="מחק הוצאה">
+              <X size={17} />
+            </button>
+          )}
+          <button className="btn btn-primary btn-block grow" onClick={saveExpense}>
+            {saved
+              ? <><Check size={17} /> נשמר</>
+              : editingId
+                ? <><Check size={17} /> שמור שינויים</>
+                : <><Plus size={17} /> הוסף הוצאה</>}
+          </button>
+        </div>
         <p className="tiny" style={{ textAlign: 'center', marginTop: 12 }}>
           ההוצאה תתחלק שווה בשווה בין <span className="num">{shares}</span> {splitBy === 'family' ? 'המשפחות' : 'חברי הקבוצה'}
         </p>

@@ -785,9 +785,11 @@ input, select, textarea { font: inherit; color: inherit; }
 
 .expense-row {
   display: flex; align-items: center; gap: 11px;
-  padding: 12px 0; border-bottom: 1px solid var(--border);
+  padding: 12px 6px; margin-inline: -6px; border-bottom: 1px solid var(--border);
+  border-radius: 10px; transition: background 0.15s var(--ease);
 }
 .expense-row:last-child { border-bottom: none; }
+.expense-row:hover { background: var(--tint); }
 
 .fab {
   position: absolute; z-index: 30;

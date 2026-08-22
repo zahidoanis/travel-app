@@ -125,7 +125,7 @@ const BY_COUNTRY = {
  * Whether a live rate exists for the result is a separate question — see
  * isConvertible().
  */
-export function localCurrency(country = '', city = '') {
+function localCurrency(country = '', city = '') {
   const hit = BY_COUNTRY[country.trim()]
   if (hit) return hit
 
@@ -168,3 +168,5 @@ export async function fetchRates(base = 'ILS') {
     return null
   }
 }
+
+export { localCurrency, SUPPORTED, isConvertible };
