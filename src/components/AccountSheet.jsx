@@ -2,6 +2,7 @@ import { useState } from 'react'
 import Sheet from './Sheet'
 import { Check, Users, Info, Globe, X } from './Icons'
 import { useTrip } from '../TripProvider'
+import { joinTrip } from '../lib/db'
 import { signInWithGoogle, signOutUser, hasFirebase } from '../lib/firebase'
 import { breadcrumb } from '../lib/telemetry'
 
@@ -21,9 +22,21 @@ export default function AccountSheet({ open, onClose }) {
   const connect = async () => {
     setBusy(true)
     setError(null)
+    // Captured before signing in, because the uid can change underneath us.
+    const carried = trip?.id
     try {
       const result = await signInWithGoogle()
       breadcrumb('lifecycle', `signed in${result.merged ? ' (merged)' : ''}`)
+
+      // Linking keeps the uid, so the trip on this device is still ours.
+      // Landing on an account that already existed does not — the trip would
+      // stay behind with the anonymous uid that made it, and this sheet
+      // promises the opposite. Joining is the same path a shared link takes.
+      if (result.merged && carried) {
+        await joinTrip(carried)
+        breadcrumb('lifecycle', `carried trip ${carried} into the account`)
+      }
+
       setMerged(result.merged)
     } catch (err) {
       setError(err.message)

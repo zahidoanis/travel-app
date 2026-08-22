@@ -46,18 +46,37 @@ async function connect() {
     const auth = AUTH.getAuth(app)
     const db = FS.getFirestore(app)
 
+    // Wait for the first auth state before deciding anything. A session
+    // restored from storage — anonymous or Google — is the answer; only a
+    // genuine absence of one calls for a new anonymous account.
+    //
+    // This used to call signInAnonymously() unconditionally alongside the
+    // listener, which silently destroyed every Google sign-in. The SDK skips
+    // the call only when the current user is *already anonymous*: with a
+    // Google user restored it goes ahead and mints a fresh anonymous account,
+    // replacing them. So every reload threw the user back to signed-out, the
+    // "save your trip" sheet reappeared, and signing in again started the
+    // same cycle. Each pass also burned a new uid, which left the trip
+    // unreadable because access is by `memberIds`.
     const user = await new Promise((resolve, reject) => {
+      let starting = false
+
       const stop = AUTH.onAuthStateChanged(
         auth,
         (u) => {
           if (u) {
             stop()
             resolve(u)
+            return
           }
+          // No session at all. Create one, and let the listener above pick up
+          // the result. Guarded so a later sign-out cannot start a second.
+          if (starting) return
+          starting = true
+          AUTH.signInAnonymously(auth).catch(reject)
         },
         reject
       )
-      AUTH.signInAnonymously(auth).catch(reject)
     })
 
     // Keep the app informed after the first resolution — a Google link
@@ -72,7 +91,20 @@ async function connect() {
       }
     })
 
-    return { app, auth, db, uid: user.uid, FS, AUTH }
+    // `uid` is a getter, not the value captured here. Signing in with Google
+    // can land on a different account than the anonymous one this connection
+    // opened with, and a snapshot taken now would keep every later write —
+    // profiles, trip membership — pointed at the abandoned uid.
+    return {
+      app,
+      auth,
+      db,
+      FS,
+      AUTH,
+      get uid() {
+        return auth.currentUser?.uid ?? user.uid
+      },
+    }
   } catch (err) {
     // A misconfigured project must not take the app down; callers treat null
     // as "run locally". Telemetry's console hook records the error.
