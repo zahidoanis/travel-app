@@ -14,10 +14,13 @@ import { breadcrumb } from '../lib/telemetry'
  * exists, so the thing being protected is already visible.
  */
 export default function AccountSheet({ open, onClose }) {
-  const { user, trip, trips, switchTrip, startNewTrip } = useTrip()
+  const { user, trip, trips, switchTrip, startNewTrip, joinByCode } = useTrip()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
   const [merged, setMerged] = useState(false)
+  const [code, setCode] = useState('')
+  const [joining, setJoining] = useState(false)
+  const [joinError, setJoinError] = useState(null)
 
   const connect = async () => {
     setBusy(true)
@@ -57,6 +60,15 @@ export default function AccountSheet({ open, onClose }) {
   const planAnother = () => {
     startNewTrip()
     onClose()
+  }
+
+  const joinNow = async () => {
+    setJoining(true)
+    setJoinError(null)
+    const result = await joinByCode(code)
+    setJoining(false)
+    if (result.ok) onClose()
+    else setJoinError(result.message)
   }
 
   return (
@@ -111,6 +123,24 @@ export default function AccountSheet({ open, onClose }) {
               היא הדרך היחידה לשמור גישה לשניהם.
             </p>
           </div>
+
+          <div style={{ borderTop: '1px solid var(--border)', marginTop: 20, paddingTop: 18 }}>
+            <span className="label"><Globe size={13} /> יש לי קוד הצטרפות</span>
+            <div className="row" style={{ gap: 8, marginTop: 10 }}>
+              <input
+                className="field grow"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                placeholder="הדבק כאן את הקוד שקיבלת"
+              />
+              <button className="btn btn-primary" onClick={joinNow} disabled={joining || !code.trim()}>
+                {joining ? <span className="typing"><i /><i /><i /></span> : 'הצטרף'}
+              </button>
+            </div>
+            {joinError && (
+              <p className="tiny" style={{ color: 'var(--rose)', marginTop: 8 }}>{joinError}</p>
+            )}
+          </div>
         </>
       )}
 
@@ -147,6 +177,24 @@ export default function AccountSheet({ open, onClose }) {
             <Plus size={16} />
             טיול נוסף
           </button>
+
+          <div style={{ marginBottom: 22 }}>
+            <span className="label"><Globe size={13} /> יש לי קוד הצטרפות</span>
+            <div className="row" style={{ gap: 8, marginTop: 10 }}>
+              <input
+                className="field grow"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                placeholder="הדבק כאן את הקוד שקיבלת"
+              />
+              <button className="btn btn-ghost" onClick={joinNow} disabled={joining || !code.trim()}>
+                {joining ? <span className="typing"><i /><i /><i /></span> : 'הצטרף'}
+              </button>
+            </div>
+            {joinError && (
+              <p className="tiny" style={{ color: 'var(--rose)', marginTop: 8 }}>{joinError}</p>
+            )}
+          </div>
 
           {trips.length > 0 && (
             <>

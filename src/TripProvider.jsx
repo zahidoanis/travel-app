@@ -307,6 +307,27 @@ export function TripProvider({ children }) {
     setDays({})
   }
 
+  /**
+   * Joins a trip from a pasted code rather than an opened link — the same
+   * `joinTrip` a WhatsApp invite link drives, just entered by hand. Returns
+   * whether it worked, since a wrong or already-used code is an everyday
+   * mistake here, not an error to log.
+   */
+  const joinByCode = async (code) => {
+    const trimmed = code.trim()
+    if (!trimmed) return { ok: false, message: 'הזן קוד הצטרפות' }
+
+    setSyncing(true)
+    const joined = await joinTrip(trimmed)
+    setSyncing(false)
+
+    if (!joined) return { ok: false, message: 'הקוד לא נמצא, או שאין הרשאה להצטרף' }
+
+    setRaw(joined)
+    breadcrumb('lifecycle', `joined trip via code`)
+    return { ok: true }
+  }
+
   const switchTrip = async (tripId) => {
     setLoading(true)
     const doc = await loadTrip(tripId)
@@ -329,7 +350,7 @@ export function TripProvider({ children }) {
     families, isReal, planning, planWarning,
     plan, moveStop, addStop, removeStop, moveStopToDay,
     reservations, addReservation, removeReservation,
-    profile: raw, completeOnboarding, switchTrip, updateTrip, startNewTrip,
+    profile: raw, completeOnboarding, switchTrip, updateTrip, startNewTrip, joinByCode,
     accountOpen,
     openAccount: () => setAccountOpen(true),
     closeAccount: () => setAccountOpen(false),
