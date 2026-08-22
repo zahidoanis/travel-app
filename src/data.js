@@ -46,14 +46,14 @@ export const headCount = (ids, families = []) =>
 
 /** Suggested destinations on the first onboarding question. */
 export const DESTINATIONS = [
-  { id: 'paris', city: 'פריז', country: 'צרפת', emoji: '🗼' },
-  { id: 'rome', city: 'רומא', country: 'איטליה', emoji: '🏛️' },
-  { id: 'prague', city: 'פראג', country: 'צ׳כיה', emoji: '🏰' },
-  { id: 'athens', city: 'אתונה', country: 'יוון', emoji: '🏺' },
-  { id: 'barcelona', city: 'ברצלונה', country: 'ספרד', emoji: '🎨' },
-  { id: 'bangkok', city: 'בנגקוק', country: 'תאילנד', emoji: '🛕' },
-  { id: 'dubai', city: 'דובאי', country: 'איחוד האמירויות', emoji: '🌇' },
-  { id: 'london', city: 'לונדון', country: 'אנגליה', emoji: '☂️' },
+  { id: 'paris', city: 'פריז', en: 'Paris', country: 'צרפת', emoji: '🗼' },
+  { id: 'rome', city: 'רומא', en: 'Rome', country: 'איטליה', emoji: '🏛️' },
+  { id: 'prague', city: 'פראג', en: 'Prague', country: 'צ׳כיה', emoji: '🏰' },
+  { id: 'athens', city: 'אתונה', en: 'Athens', country: 'יוון', emoji: '🏺' },
+  { id: 'barcelona', city: 'ברצלונה', en: 'Barcelona', country: 'ספרד', emoji: '🎨' },
+  { id: 'bangkok', city: 'בנגקוק', en: 'Bangkok', country: 'תאילנד', emoji: '🛕' },
+  { id: 'dubai', city: 'דובאי', en: 'Dubai', country: 'איחוד האמירויות', emoji: '🌇' },
+  { id: 'london', city: 'לונדון', en: 'London', country: 'אנגליה', emoji: '☂️' },
 ]
 
 /** Indicative rates against ILS. In production these come from a rates API. */

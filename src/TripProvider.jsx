@@ -43,6 +43,7 @@ function toTrip(raw) {
     id: raw.id,
     code: raw.code ?? '',
     city: raw.destination,
+    cityEn: raw.destinationEn ?? raw.destination,
     country: raw.country ?? '',
     from: raw.from,
     to: raw.to,

@@ -24,6 +24,18 @@ export default function Arrival() {
   const flight = profile?.flight ?? {}
   const stay = trip?.stays?.[0]
 
+  // Google Flights takes a plain-language query and prefills the search from
+  // it. Skyscanner and Kayak want IATA codes in the path, which we do not
+  // have — a city name there just 404s — so the second link is an ordinary
+  // search that surfaces every comparison site instead of guessing at one.
+  const origin = 'תל אביב'
+  const englishCity = trip?.cityEn ?? trip?.city ?? ''
+  const query = `Flights from Tel Aviv to ${englishCity} on ${trip?.from ?? ''} through ${trip?.to ?? ''}`
+  const googleFlights = `https://www.google.com/travel/flights?q=${encodeURIComponent(query)}`
+  const compare = `https://www.google.com/search?q=${encodeURIComponent(
+    `טיסות תל אביב ${trip?.city ?? ''} ${trip?.from ?? ''}`
+  )}`
+
   const ask = async () => {
     if (loading || !hasAI) return
     breadcrumb('action', 'transfer options requested')
@@ -99,8 +111,56 @@ export default function Arrival() {
         </p>
       </div>
 
-      {/* The flight, as entered. Times come from the airline, not from us. */}
+      {/* Searching for a flight.
+          The agent cannot do this — it has no live data and would quote
+          prices from months-old training. One tap to a real search is worth
+          more than a confident guess. */}
       <div className="pad" style={{ marginTop: 18 }}>
+        <div className="card">
+          <div className="row" style={{ gap: 9, marginBottom: 12 }}>
+            <span className="contact-icon"><Plane size={15} /></span>
+            <span className="col" style={{ gap: 2 }}>
+              <strong style={{ fontSize: 15, fontWeight: 600 }}>חיפוש טיסות</strong>
+              <span className="tiny">
+                {origin} → {trip.city} · <span className="num">{trip.from}</span> עד{' '}
+                <span className="num">{trip.to}</span>
+              </span>
+            </span>
+          </div>
+
+          <div className="row" style={{ gap: 9 }}>
+            <a
+              className="btn btn-primary btn-sm grow"
+              href={googleFlights}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <Plane size={14} />
+              Google Flights
+            </a>
+            <a
+              className="btn btn-ghost btn-sm grow"
+              href={compare}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <Navigation size={14} />
+              השוואת מחירים
+            </a>
+          </div>
+
+          <div className="row" style={{ alignItems: 'flex-start', gap: 9, marginTop: 12 }}>
+            <span style={{ color: 'var(--muted)' }}><Info size={14} /></span>
+            <p className="tiny" style={{ margin: 0 }}>
+              המסלול והתאריכים שלך כבר ממולאים. הסוכן לא מחפש טיסות בעצמו — אין לו
+              נתונים חיים, והוא היה מנחש מחירים.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* The flight, as entered. Times come from the airline, not from us. */}
+      <div className="pad" style={{ marginTop: 14 }}>
         {flight.number ? (
           <div className="card">
             <div className="between" style={{ marginBottom: 12 }}>

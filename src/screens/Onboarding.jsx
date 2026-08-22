@@ -348,7 +348,12 @@ export default function Onboarding({ onDone }) {
                       <li key={`${h.lat},${h.lng}`}>
                         <button
                           onClick={() => {
-                            set({ destination: h.name, country: h.country })
+                            set({
+                              destination: h.name,
+                              country: h.country,
+                              // Kept for searches that need Latin text.
+                              destinationEn: h.en ?? h.name,
+                            })
                             setCityHits([])
                           }}
                         >
@@ -377,7 +382,11 @@ export default function Onboarding({ onDone }) {
                     <button
                       key={d.id}
                       className={`dest ${on ? 'on' : ''}`}
-                      onClick={() => set({ destination: d.city, country: d.country })}
+                      onClick={() =>
+                        // The Latin name rides along: flight and hotel searches
+                        // return nothing for a Hebrew city name.
+                        set({ destination: d.city, country: d.country, destinationEn: d.en })
+                      }
                       aria-pressed={on}
                     >
                       <span className="dest-emoji" aria-hidden="true">{d.emoji}</span>
