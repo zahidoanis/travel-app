@@ -1700,3 +1700,27 @@ a.contact-row:hover { background: var(--tint-2); color: var(--text); }
   position: relative;
   overflow: hidden;
 }
+
+/* On a wide screen onboarding is one continuous document, not three fixed
+   panes. It used to be `.onboarding-screen` scrolling inside a clipped
+   column while the agent card and CTA sat below it as siblings that cannot
+   shrink — so a tall step pushed the button past the bottom edge, where
+   `overflow: hidden` cut it off and nothing offered a scrollbar. Letting the
+   column itself scroll puts the questions, the agent and the button on one
+   surface that always reaches its own end. */
+@media (min-width: 700px) {
+  .onboarding {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .onboarding-screen {
+    flex: none;
+    overflow: visible;
+  }
+  /* A question is text: it reads badly at 1800px. */
+  .onboarding > * {
+    width: min(660px, 100%);
+    margin-inline: auto;
+  }
+  .ai-overlay { margin-top: 24px; }
+}
