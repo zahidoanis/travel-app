@@ -1,19 +1,17 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import TopBar from '../components/TopBar'
 import Sheet from '../components/Sheet'
 import {
-  ArrowUpDown, RefreshCw, Users, Plus, Receipt, Check,
+  ArrowUpDown, RefreshCw, Users, Plus, Receipt, Check, Info,
 } from '../components/Icons'
-import { RATES, CURRENCIES } from '../data'
 import { useTrip } from '../TripProvider'
-
-const SYMBOL = { EUR: '€', USD: '$', CZK: 'Kč', THB: '฿', GBP: '£', AED: 'د.إ', CHF: 'Fr', ILS: '₪' }
+import { SUPPORTED, SYMBOL, localCurrency, fetchRates } from '../lib/currency'
 
 const fmt = (n) =>
   n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 export default function Finance() {
-  const { families: FAMILIES } = useTrip()
+  const { families: FAMILIES, trip } = useTrip()
   // Every traveller is a member of exactly one party.
   // "You" are the first member of the first party.
   // Members carry the names entered during onboarding.
@@ -28,16 +26,48 @@ export default function Finance() {
   )
   const ME = MEMBERS[0]?.id ?? null
   /* ---- converter ---- */
-  const [from, setFrom] = useState('EUR')
+
+  // The currency you will actually be handing over at the destination.
+  const local = useMemo(
+    () => localCurrency(trip?.country ?? '', trip?.city ?? ''),
+    [trip?.country, trip?.city]
+  )
+
+  const [from, setFrom] = useState(local)
   const [to, setTo] = useState('ILS')
   const [amount, setAmount] = useState('100')
   const [spin, setSpin] = useState(false)
+  const [rates, setRates] = useState(null)
+  const [ratesError, setRatesError] = useState(false)
 
-  // Everything is quoted against ILS, so cross-rates go through it.
-  const rate = useMemo(() => RATES[from] / RATES[to], [from, to])
+  // Follow the destination unless the user has picked something else.
+  const [touched, setTouched] = useState(false)
+  useEffect(() => {
+    if (!touched) setFrom(local)
+  }, [local, touched])
+
+  // Live rates, quoted against ILS so every cross-rate goes through one base.
+  useEffect(() => {
+    let cancelled = false
+    fetchRates('ILS').then((r) => {
+      if (cancelled) return
+      setRates(r)
+      setRatesError(r === null)
+    })
+    return () => { cancelled = true }
+  }, [])
+
+  const rate = useMemo(() => {
+    if (!rates) return null
+    const f = rates.rates[from]
+    const t = rates.rates[to]
+    // rates are per 1 ILS, so ILS-per-unit is the reciprocal.
+    return f && t ? t / f : null
+  }, [rates, from, to])
+
   const converted = useMemo(() => {
     const n = parseFloat(amount)
-    return Number.isFinite(n) ? n * rate : 0
+    return Number.isFinite(n) && rate != null ? n * rate : 0
   }, [amount, rate])
 
   const swap = () => {
@@ -144,10 +174,10 @@ export default function Finance() {
               <select
                 className="cur-select"
                 value={from}
-                onChange={(e) => setFrom(e.target.value)}
+                onChange={(e) => { setFrom(e.target.value); setTouched(true) }}
                 aria-label="מטבע מקור"
               >
-                {CURRENCIES.map((c) => (
+                {SUPPORTED.map((c) => (
                   <option key={c} value={c}>{c} ({SYMBOL[c]})</option>
                 ))}
               </select>
@@ -167,16 +197,39 @@ export default function Finance() {
                 onChange={(e) => setTo(e.target.value)}
                 aria-label="מטבע יעד"
               >
-                {CURRENCIES.map((c) => (
+                {SUPPORTED.map((c) => (
                   <option key={c} value={c}>{c} ({SYMBOL[c]})</option>
                 ))}
               </select>
             </div>
 
+            {/* rate is null until the feed answers, and stays null if it
+                never does — showing a stale number would be worse. */}
             <p className="tiny" style={{ marginTop: 12 }}>
-              שער יציג:{' '}
-              <span className="num">1 {from} = {rate.toFixed(3)} {to}</span>
+              {rate != null ? (
+                <>
+                  שער יציג:{' '}
+                  <span className="num">1 {from} = {rate.toFixed(3)} {to}</span>
+                  {rates?.date && <> · עודכן <span className="num">{rates.date}</span></>}
+                </>
+              ) : ratesError ? (
+                <span style={{ color: 'var(--amber)' }}>
+                  שערי ההמרה לא נטענו. בדוק חיבור לאינטרנט.
+                </span>
+              ) : (
+                'טוען שערים...'
+              )}
             </p>
+
+            {trip && !touched && (
+              <div className="row" style={{ alignItems: 'flex-start', gap: 8, marginTop: 10 }}>
+                <span style={{ color: 'var(--muted)' }}><Info size={13} /></span>
+                <span className="tiny">
+                  <strong className="ltr">{from}</strong> הוא המטבע ב{trip.city}.
+                  אפשר לשנות אם צריך.
+                </span>
+              </div>
+            )}
           </section>
         </div>
 

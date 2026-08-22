@@ -1,13 +1,13 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import TopBar from '../components/TopBar'
 import {
-  Sparkles, Plus, X, ArrowUp, ArrowDown, RefreshCw, Clock, Ticket, Phone,
+  Sparkles, Plus, X, ArrowUp, ArrowDown, RefreshCw, Clock, Ticket, Phone, MapPin,
 } from '../components/Icons'
 import { CATEGORIES } from '../data'
 import BookingSheet from '../components/BookingSheet'
 import { useTrip } from '../TripProvider'
 import { hasAI, complete, parseRows } from '../lib/gemini'
-import { geocode } from '../lib/geocode'
+import { geocode, search } from '../lib/geocode'
 import { breadcrumb, watchdog } from '../lib/telemetry'
 
 const CAT_FROM_WORD = (w = '') => {
@@ -21,7 +21,7 @@ export default function Days() {
   const {
     trip, days, activeDay, setActiveDay, stops,
     planning, planWarning, plan, moveStop, addStop, removeStop,
-    reservations, removeReservation,
+    reservations, removeReservation, moveStopToDay,
   } = useTrip()
 
   const [suggestions, setSuggestions] = useState([])
@@ -29,6 +29,16 @@ export default function Days() {
   const [error, setError] = useState(null)
   const [adding, setAdding] = useState(null)
   const [booking, setBooking] = useState(null)
+
+  /* ---- manual stop entry ---- */
+  const [manualName, setManualName] = useState('')
+  const [manualTime, setManualTime] = useState('10:00')
+  const [manualCat, setManualCat] = useState('landmark')
+  const [placeHits, setPlaceHits] = useState([])
+  const [placeLoading, setPlaceLoading] = useState(false)
+  const [picked, setPicked] = useState(null)
+  const [locating, setLocating] = useState(false)
+  const placeTimer = useRef(null)
 
   if (!trip) return null
 
@@ -66,6 +76,60 @@ export default function Days() {
       done()
       setAsking(false)
     }
+  }
+
+  /** Debounced place lookup, scoped to the destination city. */
+  const lookupPlace = (text) => {
+    clearTimeout(placeTimer.current)
+    setPicked(null)
+
+    if (text.trim().length < 3) {
+      setPlaceHits([])
+      setPlaceLoading(false)
+      return
+    }
+
+    setPlaceLoading(true)
+    placeTimer.current = setTimeout(async () => {
+      const hits = await search(`${text}, ${trip.city}`, 5)
+      setPlaceHits(hits)
+      setPlaceLoading(false)
+    }, 500)
+  }
+
+  /**
+   * Adds whatever the user typed. A suggestion already carries coordinates;
+   * free text gets geocoded first, and goes in without a position rather than
+   * being rejected — a stop with a time and a name is still useful, it just
+   * will not appear on the map.
+   */
+  const addManual = async () => {
+    const name = manualName.trim()
+    if (!name) return
+
+    let hit = picked
+    if (!hit) {
+      setLocating(true)
+      hit = await search(`${name}, ${trip.city}`, 1).then((r) => r[0] ?? null)
+      setLocating(false)
+    }
+
+    addStop(activeDay, {
+      name: hit?.name ?? name,
+      he: name,
+      desc: hit?.label ?? '',
+      time: manualTime,
+      cat: manualCat,
+      rating: null,
+      lat: hit?.lat ?? null,
+      lng: hit?.lng ?? null,
+      who: [],
+    })
+
+    if (!hit) setError(`"${name}" נוסף ללו"ז אבל לא אותר על המפה.`)
+    setManualName('')
+    setPicked(null)
+    setPlaceHits([])
   }
 
   /** A suggestion only joins the day once it has a real position. */
@@ -209,15 +273,121 @@ export default function Days() {
                 </div>
 
                 <h3 className="h3" style={{ marginTop: 6 }}>{s.he}</h3>
-                <p className="tiny" style={{ margin: '4px 0 0' }}>{s.desc}</p>
+                <p className="tiny" style={{ margin: '4px 0 8px' }}>{s.desc}</p>
+
+                <div className="row" style={{ gap: 8 }}>
+                  {s.lat == null && (
+                    <span className="tiny" style={{ color: 'var(--amber)' }}>לא על המפה</span>
+                  )}
+                  {trip.totalDays > 1 && (
+                    <label className="row" style={{ gap: 6, marginInlineStart: 'auto' }}>
+                      <span className="tiny">העבר ליום</span>
+                      <select
+                        className="day-move"
+                        value={activeDay}
+                        onChange={(e) => moveStopToDay(activeDay, s.id, Number(e.target.value))}
+                        aria-label={`העבר את ${s.he} ליום אחר`}
+                      >
+                        {dayList.map((d) => (
+                          <option key={d} value={d}>
+                            {d === activeDay ? `יום ${d} (כאן)` : `יום ${d}`}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+                </div>
               </div>
             </li>
           ))}
         </ol>
 
-        {/* Add more */}
+        {/* Add manually */}
         <div className="section-head" style={{ marginBottom: 12 }}>
-          <h2 className="h2" style={{ fontSize: 15 }}>להוסיף עוד</h2>
+          <h2 className="h2" style={{ fontSize: 15 }}>הוסף יעד בעצמך</h2>
+        </div>
+
+        <div className="card" style={{ marginBottom: 20 }}>
+          <div className="autocomplete">
+            <div className="row field-row">
+              <MapPin size={17} />
+              <input
+                className="field-bare"
+                value={manualName}
+                onChange={(e) => { setManualName(e.target.value); lookupPlace(e.target.value) }}
+                placeholder="שם המקום"
+                aria-label="שם היעד"
+                autoComplete="off"
+              />
+              {placeLoading && <span className="typing"><i /><i /><i /></span>}
+            </div>
+
+            {placeHits.length > 0 && (
+              <ul className="suggestions" role="listbox">
+                {placeHits.map((h) => (
+                  <li key={`${h.lat},${h.lng}`}>
+                    <button onClick={() => { setPicked(h); setManualName(h.name); setPlaceHits([]) }}>
+                      <MapPin size={14} />
+                      <span className="grow">
+                        <strong>{h.name}</strong>
+                        <span className="tiny stay-address">{h.label}</span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="row" style={{ gap: 10, marginTop: 11 }}>
+            <label style={{ flex: '0 0 108px' }}>
+              <span className="label">שעה</span>
+              <input
+                type="time"
+                className="field"
+                value={manualTime}
+                onChange={(e) => setManualTime(e.target.value)}
+              />
+            </label>
+            <label className="grow">
+              <span className="label">קטגוריה</span>
+              <select
+                className="field"
+                value={manualCat}
+                onChange={(e) => setManualCat(e.target.value)}
+              >
+                {Object.entries(CATEGORIES).map(([id, c]) => (
+                  <option key={id} value={id}>{c.label}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          {picked && (
+            <p className="tiny" style={{ marginTop: 10 }}>
+              נמצא: <span className="num">{picked.lat.toFixed(4)}, {picked.lng.toFixed(4)}</span>
+            </p>
+          )}
+
+          <button
+            className="btn btn-primary btn-block btn-sm"
+            style={{ marginTop: 12 }}
+            onClick={addManual}
+            disabled={!manualName.trim() || locating}
+          >
+            {locating ? <span className="typing"><i /><i /><i /></span> : <Plus size={15} />}
+            הוסף ליום {activeDay}
+          </button>
+
+          <p className="tiny" style={{ marginTop: 10 }}>
+            בחירה מהרשימה מצמידה מיקום מדויק. אפשר גם להקליד שם חופשי — נחפש אותו
+            לפני ההוספה, ואם לא יימצא הוא לא ייכנס למפה.
+          </p>
+        </div>
+
+        {/* Add from the agent */}
+        <div className="section-head" style={{ marginBottom: 12 }}>
+          <h2 className="h2" style={{ fontSize: 15 }}>או שהסוכן יציע</h2>
         </div>
 
         {hasAI ? (

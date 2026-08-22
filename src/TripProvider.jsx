@@ -134,6 +134,27 @@ export function TripProvider({ children }) {
   const removeStop = (day, id) =>
     setDayStops(day, (days[day] ?? []).filter((s) => s.id !== id))
 
+  /** Moves one stop to another day, keeping both days in time order. */
+  const moveStopToDay = (fromDay, id, toDay) => {
+    if (fromDay === toDay) return
+    const stop = (days[fromDay] ?? []).find((s) => s.id === id)
+    if (!stop) return
+
+    const remaining = (days[fromDay] ?? []).filter((s) => s.id !== id)
+    const target = [...(days[toDay] ?? []), stop].sort((a, b) =>
+      String(a.time).localeCompare(String(b.time))
+    )
+
+    breadcrumb('action', `move stop ${fromDay} -> ${toDay}`)
+    // One state update for both days, so the UI never shows the stop twice
+    // or missing in between.
+    setDays((d) => ({ ...d, [fromDay]: remaining, [toDay]: target }))
+    if (trip) {
+      saveRoute(trip.id, { day: fromDay, city: trip.city, stops: remaining })
+      saveRoute(trip.id, { day: toDay, city: trip.city, stops: target })
+    }
+  }
+
   /* ---- reservations ---- */
 
   const [reservations, setReservations] = useState([])
@@ -194,6 +215,7 @@ export function TripProvider({ children }) {
     moveStop,
     addStop,
     removeStop,
+    moveStopToDay,
     reservations,
     addReservation,
     removeReservation,

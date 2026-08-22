@@ -6,14 +6,8 @@ import {
 } from '../components/Icons'
 import { headCount } from '../data'
 import { useTrip } from '../TripProvider'
+import PlacePhoto from '../components/PlacePhoto'
 
-/** Thumbnails stand in for photography — swap the gradients for real <img>. */
-const THUMB = {
-  1: 'linear-gradient(150deg, #4A2C12, #1A1208 70%), radial-gradient(circle at 30% 40%, #C77B2E, transparent 60%)',
-  2: 'linear-gradient(150deg, #16283F, #0A1220 70%), radial-gradient(circle at 65% 35%, #3B7FC4, transparent 60%)',
-  3: 'linear-gradient(150deg, #1D3320, #0C1610 70%), radial-gradient(circle at 40% 50%, #4F9E5C, transparent 60%)',
-  4: 'linear-gradient(150deg, #3A2450, #140F22 70%), radial-gradient(circle at 55% 45%, #A855F7, transparent 60%)',
-}
 
 export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood }) {
   // "all" shows the shared itinerary; picking a party narrows it to the stops
@@ -137,9 +131,7 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood 
                 <span style={{ color: 'var(--muted-2)' }}><Bookmark size={15} /></span>
               </div>
 
-              <div className="thumb" style={{ background: THUMB[((s.id - 1) % 4) + 1] }}>
-                <span className="thumb-title">{s.name}</span>
-              </div>
+              <PlacePhoto name={s.name} cat={s.cat} title={s.name} />
 
               <p className="tiny" style={{ margin: '0 0 10px' }}>{s.desc}</p>
 
