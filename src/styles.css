@@ -910,6 +910,14 @@ input, select, textarea { font: inherit; color: inherit; }
     background: rgba(13, 12, 20, 0.6);
     border-inline-start: none;
     border-inline-end: 1px solid var(--border);
+    /* The rail's own content — brand, eight nav items, account, debug — runs
+       taller than a shorter browser window. `.app` clips overflow, and
+       without its own scroll the bottom items (account, debug) simply fell
+       past the edge with no way to reach them. `min-height: 0` is required
+       alongside it: a flex child defaults to a minimum height equal to its
+       content, which silences overflow on the container itself. */
+    overflow-y: auto;
+    min-height: 0;
   }
   .rail-brand {
     font-size: 19px; font-weight: 700; letter-spacing: -0.3px;
@@ -1364,7 +1372,12 @@ input, select, textarea { font: inherit; color: inherit; }
   background: linear-gradient(180deg, var(--ink-2), var(--ink));
   box-shadow: var(--shadow-sm);
 }
-.rail-brand { background: linear-gradient(120deg, var(--gold), var(--accent)); }
+/* background-image, not the `background` shorthand — see the identical
+   .wordmark-ai fix above. The shorthand resets background-clip to
+   border-box, so the gradient painted a solid block over "TripAI" instead
+   of filling the letters, with the (still-transparent) text invisible on
+   top of it. */
+.rail-brand { background-image: linear-gradient(120deg, var(--gold), var(--accent)); }
 
 /* Hero and chat surfaces were dark gradients. */
 .hero {

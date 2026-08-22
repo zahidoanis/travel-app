@@ -131,6 +131,7 @@ function Shell() {
                     onOpenChat={() => go('chat')}
                     onOpenDays={() => go('days')}
                     onOpenFood={() => go('food')}
+                    onOpenArrival={() => go('arrival')}
                   />
                 )}
                 {tab === 'map' && <MapScreen />}
