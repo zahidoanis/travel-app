@@ -82,7 +82,29 @@ body {
 button { font: inherit; color: inherit; cursor: pointer; border: none; background: none; padding: 0; }
 input, select, textarea { font: inherit; color: inherit; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 8px; }
-::-webkit-scrollbar { width: 0; height: 0; }
+/* A scrollbar is how a desktop says "there is more below this". Hiding every
+   one of them globally — which is what a bare `::-webkit-scrollbar { width: 0 }`
+   did here — made every screen look like it ended at the fold, with no way to
+   tell the content was scrollable at all.
+   Phones draw their own overlay bar that fades out on its own, so the visible
+   one is scoped to devices that actually have a pointer. Horizontal carousels
+   opt back out below: there the bar is noise, and the cards already show they
+   continue past the edge. */
+@media (pointer: fine) {
+  * { scrollbar-width: thin; scrollbar-color: var(--muted-2) transparent; }
+  ::-webkit-scrollbar { width: 11px; height: 11px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: var(--muted-2);
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); background-clip: content-box; }
+}
+@media (pointer: coarse) {
+  ::-webkit-scrollbar { width: 0; height: 0; }
+}
 
 /* ---------- Device shell ---------- */
 
@@ -165,6 +187,12 @@ input, select, textarea { font: inherit; color: inherit; }
   /* Content stays readable instead of stretching to 2000px. */
   .pad,
   .screen > .topbar { max-width: 1080px; margin-inline: auto; width: 100%; }
+
+  /* The thread is the one screen container that is not a `.pad`, so it was
+     the one that did stretch — bubbles ran the full width of the stage at a
+     line length nobody can read. 760px lines the messages up with the input
+     bar below them, which is capped at 720px. */
+  .chat-thread { max-width: 760px; margin-inline: auto; width: 100%; }
 
   .hscroll { max-width: 1080px; margin-inline: auto; }
 }
@@ -260,6 +288,8 @@ input, select, textarea { font: inherit; color: inherit; }
   padding-inline: 18px; padding-block: 2px 6px;
   scrollbar-width: none;
 }
+/* Overrides the visible bar the pointer:fine block turns on. */
+.hscroll::-webkit-scrollbar { width: 0; height: 0; }
 .hscroll > * { scroll-snap-align: center; flex: 0 0 auto; }
 
 /* ---------- Top bar ---------- */
@@ -677,7 +707,11 @@ input, select, textarea { font: inherit; color: inherit; }
 }
 @keyframes ripple { 0% { transform: scale(1); opacity: 0.85; } 100% { transform: scale(1.8); opacity: 0; } }
 
+/* Two columns is right on a phone. It held at every width though, so on a
+   desktop each photo stretched to ~500px — a gallery of billboards. Past the
+   phone breakpoint the count follows the available width instead. */
 .masonry { columns: 2; column-gap: 9px; }
+@media (min-width: 700px) { .masonry { columns: 220px; } }
 .photo {
   position: relative; display: block; width: 100%; padding: 0;
   break-inside: avoid; margin-bottom: 9px;
@@ -909,6 +943,15 @@ input, select, textarea { font: inherit; color: inherit; }
   }
   .hscroll > * { width: auto; }
   .timeline-card, .rec-card, .stop-card { width: auto; }
+
+  /* Chips are not cards. The grid above gives every child a 230px minimum,
+     which stretched the day picker and the party filter into a row of
+     oversized slabs. They wrap as a flex row instead, at their own size. */
+  .hscroll.chips {
+    display: flex; flex-wrap: wrap; overflow: visible;
+    grid-template-columns: none;
+  }
+  .hscroll.chips > * { flex: 0 0 auto; width: auto; }
 
   /* The map stays a carousel — it is bound to the pins. */
   .stop-deck .hscroll {
@@ -1597,12 +1640,19 @@ a.contact-row:hover { background: var(--tint-2); color: var(--text); }
 }
 
 /* Keep the floating bar and its clearance above the home indicator on iOS,
-   and off the on-screen keyboard's way. */
-.nav { inset-block-end: calc(12px + env(safe-area-inset-bottom)); }
-.chat-bar { inset-block-end: calc(var(--nav-h) + 6px + env(safe-area-inset-bottom)); }
-.fab { inset-block-end: calc(var(--nav-h) + 10px + env(safe-area-inset-bottom)); }
-.stop-deck { inset-block-end: calc(var(--nav-h) + 8px + env(safe-area-inset-bottom)); }
-.ai-overlay { inset-block-end: calc(96px + env(safe-area-inset-bottom)); }
+   and off the on-screen keyboard's way.
+   Scoped to below 1024px on purpose. These rules sit at the end of the file,
+   so unscoped they beat the desktop block far above them despite matching its
+   specificity — and every one of them reserves room for a bottom nav that
+   desktop hides. The chat bar and the FAB were floating ~94px off the bottom
+   edge with nothing under them. A desktop has no home indicator either. */
+@media (max-width: 1023px) {
+  .nav { inset-block-end: calc(12px + env(safe-area-inset-bottom)); }
+  .chat-bar { inset-block-end: calc(var(--nav-h) + 6px + env(safe-area-inset-bottom)); }
+  .fab { inset-block-end: calc(var(--nav-h) + 10px + env(safe-area-inset-bottom)); }
+  .stop-deck { inset-block-end: calc(var(--nav-h) + 8px + env(safe-area-inset-bottom)); }
+  .ai-overlay { inset-block-end: calc(96px + env(safe-area-inset-bottom)); }
+}
 
 @media (max-width: 699px) {
   /* Five labels across a narrow phone need the room. */

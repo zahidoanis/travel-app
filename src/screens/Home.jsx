@@ -75,7 +75,7 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood 
         </button>
       </div>
 
-      <div className="hscroll" style={{ paddingBlock: 0 }}>
+      <div className="hscroll chips" style={{ paddingBlock: 0 }}>
         <button className={`pill ${party === 'all' ? 'on' : ''}`} onClick={() => setParty('all')}>
           כולם (<span className="num">{headCount(FAMILIES.map((f) => f.id), FAMILIES)}</span>)
         </button>

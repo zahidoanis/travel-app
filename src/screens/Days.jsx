@@ -169,7 +169,7 @@ export default function Days() {
       </div>
 
       {/* Day selector */}
-      <div className="hscroll" style={{ marginTop: 18 }}>
+      <div className="hscroll chips" style={{ marginTop: 18 }}>
         {dayList.map((d) => {
           const count = days[d]?.length ?? 0
           return (

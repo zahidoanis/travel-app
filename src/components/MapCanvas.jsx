@@ -1,9 +1,14 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { CATEGORIES } from '../data'
 import { buildStaticMapUrl, hasMapsKey } from '../lib/staticMap'
 import { PROVIDERS, TILE_SIZE, project, tileRange, tilesIn } from '../lib/tiles'
 
-/** Layout viewport used to decide how many tiles to fetch. */
+/**
+ * Fallback viewport used to decide how many tiles to fetch, before the real
+ * container has been measured. It used to be the only answer, which meant a
+ * desktop — where the map stage is three times this wide — fetched a
+ * phone-shaped strip of tiles and left blank ground either side of it.
+ */
 const VIEW = { width: 430, height: 932 }
 
 /** Neighbourhood-level zoom: street names legible, a few blocks in frame. */
@@ -40,6 +45,29 @@ export default function MapCanvas({ stops, activeId, onPinClick, provider = 'car
   const active = stops.find((s) => s.id === activeId) ?? stops[0]
   const src = PROVIDERS[provider] ?? PROVIDERS.cartoLight
 
+  // Measure the frame rather than assuming a phone. Rounding to whole tiles
+  // keeps this from re-fetching on every pixel of a window drag.
+  const frame = useRef(null)
+  const [view, setView] = useState(VIEW)
+
+  useEffect(() => {
+    const el = frame.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+
+    const ro = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect
+      if (!width || !height) return
+      setView((prev) => {
+        const snap = (n) => Math.ceil(n / TILE_SIZE) * TILE_SIZE
+        const next = { width: snap(width), height: snap(height) }
+        return next.width === prev.width && next.height === prev.height ? prev : next
+      })
+    })
+
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
   const layout = useMemo(() => {
     // The frame follows one stop at a time, so zoom is a design constant rather
     // than something fitted to the whole route — fitting all of Paris lands on
@@ -60,8 +88,8 @@ export default function MapCanvas({ stops, activeId, onPinClick, provider = 'car
       y: Math.max(...pts.map((p) => Math.abs(p.y - anchor.y))),
     }
 
-    return { z, pts, anchor, tiles: tilesIn(tileRange(anchor, spread, VIEW, z)) }
-  }, [stops, src.maxZoom])
+    return { z, pts, anchor, tiles: tilesIn(tileRange(anchor, spread, view, z)) }
+  }, [stops, src.maxZoom, view])
 
   const { z, pts, anchor, tiles } = layout
   const center = project(active.lat, active.lng, z)
@@ -104,7 +132,7 @@ export default function MapCanvas({ stops, activeId, onPinClick, provider = 'car
   }
 
   return (
-    <div className="map-canvas">
+    <div className="map-canvas" ref={frame}>
       <div
         className="map-pan"
         style={{ transform: `translate(${shift.x}px, ${shift.y}px)` }}
