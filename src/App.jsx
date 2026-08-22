@@ -33,10 +33,12 @@ export default function App() {
 }
 
 function Shell() {
-  const { isReal, completeOnboarding, loading, user, syncState, skipWelcome } = useTrip()
+  const {
+    isReal, completeOnboarding, loading, user, syncState, skipWelcome,
+    accountOpen, openAccount, closeAccount,
+  } = useTrip()
   const [tab, setTab] = useState('home')
   const [started, setStarted] = useState(false)
-  const [accountOpen, setAccountOpen] = useState(false)
   const [debug, setDebug] = useState(
     () => new URLSearchParams(location.search).get('debug') === '1'
   )
@@ -106,7 +108,7 @@ function Shell() {
                   <span>{label}</span>
                 </button>
               ))}
-              <button className="rail-item" onClick={() => setAccountOpen(true)}>
+              <button className="rail-item" onClick={openAccount}>
                 <span className="rail-glyph">
                   {user && !user.anonymous && user.photo
                     ? <img src={user.photo} alt="" className="rail-photo" />
@@ -142,7 +144,7 @@ function Shell() {
             </div>
 
             <BottomNav tab={tab} onChange={go} onDebug={() => setDebug(true)} />
-            <AccountSheet open={accountOpen} onClose={() => setAccountOpen(false)} />
+            <AccountSheet open={accountOpen} onClose={closeAccount} />
           </>
         )}
       </div>

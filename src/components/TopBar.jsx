@@ -1,4 +1,4 @@
-import { Bell, MapPin, Check, Cloud } from './Icons'
+import { Bell, MapPin, Check, Cloud, User } from './Icons'
 import { useTrip } from '../TripProvider'
 
 /**
@@ -7,11 +7,18 @@ import { useTrip } from '../TripProvider'
  *   "centered" — bell / destination / spacer   (map, gallery, chat)
  *   "brand"    — TripAI wordmark on the end edge (finance)
  *
+ * The account button rides in every variant, because it is the only door to
+ * the account sheet — switching trips, starting another one, signing in —
+ * and this is the one element every screen renders. It used to live only on
+ * Home, and only before signing in: once syncState left "device" the button
+ * that opened it disappeared with the card it was attached to, so a signed-in
+ * phone had no way back into the sheet at all.
+ *
  * The weather readout that used to sit here was invented — no provider is
  * wired up — so it is gone rather than showing a number nobody measured.
  */
 export default function TopBar({ variant = 'centered', floating = false, onBell }) {
-  const { trip, syncState } = useTrip()
+  const { trip, syncState, user, openAccount } = useTrip()
 
   const label = (
     <span className="topbar-title">
@@ -32,6 +39,21 @@ export default function TopBar({ variant = 'centered', floating = false, onBell 
     </span>
   )
 
+  const signedIn = user && !user.anonymous
+  const account = (
+    <button
+      className="icon-btn account-btn"
+      onClick={openAccount}
+      aria-label={signedIn ? 'החשבון שלך' : 'שמור טיול או התחל טיול נוסף'}
+    >
+      {signedIn && user.photo ? (
+        <img src={user.photo} alt="" className="topbar-photo" />
+      ) : (
+        <User size={18} />
+      )}
+    </button>
+  )
+
   if (variant === 'home') {
     return (
       <header className={`topbar ${floating ? 'floating' : ''}`}>
@@ -39,7 +61,10 @@ export default function TopBar({ variant = 'centered', floating = false, onBell 
           {pin}
           {label}
         </div>
-        <SyncBadge state={syncState} day={trip} />
+        <div className="row" style={{ gap: 8 }}>
+          <SyncBadge state={syncState} day={trip} />
+          {account}
+        </div>
       </header>
     )
   }
@@ -52,7 +77,10 @@ export default function TopBar({ variant = 'centered', floating = false, onBell 
           {pin}
           {label}
         </div>
-        <span className="brand">TripAI</span>
+        <div className="row" style={{ gap: 10 }}>
+          {account}
+          <span className="brand">TripAI</span>
+        </div>
       </header>
     )
   }
@@ -61,7 +89,10 @@ export default function TopBar({ variant = 'centered', floating = false, onBell 
     <header className={`topbar ${floating ? 'floating' : ''}`}>
       {pin}
       {label}
-      {bell}
+      <div className="row" style={{ gap: 8 }}>
+        {bell}
+        {account}
+      </div>
     </header>
   )
 }

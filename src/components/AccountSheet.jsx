@@ -141,6 +141,13 @@ export default function AccountSheet({ open, onClose }) {
             </p>
           )}
 
+          {/* First action in the sheet, not last — this is the one people
+              come back for once they already have a trip saved. */}
+          <button className="btn btn-primary btn-block" onClick={planAnother} style={{ marginBottom: 20 }}>
+            <Plus size={16} />
+            טיול נוסף
+          </button>
+
           {trips.length > 0 && (
             <>
               <span className="label"><Users size={13} /> הטיולים שלך</span>
@@ -164,11 +171,6 @@ export default function AccountSheet({ open, onClose }) {
               </div>
             </>
           )}
-
-          <button className="btn btn-primary btn-block" onClick={planAnother} style={{ marginBottom: 10 }}>
-            <Plus size={16} />
-            טיול נוסף
-          </button>
 
           <button className="btn btn-ghost btn-block" onClick={disconnect} disabled={busy}>
             <X size={16} />

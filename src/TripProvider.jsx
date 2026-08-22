@@ -85,6 +85,11 @@ export function TripProvider({ children }) {
   const [planWarning, setPlanWarning] = useState(null)
   const [syncing, setSyncing] = useState(false)
   const [skipWelcome, setSkipWelcome] = useState(false)
+  // Lives here rather than in a screen's own state so every screen can open
+  // it — it used to belong to Home alone, which meant switching or starting
+  // a trip was reachable only from the one place that happened to render the
+  // sheet, and only before signing in hid the button that opened it.
+  const [accountOpen, setAccountOpen] = useState(false)
   const stopWatch = useRef(null)
 
   const trip = useMemo(() => toTrip(raw), [raw])
@@ -309,6 +314,9 @@ export function TripProvider({ children }) {
     plan, moveStop, addStop, removeStop, moveStopToDay,
     reservations, addReservation, removeReservation,
     profile: raw, completeOnboarding, switchTrip, updateTrip, startNewTrip,
+    accountOpen,
+    openAccount: () => setAccountOpen(true),
+    closeAccount: () => setAccountOpen(false),
   }
 
   return <TripContext.Provider value={value}>{children}</TripContext.Provider>
