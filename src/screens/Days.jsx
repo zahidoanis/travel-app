@@ -10,6 +10,24 @@ import { hasAI, complete, parseRows } from '../lib/gemini'
 import { geocode, search } from '../lib/geocode'
 import { breadcrumb, watchdog } from '../lib/telemetry'
 
+/**
+ * The calendar date and weekday for one day of the trip, in Hebrew — "יום
+ * שלישי, 15 בספטמבר" — or null if no dates were given in onboarding.
+ *
+ * `trip.from` is a plain "YYYY-MM-DD" from a date input. Parsed through
+ * `new Date(string)` that reads as UTC midnight, and formatting it for a
+ * viewer west of Greenwich rolls it back to the previous local day — so it
+ * is built from the parts instead, as a local-midnight date, which is
+ * immune to the viewer's own timezone.
+ */
+function dateForDay(trip, day) {
+  if (!trip.from) return null
+  const [y, m, d] = trip.from.split('-').map(Number)
+  if (!y || !m || !d) return null
+  const date = new Date(y, m - 1, d + (day - 1))
+  return date.toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' })
+}
+
 const CAT_FROM_WORD = (w = '') => {
   if (/מוזיאון|גלריה/.test(w)) return 'museum'
   if (/מסעד|אוכל|קפה|שוק/.test(w)) return 'food'
@@ -172,6 +190,7 @@ export default function Days() {
       <div className="hscroll chips" style={{ marginTop: 18 }}>
         {dayList.map((d) => {
           const count = days[d]?.length ?? 0
+          const date = dateForDay(trip, d)
           return (
             <button
               key={d}
@@ -182,7 +201,9 @@ export default function Days() {
               <span className="day-chip-label">
                 יום {d}
                 <span className="tiny">
-                  {count > 0 ? <><span className="num">{count}</span> עצירות</> : 'ריק'}
+                  {date
+                    ? <>{date}{count > 0 && <> · <span className="num">{count}</span> עצירות</>}</>
+                    : count > 0 ? <><span className="num">{count}</span> עצירות</> : 'ריק'}
                 </span>
               </span>
             </button>
@@ -191,7 +212,12 @@ export default function Days() {
       </div>
 
       <div className="pad section-head">
-        <h2 className="h2" style={{ fontSize: 16 }}>יום {activeDay}</h2>
+        <span className="col" style={{ gap: 2 }}>
+          <h2 className="h2" style={{ fontSize: 16 }}>יום {activeDay}</h2>
+          {dateForDay(trip, activeDay) && (
+            <span className="tiny">{dateForDay(trip, activeDay)}</span>
+          )}
+        </span>
         <button
           className="icon-btn"
           style={{ width: 30, height: 30 }}
