@@ -1,13 +1,16 @@
 /**
- * Firebase bootstrap.
+ * Firebase bootstrap and identity.
  *
- * The SDK is loaded with dynamic import so it never enters the main bundle
- * when Firebase isn't configured — the app stays fully usable offline and
- * keyless, and only pays the ~250KB when there's actually a project to talk to.
+ * The SDK loads with dynamic import so it never enters the main bundle when
+ * Firebase isn't configured.
  *
- * Sign-in is anonymous: every device gets a stable uid with no signup form.
- * That's what lets security rules scope data per user without asking anyone to
- * create an account.
+ * Identity is a two-stage thing on purpose:
+ *
+ *   1. Everyone starts anonymous. No signup wall in front of the product —
+ *      you plan a trip first, and the trip is the reason to keep it.
+ *   2. Signing in with Google **links** that anonymous account rather than
+ *      replacing it, so everything created beforehand carries over. The uid
+ *      survives the upgrade, which is what makes "save this trip" honest.
  */
 
 const cfg = {
@@ -22,11 +25,9 @@ const cfg = {
 export const hasFirebase = Boolean(cfg.apiKey && cfg.projectId)
 
 let ready = null
+const listeners = new Set()
 
-/**
- * Resolves to { db, auth, uid, FS } once, or null when unconfigured.
- * `FS` carries the Firestore functions so callers don't each import them.
- */
+/** Resolves to { db, auth, uid, FS, AUTH } once, or null when unconfigured. */
 export function firebase() {
   if (!hasFirebase) return Promise.resolve(null)
   ready ??= connect()
@@ -35,37 +36,118 @@ export function firebase() {
 
 async function connect() {
   try {
-    const [{ initializeApp }, authMod, fsMod] = await Promise.all([
+    const [{ initializeApp }, AUTH, FS] = await Promise.all([
       import('firebase/app'),
       import('firebase/auth'),
       import('firebase/firestore'),
     ])
 
     const app = initializeApp(cfg)
-    const auth = authMod.getAuth(app)
-    const db = fsMod.getFirestore(app)
+    const auth = AUTH.getAuth(app)
+    const db = FS.getFirestore(app)
 
-    const uid = await new Promise((resolve, reject) => {
-      const stop = authMod.onAuthStateChanged(
+    const user = await new Promise((resolve, reject) => {
+      const stop = AUTH.onAuthStateChanged(
         auth,
-        (user) => {
-          if (user) {
+        (u) => {
+          if (u) {
             stop()
-            resolve(user.uid)
+            resolve(u)
           }
         },
         reject
       )
-      // No session yet — create an anonymous one.
-      authMod.signInAnonymously(auth).catch(reject)
+      AUTH.signInAnonymously(auth).catch(reject)
     })
 
-    return { app, auth, db, uid, FS: fsMod }
+    // Keep the app informed after the first resolution — a Google link
+    // changes displayName and isAnonymous without changing the uid.
+    AUTH.onAuthStateChanged(auth, (u) => {
+      for (const fn of listeners) {
+        try {
+          fn(describe(u))
+        } catch {
+          /* a broken listener must not break auth */
+        }
+      }
+    })
+
+    return { app, auth, db, uid: user.uid, FS, AUTH }
   } catch (err) {
     // A misconfigured project must not take the app down; callers treat null
-    // as "run locally". The error is still recorded by telemetry's console hook.
+    // as "run locally". Telemetry's console hook records the error.
     console.error('[firebase] connection failed:', err?.message ?? err)
     ready = null
     return null
   }
+}
+
+const describe = (u) =>
+  u
+    ? {
+        uid: u.uid,
+        anonymous: u.isAnonymous,
+        name: u.displayName ?? '',
+        email: u.email ?? '',
+        photo: u.photoURL ?? '',
+      }
+    : null
+
+/** Current identity, or null before Firebase resolves. */
+export async function currentUser() {
+  const fb = await firebase()
+  return fb ? describe(fb.auth.currentUser) : null
+}
+
+/** Notifies on sign-in, sign-out and account linking. Returns an unsubscribe. */
+export function onUser(fn) {
+  listeners.add(fn)
+  currentUser().then((u) => u && fn(u))
+  return () => listeners.delete(fn)
+}
+
+/**
+ * Upgrades the anonymous account to a Google one, keeping the uid and
+ * therefore every trip already created.
+ *
+ * If that Google account was already linked to a different anonymous session
+ * — signing in on a second device, which is the whole point — linking fails
+ * with `credential-already-in-use`. Then we sign in to the existing account
+ * instead, which is correct: that account already holds their trips.
+ */
+export async function signInWithGoogle() {
+  const fb = await firebase()
+  if (!fb) throw new Error('Firebase אינו מוגדר')
+
+  const { AUTH, auth } = fb
+  const provider = new AUTH.GoogleAuthProvider()
+  provider.setCustomParameters({ prompt: 'select_account' })
+
+  try {
+    const result = await AUTH.linkWithPopup(auth.currentUser, provider)
+    return { user: describe(result.user), merged: false }
+  } catch (err) {
+    if (
+      err?.code === 'auth/credential-already-in-use' ||
+      err?.code === 'auth/email-already-in-use'
+    ) {
+      const credential = AUTH.GoogleAuthProvider.credentialFromError(err)
+      const result = await AUTH.signInWithCredential(auth, credential)
+      // `merged` tells the UI this device joined an existing account, so it
+      // can say "your trips are here" rather than "saved".
+      return { user: describe(result.user), merged: true }
+    }
+    if (err?.code === 'auth/popup-closed-by-user') {
+      throw new Error('ההתחברות בוטלה')
+    }
+    throw new Error(err?.message ?? 'ההתחברות נכשלה')
+  }
+}
+
+/** Signs out and drops back to a fresh anonymous session. */
+export async function signOutUser() {
+  const fb = await firebase()
+  if (!fb) return
+  await fb.AUTH.signOut(fb.auth)
+  await fb.AUTH.signInAnonymously(fb.auth)
 }

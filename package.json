@@ -11,7 +11,9 @@
     "ai:smoke": "node scripts/ai-smoke.mjs",
     "fb:check": "node scripts/fb-check.mjs",
     "worker:check": "node scripts/worker-check.mjs",
-    "cities:build": "node scripts/build-cities.mjs"
+    "cities:build": "node scripts/build-cities.mjs",
+    "rules:deploy": "node scripts/deploy-rules.mjs",
+    "rules:check": "node scripts/rules-check.mjs"
   },
   "dependencies": {
     "firebase": "^12.18.0",

@@ -279,3 +279,15 @@ export const Car = make(
     <circle cx="16.5" cy="14.6" r="1" fill="currentColor" stroke="none" />
   </>
 )
+export const Cloud = make(
+  <>
+    <path d="M6.5 19.5h11a4.5 4.5 0 0 0 0-9 6.5 6.5 0 0 0-12.6 1.6A3.7 3.7 0 0 0 6.5 19.5Z" />
+    <path d="M3 3l18 18" />
+  </>
+)
+export const User = make(
+  <>
+    <circle cx="12" cy="8" r="4" />
+    <path d="M4.5 20.5a7.5 7.5 0 0 1 15 0" />
+  </>
+)

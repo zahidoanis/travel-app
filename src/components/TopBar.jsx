@@ -1,4 +1,4 @@
-import { Bell, MapPin } from './Icons'
+import { Bell, MapPin, Check, Cloud } from './Icons'
 import { useTrip } from '../TripProvider'
 
 /**
@@ -11,7 +11,7 @@ import { useTrip } from '../TripProvider'
  * wired up — so it is gone rather than showing a number nobody measured.
  */
 export default function TopBar({ variant = 'centered', floating = false, onBell }) {
-  const { trip } = useTrip()
+  const { trip, syncState } = useTrip()
 
   const label = (
     <span className="topbar-title">
@@ -39,11 +39,7 @@ export default function TopBar({ variant = 'centered', floating = false, onBell 
           {pin}
           {label}
         </div>
-        {trip && (
-          <span className="badge badge-live">
-            יום <span className="num">{trip.day}</span>/<span className="num">{trip.totalDays}</span>
-          </span>
-        )}
+        <SyncBadge state={syncState} day={trip} />
       </header>
     )
   }
@@ -67,5 +63,38 @@ export default function TopBar({ variant = 'centered', floating = false, onBell 
       {label}
       {bell}
     </header>
+  )
+}
+
+/**
+ * Says whether the user's work is safe. The badge that used to live here was
+ * decorative — it read "מסונכרן" whether anything was synced or not.
+ */
+function SyncBadge({ state, day }) {
+  if (state === 'saving') {
+    return (
+      <span className="badge badge-live" title="שומר שינויים">
+        <span className="typing"><i /><i /><i /></span>
+        שומר
+      </span>
+    )
+  }
+
+  if (state === 'synced') {
+    return (
+      <span className="badge badge-live" style={{ color: 'var(--emerald)' }} title="נשמר בענן">
+        <Check size={11} />
+        {day ? <>יום <span className="num">{day.day}</span>/<span className="num">{day.totalDays}</span></> : 'מסונכרן'}
+      </span>
+    )
+  }
+
+  // Not signed in, or no backend at all: the work lives on this device only,
+  // and that is worth saying out loud rather than implying otherwise.
+  return (
+    <span className="badge badge-live" style={{ color: 'var(--amber)' }} title="הטיול קיים על מכשיר זה בלבד">
+      <Cloud size={12} />
+      מכשיר זה בלבד
+    </span>
   )
 }

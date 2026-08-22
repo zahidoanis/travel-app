@@ -1,20 +1,23 @@
 /**
- * Data layer: profile, trips, routes, and the crash log sink.
+ * Data layer.
  *
- * Every function degrades to localStorage when Firebase isn't configured, so
- * the app behaves identically before and after you connect a project — you
- * just lose cross-device sync. That also means the UI never needs to branch on
- * "is Firebase set up", and it keeps working if the network drops.
+ * Trips are **not** owned by a user. They live at `trips/{tripId}` with a
+ * member list, because a trip is a shared thing by nature — the same document
+ * has to serve your laptop, your phone, and everyone you invited over
+ * WhatsApp. Storing it under `users/{uid}` made those three cases into three
+ * different problems; this makes them one.
  *
- * Firestore layout
- * ----------------
- *   users/{uid}                          profile: name, home currency, prefs
- *   users/{uid}/trips/{tripId}           city, dates, status, cover
- *   users/{uid}/trips/{tripId}/routes/{routeId}
- *                                        one day's ordered stops
- *   diagnostics/{uid}/events/{eventId}   crash + error log
+ *   users/{uid}                    profile + a pointer to the current trip
+ *   trips/{tripId}                 the trip, with memberIds[]
+ *   trips/{tripId}/routes/{day}    one document per day
+ *   diagnostics/{uid}/events/{id}  crash log
  *
- * Rules in firebase.rules scope every path to the signed-in uid.
+ * `memberIds` is an array alongside the `members` map because Firestore can
+ * query array membership but cannot query map keys.
+ *
+ * Rules in firebase.rules gate every trip path on that array. Everything here
+ * degrades to localStorage when Firebase isn't configured, so the UI never
+ * branches on whether a backend exists.
  */
 
 import { firebase, hasFirebase } from './firebase'
@@ -66,40 +69,24 @@ async function guarded(name, fn, fallback) {
 }
 
 /* ------------------------------------------------------------------ *
- * profile
+ * profile — small now: who you are and which trip you are looking at
  * ------------------------------------------------------------------ */
-
-export const DEFAULT_PROFILE = {
-  name: '',
-  homeCurrency: 'ILS',
-  styles: [],
-  budget: 'mid',
-  createdAt: null,
-}
 
 export function loadProfile() {
   return guarded(
     'loadProfile',
     async ({ db, uid, FS }) => {
-      const ref = FS.doc(db, 'users', uid)
-      const snap = await FS.getDoc(ref)
-      if (!snap.exists()) {
-        const fresh = { ...DEFAULT_PROFILE, createdAt: FS.serverTimestamp() }
-        await FS.setDoc(ref, fresh)
-        return { ...DEFAULT_PROFILE, uid }
-      }
-      return { ...DEFAULT_PROFILE, ...snap.data(), uid }
+      const snap = await FS.getDoc(FS.doc(db, 'users', uid))
+      return { ...(snap.exists() ? snap.data() : {}), uid }
     },
-    () => ({ ...DEFAULT_PROFILE, ...localGet('profile', {}), uid: 'local' })
+    () => ({ ...localGet('profile', {}), uid: 'local' })
   )
 }
 
 export function saveProfile(patch) {
-  breadcrumb('data', 'saveProfile')
   return guarded(
     'saveProfile',
     async ({ db, uid, FS }) => {
-      // merge:true so a partial update never wipes fields set elsewhere.
       await FS.setDoc(
         FS.doc(db, 'users', uid),
         { ...patch, updatedAt: FS.serverTimestamp() },
@@ -118,56 +105,130 @@ export function saveProfile(patch) {
  * trips
  * ------------------------------------------------------------------ */
 
+/** Short, human-speakable, and unguessable enough to act as the invite key. */
+function joinCode() {
+  const alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789' // no I/L/O/0/1
+  let out = ''
+  for (let i = 0; i < 8; i++) {
+    out += alphabet[Math.floor(Math.random() * alphabet.length)]
+    if (i === 3) out += '-'
+  }
+  return out
+}
+
+export function createTrip(details) {
+  breadcrumb('data', `createTrip ${details.destination}`)
+
+  return guarded(
+    'createTrip',
+    async ({ db, uid, FS }) => {
+      const ref = FS.doc(FS.collection(db, 'trips'))
+      const code = joinCode()
+
+      await FS.setDoc(ref, {
+        ...details,
+        id: ref.id,
+        code,
+        ownerId: uid,
+        members: { [uid]: 'owner' },
+        memberIds: [uid],
+        createdAt: FS.serverTimestamp(),
+        updatedAt: FS.serverTimestamp(),
+      })
+
+      await saveProfile({ currentTripId: ref.id })
+      return { id: ref.id, code }
+    },
+    () => {
+      const id = `local-${Date.now().toString(36)}`
+      const code = joinCode()
+      localSet(`trip.${id}`, { ...details, id, code, memberIds: ['local'] })
+      localSet('profile', { ...localGet('profile', {}), currentTripId: id })
+      return { id, code }
+    }
+  )
+}
+
+export function loadTrip(tripId) {
+  if (!tripId) return Promise.resolve(null)
+
+  return guarded(
+    'loadTrip',
+    async ({ db, FS }) => {
+      const snap = await FS.getDoc(FS.doc(db, 'trips', tripId))
+      return snap.exists() ? { id: snap.id, ...snap.data() } : null
+    },
+    () => localGet(`trip.${tripId}`, null)
+  )
+}
+
+export function saveTrip(tripId, patch) {
+  return guarded(
+    'saveTrip',
+    async ({ db, FS }) => {
+      await FS.setDoc(
+        FS.doc(db, 'trips', tripId),
+        { ...patch, updatedAt: FS.serverTimestamp() },
+        { merge: true }
+      )
+      return true
+    },
+    () => {
+      localSet(`trip.${tripId}`, { ...localGet(`trip.${tripId}`, {}), ...patch })
+      return false
+    }
+  )
+}
+
+/** Every trip this account belongs to, newest first. */
 export function listTrips() {
   return guarded(
     'listTrips',
     async ({ db, uid, FS }) => {
-      const q = FS.query(
-        FS.collection(db, 'users', uid, 'trips'),
-        FS.orderBy('startDate', 'desc'),
-        FS.limit(50)
+      const snap = await FS.getDocs(
+        FS.query(
+          FS.collection(db, 'trips'),
+          FS.where('memberIds', 'array-contains', uid),
+          FS.limit(30)
+        )
       )
-      const snap = await FS.getDocs(q)
-      return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-    },
-    () => localGet('trips', [])
-  )
-}
-
-export function saveTrip(trip) {
-  breadcrumb('data', `saveTrip ${trip.id ?? 'new'}`)
-  return guarded(
-    'saveTrip',
-    async ({ db, uid, FS }) => {
-      const id = trip.id ?? FS.doc(FS.collection(db, 'users', uid, 'trips')).id
-      await FS.setDoc(
-        FS.doc(db, 'users', uid, 'trips', id),
-        { ...trip, id, updatedAt: FS.serverTimestamp() },
-        { merge: true }
-      )
-      return id
+      return snap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0))
     },
     () => {
-      const id = trip.id ?? `t${Date.now()}`
-      const all = localGet('trips', []).filter((t) => t.id !== id)
-      localSet('trips', [{ ...trip, id, updatedAt: Date.now() }, ...all])
-      return id
+      const current = localGet('profile', {}).currentTripId
+      const one = current ? localGet(`trip.${current}`, null) : null
+      return one ? [one] : []
     }
   )
 }
 
-export function deleteTrip(tripId) {
-  breadcrumb('data', `deleteTrip ${tripId}`)
+/**
+ * Adds this account to an existing trip.
+ *
+ * The trip id is the secret — it travels in the WhatsApp link — so the rules
+ * let anyone holding it add themselves, and nothing else. That is the same
+ * security model as an unguessable share link, which is what it is.
+ */
+export function joinTrip(tripId) {
+  breadcrumb('data', `joinTrip ${tripId}`)
+
   return guarded(
-    'deleteTrip',
+    'joinTrip',
     async ({ db, uid, FS }) => {
-      await FS.deleteDoc(FS.doc(db, 'users', uid, 'trips', tripId))
-      return true
+      const ref = FS.doc(db, 'trips', tripId)
+
+      await FS.updateDoc(ref, {
+        [`members.${uid}`]: 'editor',
+        memberIds: FS.arrayUnion(uid),
+      })
+
+      await saveProfile({ currentTripId: tripId })
+      const snap = await FS.getDoc(ref)
+      return snap.exists() ? { id: snap.id, ...snap.data() } : null
     },
-    () => {
-      localSet('trips', localGet('trips', []).filter((t) => t.id !== tripId))
-      return false
-    }
+    () => null
   )
 }
 
@@ -176,14 +237,14 @@ export function deleteTrip(tripId) {
  * ------------------------------------------------------------------ */
 
 export function listRoutes(tripId) {
+  if (!tripId) return Promise.resolve([])
+
   return guarded(
     'listRoutes',
-    async ({ db, uid, FS }) => {
-      const q = FS.query(
-        FS.collection(db, 'users', uid, 'trips', tripId, 'routes'),
-        FS.orderBy('day', 'asc')
+    async ({ db, FS }) => {
+      const snap = await FS.getDocs(
+        FS.query(FS.collection(db, 'trips', tripId, 'routes'), FS.orderBy('day', 'asc'))
       )
-      const snap = await FS.getDocs(q)
       return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
     },
     () => localGet(`routes.${tripId}`, [])
@@ -191,34 +252,35 @@ export function listRoutes(tripId) {
 }
 
 export function saveRoute(tripId, route) {
-  breadcrumb('data', `saveRoute ${tripId}/${route.day}`)
+  if (!tripId) return Promise.resolve(false)
+
   return guarded(
     'saveRoute',
-    async ({ db, uid, FS }) => {
+    async ({ db, FS }) => {
       const id = route.id ?? `day-${route.day}`
       await FS.setDoc(
-        FS.doc(db, 'users', uid, 'trips', tripId, 'routes', id),
+        FS.doc(db, 'trips', tripId, 'routes', id),
         { ...route, id, updatedAt: FS.serverTimestamp() },
         { merge: true }
       )
-      return id
+      return true
     },
     () => {
       const id = route.id ?? `day-${route.day}`
       const all = localGet(`routes.${tripId}`, []).filter((r) => r.id !== id)
       localSet(`routes.${tripId}`, [...all, { ...route, id }].sort((a, b) => a.day - b.day))
-      return id
+      return false
     }
   )
 }
 
 /**
- * Live updates for a trip's routes. Returns an unsubscribe function.
- * Without Firebase it fires once with the local copy and then does nothing —
- * same contract, no realtime.
+ * Live updates for a trip's routes — this is what makes a shared trip feel
+ * shared: a stop someone else adds appears without a refresh.
+ * Returns an unsubscribe function.
  */
 export function watchRoutes(tripId, onChange) {
-  if (!hasFirebase) {
+  if (!hasFirebase || !tripId) {
     onChange(localGet(`routes.${tripId}`, []))
     return () => {}
   }
@@ -228,12 +290,9 @@ export function watchRoutes(tripId, onChange) {
 
   firebase().then((fb) => {
     if (!fb || cancelled) return
-    const { db, uid, FS } = fb
+    const { db, FS } = fb
     stop = FS.onSnapshot(
-      FS.query(
-        FS.collection(db, 'users', uid, 'trips', tripId, 'routes'),
-        FS.orderBy('day', 'asc')
-      ),
+      FS.query(FS.collection(db, 'trips', tripId, 'routes'), FS.orderBy('day', 'asc')),
       (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
       (err) => record({ kind: 'db', message: `watchRoutes: ${err.message}`, stack: err.stack })
     )
@@ -250,7 +309,7 @@ export function watchRoutes(tripId, onChange) {
  * ------------------------------------------------------------------ */
 
 /**
- * Mirrors crash-log entries to Firestore. Wired up by App on startup.
+ * Mirrors crash-log entries to Firestore.
  *
  * Deliberately a separate top-level collection: if the user's own documents
  * are what's broken, the error log must still be writable.

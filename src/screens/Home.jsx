@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 import TopBar from '../components/TopBar'
 import ShareSheet from '../components/ShareSheet'
+import AccountSheet from '../components/AccountSheet'
 import {
-  ArrowLeft, Sparkles, Bookmark, Clock, Share, Users, RefreshCw, Route, Utensils,
+  ArrowLeft, Sparkles, Bookmark, Clock, Share, Users, RefreshCw, Route, Utensils, Cloud, User,
 } from '../components/Icons'
 import { headCount } from '../data'
 import { useTrip } from '../TripProvider'
@@ -12,9 +13,12 @@ import PlacePhoto from '../components/PlacePhoto'
 export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood }) {
   // "all" shows the shared itinerary; picking a party narrows it to the stops
   // that party is actually attending.
-  const { trip: TRIP, stops: STOPS, families: FAMILIES, planning, planWarning, plan } = useTrip()
+  const {
+    trip: TRIP, stops: STOPS, families: FAMILIES, planning, planWarning, plan, syncState,
+  } = useTrip()
   const [party, setParty] = useState('all')
   const [shareOpen, setShareOpen] = useState(false)
+  const [accountOpen, setAccountOpen] = useState(false)
 
   const stops = useMemo(
     () => (party === 'all' ? STOPS : STOPS.filter((s) => s.who.includes(party))),
@@ -165,6 +169,21 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood 
         )}
       </div>
 
+      {/* Not signed in: the trip lives on this device only, and that is worth
+          saying where the value is visible rather than at the door. */}
+      {syncState === 'device' && (
+        <div className="pad" style={{ marginTop: 18 }}>
+          <button className="save-prompt" onClick={() => setAccountOpen(true)}>
+            <span className="save-icon"><Cloud size={17} /></span>
+            <span className="grow col" style={{ gap: 3, textAlign: 'start' }}>
+              <strong>שמור כדי לפתוח גם מהטלפון</strong>
+              <span className="tiny">הטיול קיים כרגע על המכשיר הזה בלבד</span>
+            </span>
+            <ArrowLeft size={17} />
+          </button>
+        </div>
+      )}
+
       {/* Recommendations come from the agent, which knows the real itinerary —
           there is no canned list to fall back on. */}
       <div className="pad" style={{ marginTop: 20 }}>
@@ -226,6 +245,7 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood 
       </div>
 
       <ShareSheet open={shareOpen} stops={STOPS} onClose={() => setShareOpen(false)} />
+      <AccountSheet open={accountOpen} onClose={() => setAccountOpen(false)} />
     </div>
   )
 }

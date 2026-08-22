@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import BottomNav, { TABS, RAIL_ONLY } from './components/BottomNav'
+import { User } from './components/Icons'
 import ErrorBoundary from './components/ErrorBoundary'
 import Welcome from './screens/Welcome'
 import Onboarding from './screens/Onboarding'
@@ -13,6 +14,7 @@ import Restaurants from './screens/Restaurants'
 import Arrival from './screens/Arrival'
 import Diagnostics from './screens/Diagnostics'
 import { TripProvider, useTrip } from './TripProvider'
+import AccountSheet from './components/AccountSheet'
 import { initTelemetry, breadcrumb, attachSink } from './lib/telemetry'
 import { hasFirebase } from './lib/firebase'
 import { pushDiagnostics } from './lib/db'
@@ -31,9 +33,10 @@ export default function App() {
 }
 
 function Shell() {
-  const { isReal, completeOnboarding, profile } = useTrip()
+  const { isReal, completeOnboarding, loading, user, syncState } = useTrip()
   const [tab, setTab] = useState('home')
   const [started, setStarted] = useState(false)
+  const [accountOpen, setAccountOpen] = useState(false)
   const [debug, setDebug] = useState(
     () => new URLSearchParams(location.search).get('debug') === '1'
   )
@@ -58,7 +61,7 @@ function Shell() {
   // is why the first load showed the error boundary and a retry looked fine:
   // by the second attempt anonymous auth was cached and the profile arrived
   // sooner. Wait for it instead.
-  if (profile === null) {
+  if (loading) {
     return (
       <div className="shell">
         <div className="app" dir="rtl">
@@ -99,6 +102,15 @@ function Shell() {
                   <span>{label}</span>
                 </button>
               ))}
+              <button className="rail-item" onClick={() => setAccountOpen(true)}>
+                <span className="rail-glyph">
+                  {user && !user.anonymous && user.photo
+                    ? <img src={user.photo} alt="" className="rail-photo" />
+                    : <User size={19} />}
+                </span>
+                <span>{user && !user.anonymous ? (user.name?.split(' ')[0] || 'החשבון') : 'שמור טיול'}</span>
+              </button>
+
               <button className="rail-item rail-debug" onClick={() => setDebug(true)}>
                 <span className="rail-glyph">🩺</span>
                 <span>אבחון</span>
@@ -126,6 +138,7 @@ function Shell() {
             </div>
 
             <BottomNav tab={tab} onChange={go} onDebug={() => setDebug(true)} />
+            <AccountSheet open={accountOpen} onClose={() => setAccountOpen(false)} />
           </>
         )}
       </div>
