@@ -40,8 +40,15 @@ export default function Finance() {
   // rather than silently mislabelling the destination's own currency.
   const localOk = isConvertible(local)
 
-  const [from, setFrom] = useState(localOk ? local : 'USD')
-  const [to, setTo] = useState('ILS')
+  // The amount you type is what you're carrying — shekels — so it starts on
+  // "from", with the destination's currency as the answer on "to". It used
+  // to be the other way around: typing "100" meant 100 of the destination's
+  // currency, and the shekel side only ever showed as the *output*. Someone
+  // who types "100 שקל" expecting to see it in euros got the euro amount
+  // converted into more shekels instead — a real number, just answering a
+  // question nobody asked.
+  const [from, setFrom] = useState('ILS')
+  const [to, setTo] = useState(localOk ? local : 'USD')
   const [amount, setAmount] = useState('100')
   const [spin, setSpin] = useState(false)
   const [rates, setRates] = useState(null)
@@ -50,7 +57,7 @@ export default function Finance() {
   // Follow the destination unless the user has picked something else.
   const [touched, setTouched] = useState(false)
   useEffect(() => {
-    if (!touched) setFrom(localOk ? local : 'USD')
+    if (!touched) setTo(localOk ? local : 'USD')
   }, [local, localOk, touched])
 
   // Live rates, quoted against ILS so every cross-rate goes through one base.
@@ -81,6 +88,9 @@ export default function Finance() {
     setSpin((s) => !s)
     setFrom(to)
     setTo(from)
+    // Otherwise the auto-follow effect immediately overwrites the swapped
+    // "to" back to the destination currency, undoing the swap on next render.
+    setTouched(true)
   }
 
   // Starts empty. Seeded expenses would show as real spending that nobody made.
@@ -214,7 +224,7 @@ export default function Finance() {
               <select
                 className="cur-select"
                 value={from}
-                onChange={(e) => { setFrom(e.target.value); setTouched(true) }}
+                onChange={(e) => setFrom(e.target.value)}
                 aria-label="מטבע מקור"
               >
                 {SUPPORTED.map((c) => (
@@ -234,7 +244,7 @@ export default function Finance() {
               <select
                 className="cur-select"
                 value={to}
-                onChange={(e) => setTo(e.target.value)}
+                onChange={(e) => { setTo(e.target.value); setTouched(true) }}
                 aria-label="מטבע יעד"
               >
                 {SUPPORTED.map((c) => (
@@ -269,7 +279,7 @@ export default function Finance() {
                 <span className="tiny">
                   {localOk ? (
                     <>
-                      <strong className="ltr">{from}</strong> הוא המטבע ב{trip.city}.
+                      <strong className="ltr">{to}</strong> הוא המטבע ב{trip.city}.
                       אפשר לשנות אם צריך.
                     </>
                   ) : (
