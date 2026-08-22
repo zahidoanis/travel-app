@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import {
   ArrowLeft, ArrowRight, Check, Mic, Bot, Plus, X, Users, MapPin, Calendar,
-  Bed, Sparkles, Info,
+  Bed, Sparkles, Info, Navigation,
 } from '../components/Icons'
 import { TRAVEL_STYLES, DESTINATIONS, PARTY_COLORS, CUISINES } from '../data'
 import { hasAI, complete, parseRows } from '../lib/gemini'
@@ -793,9 +793,16 @@ export default function Onboarding({ onDone }) {
                   <div className="col" style={{ gap: 10 }}>
                     {hotels.map((h) => {
                       const on = answers.stays.some((s) => s.name === h.name)
+                      // The agent knows which hotels exist. It does not know
+                      // what they cost on your dates — that number is an
+                      // estimate out of training data. So the card selects,
+                      // and a second link goes to a real price.
+                      const booking = `https://www.google.com/travel/search?q=${encodeURIComponent(
+                        `${h.name} ${answers.destinationEn ?? answers.destination}`
+                      )}`
                       return (
+                        <div key={h.name} className="hotel-choice">
                         <button
-                          key={h.name}
                           className={`choice ${on ? 'on' : ''}`}
                           style={{ padding: 14 }}
                           // Suggestions come back as names; pin the chosen one
@@ -824,7 +831,9 @@ export default function Onboarding({ onDone }) {
                               </span>
                               <span className="choice-sub">{h.area}</span>
                             </span>
-                            <span className="hotel-price num">{h.price}</span>
+                            {/* The tilde is the whole point: this is a guess,
+                                and it should not look like a quote. */}
+                            <span className="hotel-price num">≈ {h.price}</span>
                           </span>
                           <span className="choice-sub" style={{ marginTop: 8 }}>{h.reason}</span>
                           {on && (
@@ -833,11 +842,23 @@ export default function Onboarding({ onDone }) {
                             </span>
                           )}
                         </button>
+                        <a
+                          className="hotel-verify"
+                          href={booking}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          <Navigation size={12} />
+                          מחיר וזמינות אמיתיים
+                        </a>
+                        </div>
                       )
                     })}
                   </div>
                   <p className="tiny" style={{ marginTop: 12 }}>
-                    ההצעות נוצרו על ידי מודל שפה — ודא זמינות ומחיר לפני הזמנה.
+                    <Info size={12} /> המלונות אמיתיים — המחירים הם הערכה של מודל
+                    שפה, לא מחיר חי. לחץ "מחיר וזמינות אמיתיים" כדי לראות כמה זה
+                    עולה בתאריכים שלך.
                   </p>
                 </>
               )}

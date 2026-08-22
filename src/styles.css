@@ -1394,7 +1394,10 @@ input, select, textarea { font: inherit; color: inherit; }
   border: 1px solid rgba(160,120,63,0.28);
   box-shadow: var(--shadow);
 }
-.wordmark-ai { background: linear-gradient(120deg, var(--gold) 8%, var(--accent) 92%); }
+/* background-image, not the `background` shorthand: the shorthand resets
+   background-clip to border-box, and the gradient then paints the whole
+   inline box as a solid block sitting on top of the letters. */
+.wordmark-ai { background-image: linear-gradient(120deg, var(--gold) 8%, var(--accent) 92%); }
 .wordmark-rule { background: linear-gradient(90deg, transparent, rgba(160,120,63,0.55), transparent); }
 .welcome-features li { background: var(--card); box-shadow: var(--shadow-sm); }
 .welcome-feature-icon { background: var(--accent-soft); border-color: rgba(91,75,214,0.16); }
@@ -1724,3 +1727,18 @@ a.contact-row:hover { background: var(--tint-2); color: var(--text); }
   }
   .ai-overlay { margin-top: 24px; }
 }
+
+/* A hotel card is a choice plus a way out to a real price. The link sits
+   outside the button because a link inside a button is invalid markup and
+   swallows the click on some browsers. */
+.hotel-choice { display: flex; flex-direction: column; }
+.hotel-verify {
+  display: inline-flex; align-items: center; gap: 6px;
+  align-self: flex-end;
+  margin-block-start: 6px; padding: 6px 10px;
+  font-size: 12px; font-weight: 500;
+  color: var(--muted); text-decoration: none;
+  border-radius: 8px;
+  transition: color 0.15s var(--ease), background 0.15s var(--ease);
+}
+.hotel-verify:hover { color: var(--accent); background: var(--accent-soft); }
