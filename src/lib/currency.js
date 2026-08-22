@@ -9,7 +9,12 @@
 
 import { record } from './telemetry'
 
-const API = 'https://api.frankfurter.app/latest'
+// frankfurter.app moved to frankfurter.dev (and /latest -> /v1/latest). The
+// old domain still resolves, but as a 301 with no CORS header on the
+// redirect itself — a browser refuses to follow a cross-origin redirect
+// that isn't explicitly allowed, so fetch() failed outright with an opaque
+// "Failed to fetch" no matter how the request was built.
+const API = 'https://api.frankfurter.dev/v1/latest'
 
 /** Currencies the ECB feed covers. Anything outside falls back to EUR/USD. */
 export const SUPPORTED = [
