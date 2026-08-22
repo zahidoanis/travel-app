@@ -7,8 +7,9 @@ import {
 import { headCount } from '../data'
 import { useTrip } from '../TripProvider'
 import PlacePhoto from '../components/PlacePhoto'
-import { fetchWeather, GREETING } from '../lib/weather'
+import { fetchForecast, GREETING } from '../lib/weather'
 import { geocode } from '../lib/geocode'
+import WeatherSheet from '../components/WeatherSheet'
 
 
 export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood, onOpenArrival }) {
@@ -20,12 +21,14 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
   } = useTrip()
   const [party, setParty] = useState('all')
   const [shareOpen, setShareOpen] = useState(false)
-  const [weather, setWeather] = useState(null)
+  const [forecast, setForecast] = useState(null)
+  const [forecastOpen, setForecastOpen] = useState(false)
 
   // Real temperature and local time of day at the destination, not the
-  // visitor's own clock. Trips created before this existed have no stored
-  // coordinates, so a trip missing them is geocoded here once rather than
-  // left permanently without a reading.
+  // visitor's own clock — plus the rest of today and the coming week, so the
+  // forecast sheet has data the instant it opens. Trips created before this
+  // existed have no stored coordinates, so a trip missing them is geocoded
+  // here once rather than left permanently without a reading.
   useEffect(() => {
     if (!TRIP) return
     let cancelled = false
@@ -37,8 +40,8 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
         lat = hit?.lat ?? null
         lng = hit?.lng ?? null
       }
-      const w = await fetchWeather(lat, lng)
-      if (!cancelled) setWeather(w)
+      const f = await fetchForecast(lat, lng)
+      if (!cancelled) setForecast(f)
     })()
 
     return () => { cancelled = true }
@@ -63,7 +66,7 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
       <div className="pad">
         <section className="hero">
           <div className="between" style={{ alignItems: 'flex-start' }}>
-            <div className="hero-icon" aria-hidden="true">{weather?.icon ?? '☀️'}</div>
+            <div className="hero-icon" aria-hidden="true">{forecast?.now.icon ?? '☀️'}</div>
             <button
               className="icon-btn boxed"
               onClick={() => setShareOpen(true)}
@@ -77,15 +80,19 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
               placeholder greeting is fine, a wrong one (guessed from the
               visitor's own clock) is not. */}
           <h1 className="hero-title">
-            {weather ? `${GREETING[weather.period]}!` : 'שלום!'}
+            {forecast ? `${GREETING[forecast.now.period]}!` : 'שלום!'}
           </h1>
-          {weather && (
-            <span className="tiny row" style={{ gap: 5, marginTop: 2 }}>
-              <span aria-hidden="true">{weather.icon}</span>
-              <span className="num">{weather.tempC}°</span> ב{TRIP.city} עכשיו
-            </span>
+          {forecast && (
+            <button
+              className="tiny row"
+              style={{ gap: 5, marginTop: 2, textDecoration: 'underline', textUnderlineOffset: 3 }}
+              onClick={() => setForecastOpen(true)}
+            >
+              <span aria-hidden="true">{forecast.now.icon}</span>
+              <span className="num">{forecast.now.tempC}°</span> ב{TRIP.city} עכשיו · תחזית
+            </button>
           )}
-          <p className="sub" style={{ maxWidth: '92%', marginTop: weather ? 8 : undefined }}>
+          <p className="sub" style={{ maxWidth: '92%', marginTop: forecast ? 8 : undefined }}>
             {planning
               ? `הסוכן בונה עכשיו מסלול ל${TRIP.city}...`
               : `הנה התכנון ליום ${TRIP.day} ב${TRIP.city}, מותאם לסגנון שבחרת.`}
@@ -291,6 +298,12 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
       </div>
 
       <ShareSheet open={shareOpen} stops={STOPS} onClose={() => setShareOpen(false)} />
+      <WeatherSheet
+        open={forecastOpen}
+        onClose={() => setForecastOpen(false)}
+        forecast={forecast}
+        city={TRIP.city}
+      />
     </div>
   )
 }
