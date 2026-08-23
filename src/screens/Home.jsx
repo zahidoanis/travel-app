@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import TopBar from '../components/TopBar'
 import ShareSheet from '../components/ShareSheet'
 import {
-  ArrowLeft, Sparkles, Bookmark, Clock, Share, Users, RefreshCw, Route, Utensils, Cloud, Plane,
+  ArrowLeft, Sparkles, Bookmark, Clock, Share, Users, RefreshCw, Route, Utensils, Cloud, Plane, Note,
 } from '../components/Icons'
 import { headCount } from '../data'
 import { useTrip } from '../TripProvider'
@@ -10,6 +10,7 @@ import PlacePhoto from '../components/PlacePhoto'
 import { fetchForecast, GREETING } from '../lib/weather'
 import { geocode } from '../lib/geocode'
 import WeatherSheet from '../components/WeatherSheet'
+import NoteSheet from '../components/NoteSheet'
 
 
 export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood, onOpenArrival }) {
@@ -17,12 +18,13 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
   // that party is actually attending.
   const {
     trip: TRIP, stops: STOPS, families: FAMILIES, planning, planWarning, plan, syncState,
-    openAccount, openEdit,
+    openAccount, openEdit, addNote, updateNote, removeNote,
   } = useTrip()
   const [party, setParty] = useState('all')
   const [shareOpen, setShareOpen] = useState(false)
   const [forecast, setForecast] = useState(null)
   const [forecastOpen, setForecastOpen] = useState(false)
+  const [noteEditing, setNoteEditing] = useState(null)
 
   // Real temperature and local time of day at the destination, not the
   // visitor's own clock — plus the rest of today and the coming week, so the
@@ -101,6 +103,43 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
             התחל מסלול
           </button>
         </section>
+      </div>
+
+      {/* General trip notes — a driver's name, a booking code, anything
+          that isn't tied to one stop on the map and so has no other home.
+          Kept visible here rather than a tap away, since this is exactly
+          the screen someone lands on when they need the reminder. */}
+      <div className="pad" style={{ marginTop: 20 }}>
+        <div className="section-head" style={{ marginBottom: 10 }}>
+          <div className="row" style={{ gap: 8 }}>
+            <span style={{ color: 'var(--lav)' }}><Note size={17} /></span>
+            <h2 className="h2" style={{ fontSize: 16 }}>הערות</h2>
+          </div>
+          <button
+            onClick={() => setNoteEditing({ isNew: true })}
+            style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--lav)' }}
+          >
+            הוסף +
+          </button>
+        </div>
+
+        {TRIP.notes.length > 0 ? (
+          <div className="card" style={{ paddingBlock: 4 }}>
+            {TRIP.notes.map((n) => (
+              <button
+                key={n.id}
+                className="expense-row"
+                style={{ width: '100%', textAlign: 'start' }}
+                onClick={() => setNoteEditing({ isNew: false, id: n.id, text: n.text })}
+                aria-label="ערוך הערה"
+              >
+                <span className="tiny" style={{ lineHeight: 1.6 }}>{n.text}</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="tiny">אין עדיין הערות. לדוגמה: פרטי נהג, קוד לדירה, מספר הזמנה.</p>
+        )}
       </div>
 
       {/* Split the day by travel party */}
@@ -311,6 +350,21 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
         onClose={() => setForecastOpen(false)}
         forecast={forecast}
         city={TRIP.city}
+      />
+      <NoteSheet
+        open={noteEditing !== null}
+        isNew={noteEditing?.isNew ?? true}
+        initialText={noteEditing?.text}
+        onClose={() => setNoteEditing(null)}
+        onSave={async (text) => {
+          if (noteEditing?.isNew) await addNote(text)
+          else await updateNote(noteEditing.id, text)
+          setNoteEditing(null)
+        }}
+        onDelete={async () => {
+          await removeNote(noteEditing.id)
+          setNoteEditing(null)
+        }}
       />
     </div>
   )

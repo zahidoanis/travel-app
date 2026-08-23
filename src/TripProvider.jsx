@@ -56,6 +56,7 @@ function toTrip(raw) {
     cuisines: raw.cuisines ?? [],
     stays: raw.stays ?? [],
     flight: raw.flight ?? {},
+    notes: raw.notes ?? [],
     memberIds: raw.memberIds ?? [],
   }
 }
@@ -349,6 +350,29 @@ export function TripProvider({ children }) {
     setSyncing(false)
   }
 
+  /**
+   * Short, general-purpose notes about the trip — a driver's name, a booking
+   * code, anything that isn't tied to one stop on the map and so has no
+   * other home. A short list rather than one growing block of text, so an
+   * unrelated reminder doesn't get buried inside someone else's paragraph.
+   */
+  const addNote = (text) => {
+    const trimmed = text.trim()
+    if (!trimmed || !trip) return
+    return updateTrip({ notes: [...trip.notes, { id: `n${Date.now()}`, text: trimmed }] })
+  }
+
+  const updateNote = (id, text) => {
+    const trimmed = text.trim()
+    if (!trimmed || !trip) return
+    return updateTrip({ notes: trip.notes.map((n) => (n.id === id ? { ...n, text: trimmed } : n)) })
+  }
+
+  const removeNote = (id) => {
+    if (!trip) return
+    return updateTrip({ notes: trip.notes.filter((n) => n.id !== id) })
+  }
+
   const value = {
     user, trip, trips, loading, syncState, skipWelcome,
     stops, days, activeDay, setActiveDay,
@@ -356,6 +380,7 @@ export function TripProvider({ children }) {
     plan, moveStop, addStop, removeStop, moveStopToDay,
     reservations, addReservation, removeReservation,
     profile: raw, completeOnboarding, switchTrip, updateTrip, startNewTrip, joinByCode,
+    addNote, updateNote, removeNote,
     accountOpen,
     openAccount: () => setAccountOpen(true),
     closeAccount: () => setAccountOpen(false),
