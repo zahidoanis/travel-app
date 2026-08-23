@@ -36,17 +36,23 @@ const BED_GLYPH = [
   'M7.5 12V9.5A1.5 1.5 0 0 1 9 8h9a3 3 0 0 1 3 3v1',
 ]
 
-/** Name label with a solid halo behind it, so it reads over any tile colour
- *  without needing to measure text width for a background rect. */
+/** A long place name would otherwise stretch across half the map — one
+ *  label is not allowed to compete with the map itself for space. */
+const MAX_LABEL = 14
+const clip = (s) => (s.length > MAX_LABEL ? `${s.slice(0, MAX_LABEL - 1)}…` : s)
+
+/** Name label with a thin halo behind it, so it reads over any tile colour
+ *  without needing to measure text width for a background rect. Sized to
+ *  stay a caption next to the pin, not a headline over the map. */
 function PinLabel({ x, y, text, color, bold }) {
   const shared = {
     x, y, textAnchor: 'middle', fontFamily: 'Rubik, Heebo, sans-serif',
-    fontSize: bold ? 13.5 : 11.5, fontWeight: bold ? 700 : 600,
+    fontSize: bold ? 10 : 8.5, fontWeight: bold ? 700 : 600,
   }
   return (
     <g style={{ pointerEvents: 'none' }}>
-      <text {...shared} stroke="#fff" strokeWidth="4" strokeLinejoin="round">{text}</text>
-      <text {...shared} fill={color}>{text}</text>
+      <text {...shared} stroke="#fff" strokeWidth="2.5" strokeLinejoin="round">{clip(text)}</text>
+      <text {...shared} fill={color}>{clip(text)}</text>
     </g>
   )
 }
