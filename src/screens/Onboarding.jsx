@@ -85,9 +85,21 @@ const STEPS = [
 
 const today = new Date().toISOString().slice(0, 10)
 
-export default function Onboarding({ onDone }) {
-  const [step, setStep] = useState(0)
-
+/**
+ * `initial` + `startAt` + `editMode` turn the same wizard into an editor for
+ * an existing trip: seeded with its current answers instead of blank ones,
+ * opened on whichever question the caller wants rather than always "where",
+ * and free to leave from step 0 instead of being stuck there. `onDone` still
+ * receives the full answers either way — what happens with them (create a
+ * trip vs. save changes to one) is entirely the caller's decision, not
+ * something this component needs to know about.
+ */
+export default function Onboarding({ onDone, initial, startAt, editMode = false, onClose }) {
+  const [step, setStep] = useState(() => {
+    if (!startAt) return 0
+    const i = STEPS.findIndex((s) => s.id === startAt)
+    return i >= 0 ? i : 0
+  })
 
   const [answers, setAnswers] = useState({
     destination: '',
@@ -99,6 +111,7 @@ export default function Onboarding({ onDone }) {
     cuisines: ['local'],
     flight: { airline: '', number: '', arrivalAirport: '', date: '' },
     stays: [],
+    ...initial,
   })
 
   /* ---- destination autocomplete ---- */
@@ -293,6 +306,15 @@ export default function Onboarding({ onDone }) {
     else onDone({ ...answers, nights, travellers })
   }
 
+  // Editing is not linear the way first-time onboarding is — someone who
+  // opened this to fix one field should not have to click "הבא" through
+  // every step after it just to save. The primary button still advances
+  // normally for a full review; this is the way out at any point.
+  const saveNow = () => {
+    if (!canAdvance) return
+    onDone({ ...answers, nights, travellers })
+  }
+
   return (
     <>
       <div className="screen onboarding-screen">
@@ -300,11 +322,14 @@ export default function Onboarding({ onDone }) {
           <div className="between" style={{ marginBottom: 14 }}>
             <button
               className="icon-btn"
-              onClick={() => step > 0 && setStep(step - 1)}
-              aria-label="חזור"
-              disabled={step === 0}
+              onClick={() => {
+                if (step > 0) setStep(step - 1)
+                else if (editMode) onClose?.()
+              }}
+              aria-label={step === 0 && editMode ? 'סגור' : 'חזור'}
+              disabled={step === 0 && !editMode}
             >
-              <ArrowRight size={20} />
+              {step === 0 && editMode ? <X size={20} /> : <ArrowRight size={20} />}
             </button>
             <span className="tiny" style={{ fontWeight: 500 }}>
               שלב <span className="num">{step + 1}</span> מתוך{' '}
@@ -912,9 +937,19 @@ export default function Onboarding({ onDone }) {
           </p>
         )}
         <button className="btn btn-primary btn-block" onClick={next} disabled={!canAdvance}>
-          {step < STEPS.length - 1 ? 'הבא' : 'בוא נתחיל'}
+          {step < STEPS.length - 1 ? 'הבא' : editMode ? 'שמור שינויים' : 'בוא נתחיל'}
           <ArrowLeft size={18} />
         </button>
+        {editMode && step < STEPS.length - 1 && (
+          <button
+            className="btn btn-ghost btn-block"
+            onClick={saveNow}
+            disabled={!canAdvance}
+            style={{ marginTop: 8 }}
+          >
+            שמור וסגור
+          </button>
+        )}
       </div>
     </>
   )

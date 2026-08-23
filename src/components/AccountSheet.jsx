@@ -14,7 +14,7 @@ import { breadcrumb } from '../lib/telemetry'
  * exists, so the thing being protected is already visible.
  */
 export default function AccountSheet({ open, onClose }) {
-  const { user, trip, trips, switchTrip, startNewTrip, joinByCode } = useTrip()
+  const { user, trip, trips, switchTrip, startNewTrip, joinByCode, openEdit } = useTrip()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
   const [merged, setMerged] = useState(false)
@@ -62,6 +62,11 @@ export default function AccountSheet({ open, onClose }) {
     onClose()
   }
 
+  const editTrip = () => {
+    openEdit('where')
+    onClose()
+  }
+
   const joinNow = async () => {
     setJoining(true)
     setJoinError(null)
@@ -78,6 +83,9 @@ export default function AccountSheet({ open, onClose }) {
           <p className="sub" style={{ marginBottom: 18 }}>
             אחסון בענן אינו מוגדר. הטיול נשמר על המכשיר הזה בלבד.
           </p>
+          <button className="btn btn-ghost btn-block" onClick={editTrip} style={{ marginBottom: 10 }}>
+            ערוך פרטי טיול
+          </button>
           <button className="btn btn-primary btn-block" onClick={planAnother}>
             <Plus size={16} />
             תכנן טיול נוסף
@@ -114,6 +122,9 @@ export default function AccountSheet({ open, onClose }) {
           </div>
 
           <div style={{ borderTop: '1px solid var(--border)', marginTop: 20, paddingTop: 18 }}>
+            <button className="btn btn-ghost btn-block" onClick={editTrip} style={{ marginBottom: 10 }}>
+              ערוך פרטי טיול
+            </button>
             <button className="btn btn-ghost btn-block" onClick={planAnother}>
               <Plus size={16} />
               תכנן טיול נוסף בלי להתחבר
@@ -171,8 +182,11 @@ export default function AccountSheet({ open, onClose }) {
             </p>
           )}
 
-          {/* First action in the sheet, not last — this is the one people
+          {/* First actions in the sheet, not last — these are what people
               come back for once they already have a trip saved. */}
+          <button className="btn btn-ghost btn-block" onClick={editTrip} style={{ marginBottom: 10 }}>
+            ערוך פרטי טיול
+          </button>
           <button className="btn btn-primary btn-block" onClick={planAnother} style={{ marginBottom: 20 }}>
             <Plus size={16} />
             טיול נוסף

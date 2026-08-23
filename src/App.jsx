@@ -36,6 +36,7 @@ function Shell() {
   const {
     isReal, completeOnboarding, loading, user, syncState, skipWelcome,
     accountOpen, openAccount, closeAccount,
+    profile, updateTrip, editStep, closeEdit,
   } = useTrip()
   const [tab, setTab] = useState('home')
   const [started, setStarted] = useState(false)
@@ -71,6 +72,51 @@ function Shell() {
             <span className="boot-mark">Travel<span className="boot-ai">-AI</span></span>
             <span className="typing"><i /><i /><i /></span>
           </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Editing an existing trip reuses the onboarding wizard rather than a
+  // second form for the same fields — seeded with what's already saved,
+  // opened on whichever question the caller asked for, and free to leave
+  // early. Only reachable once a real trip exists, so `profile` here is
+  // always the trip being edited, never the pre-onboarding blank slate.
+  if (editStep) {
+    const editInitial = {
+      destination: profile.destination,
+      country: profile.country,
+      destinationEn: profile.destinationEn,
+      lat: profile.lat,
+      lng: profile.lng,
+      from: profile.from,
+      to: profile.to,
+      styles: profile.styles ?? [],
+      parties: profile.parties,
+      cuisines: profile.cuisines,
+      flight: profile.flight,
+      stays: profile.stays,
+    }
+    const saveEdit = async (answers) => {
+      const { nights, travellers, ...patch } = answers
+      await updateTrip(patch)
+      closeEdit()
+    }
+
+    return (
+      <div className="shell">
+        <div className="app" dir="rtl">
+          <ErrorBoundary scope="edit-trip">
+            <div className="onboarding">
+              <Onboarding
+                editMode
+                startAt={editStep}
+                initial={editInitial}
+                onDone={saveEdit}
+                onClose={closeEdit}
+              />
+            </div>
+          </ErrorBoundary>
         </div>
       </div>
     )

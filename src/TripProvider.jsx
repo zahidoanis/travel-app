@@ -93,6 +93,11 @@ export function TripProvider({ children }) {
   // a trip was reachable only from the one place that happened to render the
   // sheet, and only before signing in hid the button that opened it.
   const [accountOpen, setAccountOpen] = useState(false)
+  // Which onboarding step to reopen the trip editor on, or null when closed.
+  // A step id (not a plain boolean) so "edit who's traveling" from Home can
+  // land directly on that question instead of making someone click through
+  // destination and dates first.
+  const [editStep, setEditStep] = useState(null)
   const stopWatch = useRef(null)
 
   const trip = useMemo(() => toTrip(raw), [raw])
@@ -354,6 +359,9 @@ export function TripProvider({ children }) {
     accountOpen,
     openAccount: () => setAccountOpen(true),
     closeAccount: () => setAccountOpen(false),
+    editStep,
+    openEdit: (step = 'where') => setEditStep(step),
+    closeEdit: () => setEditStep(null),
   }
 
   return <TripContext.Provider value={value}>{children}</TripContext.Provider>

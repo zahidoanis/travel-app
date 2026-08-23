@@ -17,7 +17,7 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
   // that party is actually attending.
   const {
     trip: TRIP, stops: STOPS, families: FAMILIES, planning, planWarning, plan, syncState,
-    openAccount,
+    openAccount, openEdit,
   } = useTrip()
   const [party, setParty] = useState('all')
   const [shareOpen, setShareOpen] = useState(false)
@@ -109,12 +109,20 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
           <span style={{ color: 'var(--lav)' }}><Users size={17} /></span>
           <h2 className="h2" style={{ fontSize: 16 }}>מי מטייל</h2>
         </div>
-        <button
-          onClick={() => setShareOpen(true)}
-          style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--lav)' }}
-        >
-          הזמן חברים +
-        </button>
+        <span className="row" style={{ gap: 14 }}>
+          <button
+            onClick={() => openEdit('who')}
+            style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--muted)' }}
+          >
+            ערוך
+          </button>
+          <button
+            onClick={() => setShareOpen(true)}
+            style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--lav)' }}
+          >
+            הזמן חברים +
+          </button>
+        </span>
       </div>
 
       <div className="hscroll chips" style={{ paddingBlock: 0 }}>
