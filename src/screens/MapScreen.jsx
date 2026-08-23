@@ -9,7 +9,11 @@ import { PROVIDERS } from '../lib/tiles'
 import { navigateUrl } from '../lib/staticMap'
 
 export default function MapScreen() {
-  const { stops: STOPS, planning } = useTrip()
+  const { stops: STOPS, planning, trip } = useTrip()
+  // Whichever hotel is first in the list — most trips have exactly one, and
+  // a stay only reaches the map at all once it has real coordinates, from
+  // the same geocoding step onboarding already runs when one is added.
+  const hotel = trip?.stays?.find((s) => s.lat != null && s.lng != null) ?? null
   const [activeId, setActiveId] = useState(null)
   const [details, setDetails] = useState(null)
   const [provider, setProvider] = useState('cartoLight')
@@ -51,7 +55,7 @@ export default function MapScreen() {
 
   return (
     <div className="map-screen">
-      <MapCanvas stops={STOPS} activeId={activeId} onPinClick={setActiveId} provider={provider} />
+      <MapCanvas stops={STOPS} activeId={activeId} onPinClick={setActiveId} provider={provider} hotel={hotel} />
 
       <div style={{ position: 'relative', zIndex: 10 }}>
         <TopBar floating />

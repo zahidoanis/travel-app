@@ -28,6 +28,29 @@ const GLYPH = {
   walking: 'M13.4 4.6a1.7 1.7 0 1 1-.1-.1M10.6 21l2.2-6.2-2.6-2.6L9 16.4M8.4 9.6 12.6 7.8l3.2 1.6 2 3.2M12.8 15.2l3.2 5.8',
 }
 
+/** Same source as the Bed icon in Icons.jsx, kept inline rather than shared
+ *  since every other pin glyph here is already a raw path string, not a
+ *  component. */
+const BED_GLYPH = [
+  'M3 20V6M3 12h18a2 2 0 0 1 2 2v6M21 20v-3M3 16h18',
+  'M7.5 12V9.5A1.5 1.5 0 0 1 9 8h9a3 3 0 0 1 3 3v1',
+]
+
+/** Name label with a solid halo behind it, so it reads over any tile colour
+ *  without needing to measure text width for a background rect. */
+function PinLabel({ x, y, text, color, bold }) {
+  const shared = {
+    x, y, textAnchor: 'middle', fontFamily: 'Rubik, Heebo, sans-serif',
+    fontSize: bold ? 13.5 : 11.5, fontWeight: bold ? 700 : 600,
+  }
+  return (
+    <g style={{ pointerEvents: 'none' }}>
+      <text {...shared} stroke="#fff" strokeWidth="4" strokeLinejoin="round">{text}</text>
+      <text {...shared} fill={color}>{text}</text>
+    </g>
+  )
+}
+
 /** Bowed legs, so the route reads as streets rather than a ruler line. */
 function routePath(pts) {
   if (pts.length < 2) return ''
@@ -41,7 +64,7 @@ function routePath(pts) {
   return d
 }
 
-export default function MapCanvas({ stops, activeId, onPinClick, provider = 'cartoLight' }) {
+export default function MapCanvas({ stops, activeId, onPinClick, provider = 'cartoLight', hotel }) {
   const active = stops.find((s) => s.id === activeId) ?? stops[0]
   const src = PROVIDERS[provider] ?? PROVIDERS.cartoLight
 
@@ -97,6 +120,18 @@ export default function MapCanvas({ stops, activeId, onPinClick, provider = 'car
 
   // Overlay coordinates, relative to the anchor.
   const local = pts.map((p) => ({ ...p, x: HALF + (p.x - anchor.x), y: HALF + (p.y - anchor.y) }))
+
+  // The hotel is not part of the anchor/zoom fit above — it stays wherever it
+  // really is, even off in a corner, rather than pulling the day's frame out
+  // to a zoom where the streets stop being legible just to fit a stop nobody
+  // asked to see zoomed out for. It's still projected and drawn every time.
+  const hotelLocal =
+    hotel?.lat != null && hotel?.lng != null
+      ? (() => {
+          const p = project(hotel.lat, hotel.lng, z)
+          return { x: HALF + (p.x - anchor.x), y: HALF + (p.y - anchor.y) }
+        })()
+      : null
 
   // A Google key, if one is ever supplied, takes precedence.
   const googleUrl = useMemo(() => {
@@ -213,9 +248,37 @@ export default function MapCanvas({ stops, activeId, onPinClick, provider = 'car
                     <path d={GLYPH[s.cat]} />
                   </g>
                 </g>
+                <PinLabel x={s.x} y={s.y - 24} text={s.he} color={on ? color : 'var(--text-2, #43424F)'} bold={on} />
               </g>
             )
           })}
+
+          {hotelLocal && (
+            // Not a stop — nothing to select, so no click handler or pin
+            // affordances, just a marker that is always on the map.
+            <g role="img" aria-label={`מלון: ${hotel.name}`}>
+              {/* Unlike a stop's pulse, this glow never turns off — the hotel
+                  is the one point on the map that matters regardless of
+                  which stop happens to be active. */}
+              <circle cx={hotelLocal.x} cy={hotelLocal.y} r="26" fill="var(--gold, #A0783F)" opacity="0.22">
+                <animate attributeName="r" values="20;30;20" dur="3s" repeatCount="indefinite" />
+                <animate attributeName="opacity" values="0.3;0.12;0.3" dur="3s" repeatCount="indefinite" />
+              </circle>
+              <g filter="url(#pinShadow)">
+                <circle cx={hotelLocal.x} cy={hotelLocal.y} r="19" fill="var(--gold, #A0783F)"
+                        stroke="#fff" strokeWidth="2.5" />
+                <g
+                  transform={`translate(${hotelLocal.x - 9.5} ${hotelLocal.y - 9.5}) scale(0.79)`}
+                  fill="none" stroke="#fff" strokeWidth="2.4"
+                  strokeLinecap="round" strokeLinejoin="round"
+                  style={{ pointerEvents: 'none' }}
+                >
+                  {BED_GLYPH.map((d) => <path key={d} d={d} />)}
+                </g>
+              </g>
+              <PinLabel x={hotelLocal.x} y={hotelLocal.y - 28} text={hotel.name} color="var(--gold, #A0783F)" bold />
+            </g>
+          )}
         </svg>
       </div>
 
