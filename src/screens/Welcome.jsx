@@ -20,7 +20,7 @@ export default function Welcome({ onStart }) {
         </div>
 
         <h1 className="wordmark">
-          Travel<span className="wordmark-dash">-</span><span className="wordmark-ai">AI</span>
+          Trip<span className="wordmark-ai">AI</span>
         </h1>
 
         <span className="wordmark-rule" aria-hidden="true" />

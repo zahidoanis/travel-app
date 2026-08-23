@@ -7,10 +7,20 @@ import {
 import { headCount } from '../data'
 import { useTrip } from '../TripProvider'
 import PlacePhoto from '../components/PlacePhoto'
+import { heroPhoto as fetchHeroPhoto } from '../lib/photos'
 import { fetchForecast, GREETING } from '../lib/weather'
 import { geocode } from '../lib/geocode'
 import WeatherSheet from '../components/WeatherSheet'
 import NoteSheet from '../components/NoteSheet'
+
+/** Color wash over the hero photo, matched to the same period the
+ *  temperature line already reports — golden hour reads golden. */
+const TOD_TINT = {
+  morning: 'rgba(255,196,120,0.30)',
+  noon: 'rgba(255,255,255,0.10)',
+  evening: 'rgba(255,110,80,0.34)',
+  night: 'rgba(30,20,70,0.46)',
+}
 
 
 export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood, onOpenArrival }) {
@@ -25,6 +35,23 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
   const [forecast, setForecast] = useState(null)
   const [forecastOpen, setForecastOpen] = useState(false)
   const [noteEditing, setNoteEditing] = useState(null)
+  const [heroPhoto, setHeroPhoto] = useState(null)
+  const [heroPhotoLoaded, setHeroPhotoLoaded] = useState(false)
+
+  // A real photo of the destination behind the greeting, the way every
+  // travel app with a design budget does it — falls back to the plain
+  // gradient card silently when Wikipedia has nothing for this city rather
+  // than blocking on it or showing a broken-image state.
+  useEffect(() => {
+    if (!TRIP) return
+    let cancelled = false
+    setHeroPhoto(null)
+    setHeroPhotoLoaded(false)
+    fetchHeroPhoto(TRIP.cityEn ?? TRIP.city).then((hit) => {
+      if (!cancelled) setHeroPhoto(hit)
+    })
+    return () => { cancelled = true }
+  }, [TRIP?.id, TRIP?.cityEn, TRIP?.city])
 
   // Real temperature and local time of day at the destination, not the
   // visitor's own clock — plus the rest of today and the coming week, so the
@@ -66,42 +93,65 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
       <TopBar variant="home" />
 
       <div className="pad">
-        <section className="hero">
-          <div className="between" style={{ alignItems: 'flex-start' }}>
+        <section className={`hero ${heroPhoto ? 'has-photo' : ''}`}>
+          {heroPhoto && (
+            <>
+              <img
+                src={heroPhoto.url}
+                alt=""
+                aria-hidden="true"
+                className={`hero-photo ${heroPhotoLoaded ? 'on' : ''}`}
+                onLoad={() => setHeroPhotoLoaded(true)}
+              />
+              {/* Warm at golden hour, cool and dim at night — the same
+                  reading the temperature line already gives, painted onto
+                  the one card everyone sees first instead of left as a
+                  number to notice or skip. */}
+              <div className="hero-scrim" style={{ '--tod-tint': TOD_TINT[forecast?.now.period ?? 'noon'] }} />
+            </>
+          )}
+
+          {/* Its own layer, not part of the bottom-anchored text block below —
+              with a photo the card grows tall enough that grouping these
+              with the title would strand them together at the bottom with
+              an awkward gap of empty photo above. */}
+          <div className="hero-top-row between" style={{ alignItems: 'flex-start' }}>
             <div className="hero-icon" aria-hidden="true">{forecast?.now.icon ?? '☀️'}</div>
             <button
               className="icon-btn boxed"
               onClick={() => setShareOpen(true)}
               aria-label="שתף את המסלול"
-              style={{ position: 'relative', zIndex: 1 }}
             >
               <Share size={17} />
             </button>
           </div>
-          {/* Neutral until the destination's real local time resolves — a
-              placeholder greeting is fine, a wrong one (guessed from the
-              visitor's own clock) is not. */}
-          <h1 className="hero-title">
-            {forecast ? `${GREETING[forecast.now.period]}!` : 'שלום!'}
-          </h1>
-          {forecast && (
-            <button
-              className="tiny row"
-              style={{ gap: 5, marginTop: 2, textDecoration: 'underline', textUnderlineOffset: 3 }}
-              onClick={() => setForecastOpen(true)}
-            >
-              <span aria-hidden="true">{forecast.now.icon}</span>
-              <span className="num">{forecast.now.tempC}°</span> ב{TRIP.city} עכשיו · תחזית
+
+          <div className="hero-content">
+            {/* Neutral until the destination's real local time resolves — a
+                placeholder greeting is fine, a wrong one (guessed from the
+                visitor's own clock) is not. */}
+            <h1 className="hero-title">
+              {forecast ? `${GREETING[forecast.now.period]}!` : 'שלום!'}
+            </h1>
+            {forecast && (
+              <button
+                className="tiny row"
+                style={{ gap: 5, marginTop: 2, textDecoration: 'underline', textUnderlineOffset: 3 }}
+                onClick={() => setForecastOpen(true)}
+              >
+                <span aria-hidden="true">{forecast.now.icon}</span>
+                <span className="num">{forecast.now.tempC}°</span> ב{TRIP.city} עכשיו · תחזית
+              </button>
+            )}
+            <p className="sub" style={{ maxWidth: '92%', marginTop: forecast ? 8 : undefined }}>
+              {planning
+                ? `הסוכן בונה עכשיו מסלול ל${TRIP.city}...`
+                : `הנה התכנון ליום ${TRIP.day} ב${TRIP.city}, מותאם לסגנון שבחרת.`}
+            </p>
+            <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={onStartRoute}>
+              התחל מסלול
             </button>
-          )}
-          <p className="sub" style={{ maxWidth: '92%', marginTop: forecast ? 8 : undefined }}>
-            {planning
-              ? `הסוכן בונה עכשיו מסלול ל${TRIP.city}...`
-              : `הנה התכנון ליום ${TRIP.day} ב${TRIP.city}, מותאם לסגנון שבחרת.`}
-          </p>
-          <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={onStartRoute}>
-            התחל מסלול
-          </button>
+          </div>
         </section>
       </div>
 

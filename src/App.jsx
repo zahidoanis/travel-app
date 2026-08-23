@@ -69,7 +69,7 @@ function Shell() {
       <div className="shell">
         <div className="app" dir="rtl">
           <div className="boot">
-            <span className="boot-mark">Travel<span className="boot-ai">-AI</span></span>
+            <span className="boot-mark">Trip<span className="boot-ai">AI</span></span>
             <span className="typing"><i /><i /><i /></span>
           </div>
         </div>
