@@ -47,6 +47,31 @@ function localSet(key, value) {
   return value
 }
 
+/**
+ * Firestore's setDoc() rejects an `undefined` field value outright, and
+ * rejects synchronously — before any network call, so nothing else in the
+ * same write goes through either. A trip made before some field existed
+ * (lat/lng, at one point) leaves that key genuinely undefined on the stored
+ * document, and any edit that round-trips it back through a save fails the
+ * whole write. Recursive because the value can be buried arbitrary levels
+ * deep — a null coordinate inside a stay inside an array, for instance —
+ * not just a bare top-level key.
+ */
+function stripUndefined(value) {
+  // Filtered, not mapped — Firestore rejects undefined as an array element
+  // exactly as it does an object field, and mapping would have kept a hole
+  // in place instead of removing it.
+  if (Array.isArray(value)) return value.filter((v) => v !== undefined).map(stripUndefined)
+  if (value && typeof value === 'object' && !(value instanceof Date)) {
+    const out = {}
+    for (const [k, v] of Object.entries(value)) {
+      if (v !== undefined) out[k] = stripUndefined(v)
+    }
+    return out
+  }
+  return value
+}
+
 /** Wraps a Firestore call so a failure degrades instead of throwing upward. */
 async function guarded(name, fn, fallback) {
   const fb = await firebase()
@@ -126,7 +151,7 @@ export function createTrip(details) {
       const code = joinCode()
 
       await FS.setDoc(ref, {
-        ...details,
+        ...stripUndefined(details),
         id: ref.id,
         code,
         ownerId: uid,
@@ -166,9 +191,12 @@ export function saveTrip(tripId, patch) {
   return guarded(
     'saveTrip',
     async ({ db, FS }) => {
+      // Stripped before adding the server-timestamp sentinel, not after —
+      // recursing into that sentinel object would tear out the internal
+      // fields that make it a FieldValue rather than a plain object.
       await FS.setDoc(
         FS.doc(db, 'trips', tripId),
-        { ...patch, updatedAt: FS.serverTimestamp() },
+        { ...stripUndefined(patch), updatedAt: FS.serverTimestamp() },
         { merge: true }
       )
       return true

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import BottomNav, { TABS, RAIL_ONLY } from './components/BottomNav'
 import { User } from './components/Icons'
 import ErrorBoundary from './components/ErrorBoundary'
@@ -14,6 +14,7 @@ import Restaurants from './screens/Restaurants'
 import Arrival from './screens/Arrival'
 import Diagnostics from './screens/Diagnostics'
 import { TripProvider, useTrip } from './TripProvider'
+import { PARTY_COLORS } from './data'
 import AccountSheet from './components/AccountSheet'
 import { initTelemetry, breadcrumb, attachSink } from './lib/telemetry'
 import { hasFirebase } from './lib/firebase'
@@ -43,6 +44,12 @@ function Shell() {
   const [debug, setDebug] = useState(
     () => new URLSearchParams(location.search).get('debug') === '1'
   )
+  const [saveError, setSaveError] = useState(null)
+  useEffect(() => {
+    if (!saveError) return
+    const t = setTimeout(() => setSaveError(null), 5000)
+    return () => clearTimeout(t)
+  }, [saveError])
 
   const go = (next) => {
     breadcrumb('nav', `tab -> ${next}`)
@@ -83,29 +90,58 @@ function Shell() {
   // early. Only reachable once a real trip exists, so `profile` here is
   // always the trip being edited, never the pre-onboarding blank slate.
   if (editStep) {
+    // Every field defaulted, not just spread from the stored document — a
+    // trip made before some field existed (lat/lng here, for anyone who
+    // planned before that shipped) leaves that key genuinely undefined on
+    // `profile`, and Firestore's setDoc() rejects an undefined value
+    // outright. It rejects synchronously, before any network call, so nothing
+    // in the same write goes through either — silently, since saveTrip()
+    // swallows the error into telemetry rather than surfacing it. The whole
+    // edit looked like it saved and then reverted on the next real read.
     const editInitial = {
-      destination: profile.destination,
-      country: profile.country,
-      destinationEn: profile.destinationEn,
-      lat: profile.lat,
-      lng: profile.lng,
-      from: profile.from,
-      to: profile.to,
+      destination: profile.destination ?? '',
+      country: profile.country ?? '',
+      destinationEn: profile.destinationEn ?? '',
+      lat: profile.lat ?? null,
+      lng: profile.lng ?? null,
+      from: profile.from ?? '',
+      to: profile.to ?? '',
       styles: profile.styles ?? [],
-      parties: profile.parties,
-      cuisines: profile.cuisines,
-      flight: profile.flight,
-      stays: profile.stays,
+      parties: profile.parties?.length ? profile.parties : [
+        { id: 'p1', name: '', members: [''], color: PARTY_COLORS[0] },
+      ],
+      cuisines: profile.cuisines ?? ['local'],
+      flight: profile.flight ?? { airline: '', number: '', arrivalAirport: '', date: '' },
+      stays: profile.stays ?? [],
     }
     const saveEdit = async (answers) => {
       const { nights, travellers, ...patch } = answers
-      await updateTrip(patch)
-      closeEdit()
+      const ok = await updateTrip(patch)
+      // `false` means "no backend configured" as often as it means "the
+      // write actually failed" — updateTrip() can't tell those apart, so
+      // this decides based on whether a backend exists at all. Only the
+      // real failure gets a message; local-only mode always looked like
+      // this and isn't an error.
+      if (ok || !hasFirebase) {
+        closeEdit()
+      } else {
+        setSaveError('השמירה נכשלה. בדוק חיבור לאינטרנט ונסה שוב.')
+      }
     }
 
     return (
       <div className="shell">
         <div className="app" dir="rtl">
+          {saveError && (
+            <div className="toast">
+              <div
+                style={{ color: 'var(--rose, #EF4444)', pointerEvents: 'auto', cursor: 'pointer' }}
+                onClick={() => setSaveError(null)}
+              >
+                {saveError}
+              </div>
+            </div>
+          )}
           <ErrorBoundary scope="edit-trip">
             <div className="onboarding">
               <Onboarding

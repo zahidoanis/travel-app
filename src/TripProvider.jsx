@@ -8,6 +8,7 @@ import {
 import { onUser, hasFirebase } from './lib/firebase'
 import { invitedTripId, extractTripId } from './lib/share'
 import { geocode } from './lib/geocode'
+import { CITIES } from './cities'
 import { breadcrumb, record } from './lib/telemetry'
 
 /**
@@ -288,8 +289,23 @@ export function TripProvider({ children }) {
     // destination was chosen.
     let located = answers
     if (answers.lat == null || answers.lng == null) {
-      const hit = await geocode(answers.destination, answers.country)
-      located = { ...answers, lat: hit?.lat ?? null, lng: hit?.lng ?? null }
+      // The curated list first: an exact match is a known-correct answer,
+      // zero geocoding risk. It matters here specifically because geocoding
+      // the Hebrew destination text directly is not reliable — "פראג, צ'כיה"
+      // returned a bus stop in Or Akiva, not Prague, with no error and no
+      // way to tell from the result alone that it was wrong. destinationEn
+      // (set for the search-hit and popular-card paths) sidesteps that; a
+      // free-typed Hebrew name with no curated match is the one case left
+      // exposed to it.
+      const known = CITIES.find(
+        (c) => c.he === answers.destination || (answers.destinationEn && c.en === answers.destinationEn)
+      )
+      if (known) {
+        located = { ...answers, lat: known.lat, lng: known.lng }
+      } else {
+        const hit = await geocode(answers.destinationEn ?? answers.destination, answers.country)
+        located = { ...answers, lat: hit?.lat ?? null, lng: hit?.lng ?? null }
+      }
     }
 
     const { id, code } = await createTrip(located)
@@ -343,11 +359,17 @@ export function TripProvider({ children }) {
   }
 
   const updateTrip = async (patch) => {
-    if (!trip) return
+    if (!trip) return false
     setRaw((r) => ({ ...r, ...patch }))
     setSyncing(true)
-    await saveTrip(trip.id, patch)
+    // The local view above updates optimistically either way — that part of
+    // the trade is deliberate, it's why edits feel instant. What was missing
+    // was any way for the caller to notice a `false` here and say so, so a
+    // save that silently failed looked identical to one that worked right up
+    // until the next real read quietly reverted it.
+    const ok = await saveTrip(trip.id, patch)
     setSyncing(false)
+    return ok
   }
 
   /**

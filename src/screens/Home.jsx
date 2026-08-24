@@ -10,6 +10,7 @@ import PlacePhoto from '../components/PlacePhoto'
 import { heroPhoto as fetchHeroPhoto } from '../lib/photos'
 import { fetchForecast, GREETING } from '../lib/weather'
 import { geocode } from '../lib/geocode'
+import { CITIES } from '../cities'
 import WeatherSheet from '../components/WeatherSheet'
 import NoteSheet from '../components/NoteSheet'
 
@@ -65,9 +66,20 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
     ;(async () => {
       let { lat, lng } = TRIP
       if (lat == null || lng == null) {
-        const hit = await geocode(TRIP.city, TRIP.country)
-        lat = hit?.lat ?? null
-        lng = hit?.lng ?? null
+        // The curated list first — geocoding the Hebrew city name directly
+        // is not reliable (verified: "פראג" alone returned a bus stop in Or
+        // Akiva, not Prague, with nothing about the result to say it was
+        // wrong). cityEn falls back to the Hebrew name when no English form
+        // was ever stored, which is exactly the trips that need this lookup.
+        const known = CITIES.find((c) => c.he === TRIP.city || c.en === TRIP.cityEn)
+        if (known) {
+          lat = known.lat
+          lng = known.lng
+        } else {
+          const hit = await geocode(TRIP.cityEn ?? TRIP.city, TRIP.country)
+          lat = hit?.lat ?? null
+          lng = hit?.lng ?? null
+        }
       }
       const f = await fetchForecast(lat, lng)
       if (!cancelled) setForecast(f)
