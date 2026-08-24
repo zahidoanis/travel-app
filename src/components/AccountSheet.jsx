@@ -5,6 +5,7 @@ import { useTrip } from '../TripProvider'
 import { joinTrip } from '../lib/db'
 import { signInWithGoogle, signOutUser, hasFirebase } from '../lib/firebase'
 import { breadcrumb } from '../lib/telemetry'
+import { initials } from '../lib/text'
 
 /**
  * Saving the trip to an account.
@@ -193,7 +194,7 @@ export default function AccountSheet({ open, onClose }) {
                 <img src={user.photo} alt="" className="account-photo" />
               ) : (
                 <span className="avatar" style={{ background: 'var(--accent)' }}>
-                  {(user.name || '?').charAt(0)}
+                  {initials(user.name) || '?'}
                 </span>
               )}
               <span className="grow col" style={{ gap: 2, minWidth: 0 }}>

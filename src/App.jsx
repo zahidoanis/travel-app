@@ -20,6 +20,7 @@ import NotificationsSheet from './components/NotificationsSheet'
 import { initTelemetry, breadcrumb, attachSink } from './lib/telemetry'
 import { hasFirebase } from './lib/firebase'
 import { pushDiagnostics } from './lib/db'
+import { initials } from './lib/text'
 
 initTelemetry()
 
@@ -197,9 +198,13 @@ function Shell() {
               ))}
               <button className="rail-item" onClick={openAccount}>
                 <span className="rail-glyph">
-                  {user && !user.anonymous && user.photo
-                    ? <img src={user.photo} alt="" className="rail-photo" />
-                    : <User size={19} />}
+                  {user && !user.anonymous && user.photo ? (
+                    <img src={user.photo} alt="" className="rail-photo" />
+                  ) : user && !user.anonymous && initials(user.name) ? (
+                    <span className="rail-initials">{initials(user.name)}</span>
+                  ) : (
+                    <User size={19} />
+                  )}
                 </span>
                 <span>{user && !user.anonymous ? (user.name?.split(' ')[0] || 'החשבון') : 'שמור טיול'}</span>
               </button>

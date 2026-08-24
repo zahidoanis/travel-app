@@ -1,5 +1,6 @@
 import { Bell, MapPin, Check, Cloud, User } from './Icons'
 import { useTrip } from '../TripProvider'
+import { initials } from '../lib/text'
 
 /**
  * Three variants, matching the screens:
@@ -41,6 +42,7 @@ export default function TopBar({ variant = 'centered', floating = false }) {
   )
 
   const signedIn = user && !user.anonymous
+  const initialsText = signedIn ? initials(user.name) : ''
   const account = (
     <button
       className="icon-btn account-btn"
@@ -49,6 +51,8 @@ export default function TopBar({ variant = 'centered', floating = false }) {
     >
       {signedIn && user.photo ? (
         <img src={user.photo} alt="" className="topbar-photo" />
+      ) : signedIn && initialsText ? (
+        <span className="topbar-initials">{initialsText}</span>
       ) : (
         <User size={18} />
       )}
