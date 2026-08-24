@@ -68,8 +68,14 @@ export default {
       }
 
       // Narrows autocomplete to places rather than shops with the same name.
+      // `featuretype` is a Nominatim-only parameter — Photon does not read
+      // it and silently ignored the filter entirely, which is how a "city"
+      // search was returning bus stops. cityOnly carries the same intent
+      // through to fromPhoton() below, in Photon's own filter syntax.
       const kind = url.searchParams.get('kind')
-      if (kind === 'city') params.featuretype = 'settlement'
+      const cityOnly = kind === 'city'
+      if (cityOnly) params.featuretype = 'settlement'
+      params['accept-language'] = 'en'
 
       // `details=1` asks for the contact information a booking needs — phone,
       // website, opening hours. Only Nominatim carries those tags, and the
@@ -92,7 +98,7 @@ export default {
       // and — the part that matters here — it does not throttle Cloudflare's
       // shared egress IPs the way Nominatim does. Nominatim answered 502 for
       // most lookups from this worker while Photon returned all of them.
-      let hits = await fromPhoton(q, limit)
+      let hits = await fromPhoton(q, limit, cityOnly)
 
       // Nominatim stays as the fallback so one provider being down is not an
       // outage, and because it handles some address-shaped queries better.
@@ -207,10 +213,24 @@ const json = (data, status, cors) =>
   })
 
 /** Photon returns GeoJSON; normalise it to the shape the app expects. */
-async function fromPhoton(q, limit) {
+async function fromPhoton(q, limit, cityOnly) {
   try {
+    const params = new URLSearchParams({ q, limit: String(limit), lang: 'en' })
+    // Verified live: without this, "פאפוס" (Paphos, typed in Hebrew) matched
+    // bus stops in Shefa-'Amr — Photon has no Hebrew name for a city this
+    // size and fuzzy-matches to whatever scores closest, silently. "city"
+    // alone was too narrow the other way — it excluded Positano and matched
+    // Hallstatt to Halmstad, Sweden — so all three settlement tiers go in.
+    // Repeated osm_tag params OR together rather than requiring all three.
+    // On the Hebrew query this now returns nothing instead of a wrong place,
+    // which is what lets the Nominatim fallback below actually run — its
+    // search resolves that same query correctly.
+    if (cityOnly) {
+      for (const tag of ['place:city', 'place:town', 'place:village']) params.append('osm_tag', tag)
+    }
+
     const res = await fetch(
-      `https://photon.komoot.io/api/?${new URLSearchParams({ q, limit: String(limit) })}`,
+      `https://photon.komoot.io/api/?${params}`,
       { headers: { Accept: 'application/json' } }
     )
     if (!res.ok) return null
