@@ -90,7 +90,11 @@ function Shell() {
   // opened on whichever question the caller asked for, and free to leave
   // early. Only reachable once a real trip exists, so `profile` here is
   // always the trip being edited, never the pre-onboarding blank slate.
-  if (editStep) {
+  // Belt and suspenders alongside the button-level guard in AccountSheet:
+  // whatever opened the editor, there is nothing to edit without a trip to
+  // seed it from, and `profile` being null here would otherwise crash on
+  // the very first field read below.
+  if (editStep && profile) {
     // Every field defaulted, not just spread from the stored document — a
     // trip made before some field existed (lat/lng here, for anyone who
     // planned before that shipped) leaves that key genuinely undefined on
@@ -168,7 +172,7 @@ function Shell() {
             trip, not a first visit — the marketing screen would be noise. */}
         {onboarding && !started && !skipWelcome ? (
           <ErrorBoundary scope="welcome">
-            <Welcome onStart={() => setStarted(true)} />
+            <Welcome onStart={() => setStarted(true)} onSignIn={openAccount} />
           </ErrorBoundary>
         ) : onboarding ? (
           <ErrorBoundary scope="onboarding">
@@ -228,10 +232,14 @@ function Shell() {
             </div>
 
             <BottomNav tab={tab} onChange={go} onDebug={() => setDebug(true)} />
-            <AccountSheet open={accountOpen} onClose={closeAccount} />
-            <JoinWelcomeSheet />
           </>
         )}
+        {/* Mounted regardless of which branch above is showing — sign-in
+            has to be reachable from Welcome too, for someone who already
+            has trips on this Google account and wants them immediately
+            rather than planning a new one first. */}
+        <AccountSheet open={accountOpen} onClose={closeAccount} />
+        <JoinWelcomeSheet />
       </div>
     </div>
   )

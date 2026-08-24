@@ -1,4 +1,5 @@
 import { Sparkles, MapPin, Users, Wallet, ArrowLeft } from '../components/Icons'
+import { hasFirebase } from '../lib/firebase'
 
 const FEATURES = [
   { Icon: Sparkles, title: 'מסלול שנבנה בשבילך', sub: 'סוכן AI מתכנן כל יום לפי הסגנון והתקציב שלך' },
@@ -7,7 +8,7 @@ const FEATURES = [
   { Icon: Wallet, title: 'הכל מתחשבן', sub: 'המרת מטבע וחלוקת הוצאות בין כולם' },
 ]
 
-export default function Welcome({ onStart }) {
+export default function Welcome({ onStart, onSignIn }) {
   return (
     <div className="welcome">
       {/* Decorative only — the content below carries the meaning. */}
@@ -55,6 +56,14 @@ export default function Welcome({ onStart }) {
         <p className="tiny welcome-note">
           חינם לחלוטין · ללא הרשמה · שש שאלות קצרות
         </p>
+        {/* Not a wall — planning first without an account still works exactly
+            as before. This is for someone who already has trips on a Google
+            account and would rather see those than plan a new one. */}
+        {hasFirebase && (
+          <button className="welcome-signin" onClick={onSignIn}>
+            כבר יש לך טיול? התחבר עם Google
+          </button>
+        )}
       </div>
     </div>
   )

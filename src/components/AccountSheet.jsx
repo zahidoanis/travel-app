@@ -62,7 +62,12 @@ export default function AccountSheet({ open, onClose }) {
     onClose()
   }
 
+  // Guarded here, not just by disabling the buttons below — this sheet is
+  // now reachable from Welcome, before any trip exists (signed in with an
+  // account that has trips, but none picked yet). The editor reads straight
+  // off the current trip's stored answers, which would be null there.
   const editTrip = () => {
+    if (!trip) return
     openEdit('where')
     onClose()
   }
@@ -83,7 +88,7 @@ export default function AccountSheet({ open, onClose }) {
           <p className="sub" style={{ marginBottom: 18 }}>
             אחסון בענן אינו מוגדר. הטיול נשמר על המכשיר הזה בלבד.
           </p>
-          <button className="btn btn-ghost btn-block" onClick={editTrip} style={{ marginBottom: 10 }}>
+          <button className="btn btn-ghost btn-block" onClick={editTrip} disabled={!trip} style={{ marginBottom: 10 }}>
             ערוך פרטי טיול
           </button>
           <button className="btn btn-primary btn-block" onClick={planAnother}>
@@ -122,7 +127,7 @@ export default function AccountSheet({ open, onClose }) {
           </div>
 
           <div style={{ borderTop: '1px solid var(--border)', marginTop: 20, paddingTop: 18 }}>
-            <button className="btn btn-ghost btn-block" onClick={editTrip} style={{ marginBottom: 10 }}>
+            <button className="btn btn-ghost btn-block" onClick={editTrip} disabled={!trip} style={{ marginBottom: 10 }}>
               ערוך פרטי טיול
             </button>
             <button className="btn btn-ghost btn-block" onClick={planAnother}>
@@ -184,7 +189,7 @@ export default function AccountSheet({ open, onClose }) {
 
           {/* First actions in the sheet, not last — these are what people
               come back for once they already have a trip saved. */}
-          <button className="btn btn-ghost btn-block" onClick={editTrip} style={{ marginBottom: 10 }}>
+          <button className="btn btn-ghost btn-block" onClick={editTrip} disabled={!trip} style={{ marginBottom: 10 }}>
             ערוך פרטי טיול
           </button>
           <button className="btn btn-primary btn-block" onClick={planAnother} style={{ marginBottom: 20 }}>

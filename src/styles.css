@@ -1299,6 +1299,10 @@ input, select, textarea { font: inherit; color: inherit; }
 }
 .btn-lg { padding: 17px 24px; font-size: 16px; border-radius: var(--r-lg); }
 .welcome-note { text-align: center; margin: 12px 0 0; letter-spacing: 0.02em; }
+.welcome-signin {
+  display: block; width: 100%; text-align: center;
+  margin-top: 14px; font-size: 13px; font-weight: 600; color: var(--lav);
+}
 
 @media (min-height: 780px) {
   .welcome-inner { padding-top: 11vh; }
