@@ -27,6 +27,7 @@ export default function AccountSheet({ open, onClose }) {
   // anything else this sheet does.
   const [deletingTrip, setDeletingTrip] = useState(null)
   const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState(null)
 
   const connect = async () => {
     setBusy(true)
@@ -89,8 +90,14 @@ export default function AccountSheet({ open, onClose }) {
 
   const confirmDelete = async () => {
     setDeleting(true)
-    await removeTrip(deletingTrip.id)
+    const result = await removeTrip(deletingTrip.id)
     setDeleting(false)
+
+    if (!result.ok) {
+      setDeleteError('המחיקה נכשלה — רק מי שיצר את הטיול יכול למחוק אותו.')
+      return
+    }
+
     setDeletingTrip(null)
     // Only close the whole sheet if that was the trip open behind it — a
     // deletion elsewhere in the list shouldn't kick you out of your own
@@ -249,14 +256,19 @@ export default function AccountSheet({ open, onClose }) {
                         <span className="choice-sub num">{t.from} → {t.to}</span>
                       </button>
                       {t.id === trip?.id && <Check size={16} />}
-                      <button
-                        className="icon-btn"
-                        style={{ width: 32, height: 32 }}
-                        onClick={() => setDeletingTrip(t)}
-                        aria-label={`מחק את הטיול ל${t.destination}`}
-                      >
-                        <X size={15} />
-                      </button>
+                      {/* firebase.rules restricts deletion to whoever created
+                          the trip — showing this to every member would just
+                          be an button that fails for most people who tap it. */}
+                      {t.ownerId === user.uid && (
+                        <button
+                          className="icon-btn"
+                          style={{ width: 32, height: 32 }}
+                          onClick={() => { setDeleteError(null); setDeletingTrip(t) }}
+                          aria-label={`מחק את הטיול ל${t.destination}`}
+                        >
+                          <X size={15} />
+                        </button>
+                      )}
                     </span>
                   </div>
                 ))}
@@ -278,7 +290,7 @@ export default function AccountSheet({ open, onClose }) {
     <Sheet
       open={deletingTrip !== null}
       title="מחיקת טיול"
-      onClose={() => !deleting && setDeletingTrip(null)}
+      onClose={() => { if (!deleting) { setDeletingTrip(null); setDeleteError(null) } }}
     >
       {deletingTrip && (
         <>
@@ -287,10 +299,13 @@ export default function AccountSheet({ open, onClose }) {
             הפעולה מוחקת אותו <strong>לצמיתות עבור כל מי שבטיול</strong>,
             ולא ניתן לבטל אותה.
           </p>
+          {deleteError && (
+            <p className="tiny" style={{ color: 'var(--rose)', marginBottom: 14 }}>{deleteError}</p>
+          )}
           <div className="row" style={{ gap: 9 }}>
             <button
               className="btn btn-ghost btn-block grow"
-              onClick={() => setDeletingTrip(null)}
+              onClick={() => { setDeletingTrip(null); setDeleteError(null) }}
               disabled={deleting}
             >
               ביטול

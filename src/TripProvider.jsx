@@ -372,7 +372,16 @@ export function TripProvider({ children }) {
    * be the one currently open.
    */
   const removeTrip = async (tripId) => {
-    await deleteTrip(tripId)
+    const ok = await deleteTrip(tripId)
+    // A `false` here means either "no backend, deleted locally as intended"
+    // or "the write was actually rejected" (a non-owner member, most
+    // realistically — firebase.rules restricts delete to the owner, which
+    // the account sheet was not checking before showing this button at
+    // all). Only the second one is a failure; treating both the same would
+    // have the trip vanish from this device's list while it is still very
+    // much there for everyone else, then reappear next time it reloads.
+    if (!ok && hasFirebase) return { ok: false }
+
     setTrips((list) => list.filter((t) => t.id !== tripId))
 
     if (trip?.id === tripId) {
@@ -384,6 +393,8 @@ export function TripProvider({ children }) {
         await saveProfile({ currentTripId: null })
       }
     }
+
+    return { ok: true }
   }
 
   const updateTrip = async (patch) => {
