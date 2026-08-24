@@ -16,6 +16,7 @@ import { TripProvider, useTrip } from './TripProvider'
 import { PARTY_COLORS } from './data'
 import AccountSheet from './components/AccountSheet'
 import JoinWelcomeSheet from './components/JoinWelcomeSheet'
+import NotificationsSheet from './components/NotificationsSheet'
 import { initTelemetry, breadcrumb, attachSink } from './lib/telemetry'
 import { hasFirebase } from './lib/firebase'
 import { pushDiagnostics } from './lib/db'
@@ -246,6 +247,9 @@ function Shell() {
         </ErrorBoundary>
         <ErrorBoundary scope="join-welcome">
           <JoinWelcomeSheet />
+        </ErrorBoundary>
+        <ErrorBoundary scope="notifications">
+          <NotificationsSheet />
         </ErrorBoundary>
       </div>
     </div>

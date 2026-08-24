@@ -390,6 +390,59 @@ export function watchRoutes(tripId, onChange) {
 }
 
 /* ------------------------------------------------------------------ *
+ * activity — what the bell shows. Not a general log; only things another
+ * member of the trip would actually want to know happened.
+ * ------------------------------------------------------------------ */
+
+/** Records one line for the trip's activity feed. Fire-and-forget: a missed
+ *  notification is not worth failing the action that triggered it over. */
+export function logActivity(tripId, { type, message }) {
+  if (!tripId) return
+  return guarded(
+    'logActivity',
+    async ({ db, FS }) => {
+      await FS.addDoc(FS.collection(db, 'trips', tripId, 'activity'), {
+        type,
+        message,
+        createdAt: FS.serverTimestamp(),
+      })
+      return true
+    },
+    () => false
+  )
+}
+
+/** Live feed, newest first, capped — this is a bell, not an archive. */
+export function watchActivity(tripId, onChange) {
+  if (!hasFirebase || !tripId) {
+    onChange([])
+    return () => {}
+  }
+
+  let stop = () => {}
+  let cancelled = false
+
+  firebase().then((fb) => {
+    if (!fb || cancelled) return
+    const { db, FS } = fb
+    stop = FS.onSnapshot(
+      FS.query(
+        FS.collection(db, 'trips', tripId, 'activity'),
+        FS.orderBy('createdAt', 'desc'),
+        FS.limit(30)
+      ),
+      (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+      (err) => record({ kind: 'db', message: `watchActivity: ${err.message}`, stack: err.stack })
+    )
+  })
+
+  return () => {
+    cancelled = true
+    stop()
+  }
+}
+
+/* ------------------------------------------------------------------ *
  * diagnostics sink
  * ------------------------------------------------------------------ */
 

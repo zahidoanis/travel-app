@@ -17,8 +17,8 @@ import { useTrip } from '../TripProvider'
  * The weather readout that used to sit here was invented — no provider is
  * wired up — so it is gone rather than showing a number nobody measured.
  */
-export default function TopBar({ variant = 'centered', floating = false, onBell }) {
-  const { trip, syncState, user, openAccount } = useTrip()
+export default function TopBar({ variant = 'centered', floating = false }) {
+  const { trip, syncState, user, openAccount, openNotifications, unreadCount } = useTrip()
 
   const label = (
     <span className="topbar-title">
@@ -28,8 +28,9 @@ export default function TopBar({ variant = 'centered', floating = false, onBell 
   )
 
   const bell = (
-    <button className="icon-btn bell" onClick={onBell} aria-label="התראות">
+    <button className="icon-btn bell" onClick={openNotifications} aria-label="התראות">
       <Bell size={19} />
+      {unreadCount > 0 ? <span className="bell-dot" aria-hidden="true" /> : null}
     </button>
   )
 

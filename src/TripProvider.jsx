@@ -3,7 +3,7 @@ import { PARTY_COLORS } from './data'
 import { buildItinerary } from './lib/itinerary'
 import {
   loadProfile, saveProfile, createTrip, loadTrip, saveTrip, listTrips, joinTrip,
-  listRoutes, saveRoute, watchRoutes, deleteTrip,
+  listRoutes, saveRoute, watchRoutes, deleteTrip, logActivity, watchActivity,
 } from './lib/db'
 import { onUser, hasFirebase } from './lib/firebase'
 import { invitedTripId, extractTripId } from './lib/share'
@@ -105,6 +105,9 @@ export function TripProvider({ children }) {
   // land directly on that question instead of making someone click through
   // destination and dates first.
   const [editStep, setEditStep] = useState(null)
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [activity, setActivity] = useState([])
+  const activityWatch = useRef(null)
   const stopWatch = useRef(null)
 
   const trip = useMemo(() => toTrip(raw), [raw])
@@ -144,6 +147,7 @@ export function TripProvider({ children }) {
             setRaw(joined)
             setJustJoined(true)
             setLoading(false)
+            logActivity(joined.id, { type: 'join', message: `${user?.name || 'מישהו'} הצטרף/ה לטיול` })
             history.replaceState(null, '', location.pathname)
             return
           }
@@ -186,6 +190,36 @@ export function TripProvider({ children }) {
     setActiveDay(trip.day)
     return () => stopWatch.current?.()
   }, [trip?.id])
+
+  /* ---- activity feed, for the bell ---- */
+
+  useEffect(() => {
+    activityWatch.current?.()
+    if (!trip) return
+    activityWatch.current = watchActivity(trip.id, setActivity)
+    return () => activityWatch.current?.()
+  }, [trip?.id])
+
+  // Marked read the moment the sheet opens, not on some later "mark all
+  // read" action nobody would find — local per device, not synced, so
+  // opening the bell on your phone doesn't clear the dot on your laptop.
+  const lastSeenKey = trip ? `tripai.lastSeen.${trip.id}` : null
+  const [lastSeen, setLastSeen] = useState(0)
+  useEffect(() => {
+    if (!lastSeenKey) return
+    setLastSeen(Number(localStorage.getItem(lastSeenKey) ?? 0))
+  }, [lastSeenKey])
+
+  const unreadCount = activity.filter((a) => (a.createdAt?.seconds ?? 0) * 1000 > lastSeen).length
+
+  const openNotifications = () => {
+    setNotificationsOpen(true)
+    if (lastSeenKey) {
+      const now = Date.now()
+      localStorage.setItem(lastSeenKey, String(now))
+      setLastSeen(now)
+    }
+  }
 
   // Generate the current day only when nothing is stored for it.
   useEffect(() => {
@@ -237,6 +271,11 @@ export function TripProvider({ children }) {
     setDayStops(day, list)
   }
 
+  // No login requirement in this app means no reliable name for whoever is
+  // acting — an anonymous session just says so rather than attributing the
+  // change to nobody in particular.
+  const whoami = () => user?.name || 'מישהו בטיול'
+
   const addStop = (day, stop) => {
     const list = days[day] ?? []
     if (list.some((s) => s.name === stop.name)) return
@@ -245,10 +284,18 @@ export function TripProvider({ children }) {
     )
     breadcrumb('action', `add stop to day ${day}`)
     setDayStops(day, next)
+    if (trip) {
+      logActivity(trip.id, { type: 'stop', message: `${whoami()} הוסיף/ה עצירה ליום ${day}: ${stop.he ?? stop.name}` })
+    }
   }
 
-  const removeStop = (day, id) =>
+  const removeStop = (day, id) => {
+    const removed = (days[day] ?? []).find((s) => s.id === id)
     setDayStops(day, (days[day] ?? []).filter((s) => s.id !== id))
+    if (trip && removed) {
+      logActivity(trip.id, { type: 'stop', message: `${whoami()} הסיר/ה עצירה מיום ${day}: ${removed.he ?? removed.name}` })
+    }
+  }
 
   /** Moves one stop to another day, keeping both days in time order. */
   const moveStopToDay = (fromDay, id, toDay) => {
@@ -354,6 +401,7 @@ export function TripProvider({ children }) {
     setRaw(joined)
     setJustJoined(true)
     breadcrumb('lifecycle', `joined trip via code`)
+    logActivity(tripId, { type: 'join', message: `${user?.name || 'מישהו'} הצטרף/ה לטיול` })
     return { ok: true }
   }
 
@@ -420,6 +468,7 @@ export function TripProvider({ children }) {
   const addNote = (text) => {
     const trimmed = text.trim()
     if (!trimmed || !trip) return
+    logActivity(trip.id, { type: 'note', message: `${whoami()} הוסיף/ה הערה: ${trimmed}` })
     return updateTrip({ notes: [...trip.notes, { id: `n${Date.now()}`, text: trimmed }] })
   }
 
@@ -450,6 +499,8 @@ export function TripProvider({ children }) {
     closeEdit: () => setEditStep(null),
     justJoined,
     dismissJustJoined: () => setJustJoined(false),
+    activity, unreadCount, notificationsOpen, openNotifications,
+    closeNotifications: () => setNotificationsOpen(false),
   }
 
   return <TripContext.Provider value={value}>{children}</TripContext.Provider>
