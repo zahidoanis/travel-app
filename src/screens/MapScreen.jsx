@@ -20,6 +20,16 @@ export default function MapScreen() {
   const [provider, setProvider] = useState('cartoLight')
   const deckRef = useRef(null)
 
+  // Switching days used to leave the map showing one day's pins with the
+  // card carousel still on the previous day's stop — every day's stops were
+  // generated with plain 1/2/3 ids, so day 1's stop 3 and day 2's stop 3
+  // shared a literal id, and the check below found a "match" that was
+  // actually a different place. Fixed at the source (itinerary.js scopes
+  // the id to the day now), but changing day is a big enough context switch
+  // to always start fresh regardless — not worth trusting every future id
+  // scheme to stay collision-free.
+  useEffect(() => { setActiveId(null) }, [activeDay])
+
   // The itinerary is regenerated per destination, so the active id has to
   // follow it rather than being captured once at mount.
   useEffect(() => {
@@ -52,7 +62,7 @@ export default function MapScreen() {
           >
             יום <span className="num">{d}</span>
             {(days[d]?.length ?? 0) > 0 && (
-              <> · <span className="num">{days[d].length}</span></>
+              <> · <span className="num">{days[d].length}</span> עצירות</>
             )}
           </button>
         ))}

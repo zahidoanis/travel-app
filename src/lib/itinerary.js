@@ -76,7 +76,14 @@ export async function buildItinerary({ trip, families, signal }) {
     const stops = located
       .filter((r) => r.lat != null && r.lng != null)
       .map((r, i) => ({
-        id: i + 1,
+        // Not just `i + 1` — every day's stops were generated the same way,
+        // so day 1's stop 3 and day 2's stop 3 shared the literal id 3.
+        // Switching days on the map screen looked like it worked (the pins
+        // moved, since MapCanvas draws from the whole stops array either
+        // way) but the "which stop is active" state didn't actually change
+        // — the old id still matched something in the new day's list — so
+        // the bottom card carousel kept showing the previous day's stop.
+        id: `d${trip.day}-${i + 1}`,
         // Display the place, not the whole "Place, City, Country" search string.
         name: r.name.split(',')[0].trim(),
         he: r.he || r.name,
