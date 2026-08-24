@@ -90,6 +90,11 @@ export function TripProvider({ children }) {
   const [planWarning, setPlanWarning] = useState(null)
   const [syncing, setSyncing] = useState(false)
   const [skipWelcome, setSkipWelcome] = useState(false)
+  // True right after joining someone else's trip — by link or by code —
+  // so the app can say once what a new member can actually do here, instead
+  // of landing them silently inside someone else's plan with no orientation
+  // at all.
+  const [justJoined, setJustJoined] = useState(false)
   // Lives here rather than in a screen's own state so every screen can open
   // it — it used to belong to Home alone, which meant switching or starting
   // a trip was reachable only from the one place that happened to render the
@@ -137,6 +142,7 @@ export function TripProvider({ children }) {
           const joined = await joinTrip(invited)
           if (joined && !cancelled) {
             setRaw(joined)
+            setJustJoined(true)
             setLoading(false)
             history.replaceState(null, '', location.pathname)
             return
@@ -346,6 +352,7 @@ export function TripProvider({ children }) {
     if (!joined) return { ok: false, message: 'הקוד לא נמצא, או שאין הרשאה להצטרף' }
 
     setRaw(joined)
+    setJustJoined(true)
     breadcrumb('lifecycle', `joined trip via code`)
     return { ok: true }
   }
@@ -409,6 +416,8 @@ export function TripProvider({ children }) {
     editStep,
     openEdit: (step = 'where') => setEditStep(step),
     closeEdit: () => setEditStep(null),
+    justJoined,
+    dismissJustJoined: () => setJustJoined(false),
   }
 
   return <TripContext.Provider value={value}>{children}</TripContext.Provider>

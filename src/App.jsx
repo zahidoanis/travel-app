@@ -16,6 +16,7 @@ import Diagnostics from './screens/Diagnostics'
 import { TripProvider, useTrip } from './TripProvider'
 import { PARTY_COLORS } from './data'
 import AccountSheet from './components/AccountSheet'
+import JoinWelcomeSheet from './components/JoinWelcomeSheet'
 import { initTelemetry, breadcrumb, attachSink } from './lib/telemetry'
 import { hasFirebase } from './lib/firebase'
 import { pushDiagnostics } from './lib/db'
@@ -228,6 +229,7 @@ function Shell() {
 
             <BottomNav tab={tab} onChange={go} onDebug={() => setDebug(true)} />
             <AccountSheet open={accountOpen} onClose={closeAccount} />
+            <JoinWelcomeSheet />
           </>
         )}
       </div>

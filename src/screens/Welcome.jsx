@@ -3,7 +3,7 @@ import { Sparkles, MapPin, Users, Wallet, ArrowLeft } from '../components/Icons'
 const FEATURES = [
   { Icon: Sparkles, title: 'מסלול שנבנה בשבילך', sub: 'סוכן AI מתכנן כל יום לפי הסגנון והתקציב שלך' },
   { Icon: MapPin, title: 'מפה חיה', sub: 'כל עצירה עם מיקום אמיתי, ניווט וזמני הגעה' },
-  { Icon: Users, title: 'טיול משותף', sub: 'שתפו בוואטסאפ, ופצלו מסלול והוצאות לפי משפחה' },
+  { Icon: Users, title: 'טיול משותף', sub: 'שתפו בוואטסאפ — מסלול אחד לכולם, ועדכון מופיע אצל כולם מיד' },
   { Icon: Wallet, title: 'הכל מתחשבן', sub: 'המרת מטבע וחלוקת הוצאות בין כולם' },
 ]
 
