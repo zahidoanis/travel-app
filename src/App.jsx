@@ -7,7 +7,6 @@ import Onboarding from './screens/Onboarding'
 import Home from './screens/Home'
 import MapScreen from './screens/MapScreen'
 import Chat from './screens/Chat'
-import Gallery from './screens/Gallery'
 import Finance from './screens/Finance'
 import Days from './screens/Days'
 import Restaurants from './screens/Restaurants'
@@ -223,7 +222,6 @@ function Shell() {
                 )}
                 {tab === 'map' && <MapScreen />}
                 {tab === 'chat' && <Chat />}
-                {tab === 'gallery' && <Gallery />}
                 {tab === 'finance' && <Finance />}
                 {tab === 'days' && <Days />}
                 {tab === 'food' && <Restaurants />}

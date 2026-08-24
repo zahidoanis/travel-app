@@ -737,59 +737,6 @@ input, select, textarea { font: inherit; color: inherit; }
 .send:active { transform: scale(0.9); }
 .send:disabled { opacity: 0.4; }
 
-/* ---------- Gallery ---------- */
-
-.recap-banner {
-  position: relative; overflow: hidden;
-  border-radius: var(--r-xl); min-height: 150px;
-  border: 1px solid var(--border-strong);
-  display: flex; align-items: center; gap: 16px;
-  padding: 18px;
-  background: linear-gradient(120deg, rgba(13,12,20,0.9) 20%, rgba(59,30,110,0.5)), var(--recap-photo, linear-gradient(140deg, #3B1E6E, #1E2148));
-}
-.recap-strip {
-  position: absolute; inset-inline: 0; inset-block-start: 0; height: 20px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 9px; letter-spacing: 2px; color: rgba(255,255,255,0.35);
-  background: rgba(0,0,0,0.35);
-}
-.play {
-  position: relative; flex: none;
-  width: 52px; height: 52px; border-radius: 50%;
-  display: grid; place-items: center; color: #fff;
-  background: linear-gradient(150deg, var(--accent-2), var(--accent));
-  box-shadow: 0 8px 22px rgba(91,75,214,0.3);
-  transition: transform 0.2s var(--ease);
-}
-.play:hover { transform: scale(1.08); }
-.play::before {
-  content: ""; position: absolute; inset: 0; border-radius: 50%;
-  border: 1.5px solid rgba(167,139,250,0.6); animation: ripple 2.4s var(--ease) infinite;
-}
-@keyframes ripple { 0% { transform: scale(1); opacity: 0.85; } 100% { transform: scale(1.8); opacity: 0; } }
-
-/* Two columns is right on a phone. It held at every width though, so on a
-   desktop each photo stretched to ~500px — a gallery of billboards. Past the
-   phone breakpoint the count follows the available width instead. */
-.masonry { columns: 2; column-gap: 9px; }
-@media (min-width: 700px) { .masonry { columns: 220px; } }
-.photo {
-  position: relative; display: block; width: 100%; padding: 0;
-  break-inside: avoid; margin-bottom: 9px;
-  border-radius: 14px; overflow: hidden;
-  border: 1px solid var(--border);
-  transition: transform 0.18s var(--ease);
-}
-.photo:active { transform: scale(0.97); }
-.avatar-badge {
-  position: absolute; inset-block-end: 7px; inset-inline-end: 7px;
-  width: 22px; height: 22px; border-radius: 50%;
-  display: grid; place-items: center;
-  font-size: 9.5px; font-weight: 700; color: #fff;
-  border: 1.5px solid rgba(13,14,21,0.8);
-  box-shadow: var(--shadow-sm);
-}
-
 /* ---------- Finance ---------- */
 
 .converter {
@@ -1486,9 +1433,6 @@ input, select, textarea { font: inherit; color: inherit; }
 .segmented button.on { background: linear-gradient(180deg, var(--ink-2), var(--ink)); }
 .dest.on { background: linear-gradient(150deg, #F4F1FF, #FFFFFF); border-color: var(--accent); }
 
-.recap-banner { background: linear-gradient(120deg, #EDEAFB, #F7F5FF); border-color: var(--border-strong); }
-.recap-strip { background: rgba(10,10,22,0.06); color: var(--muted); }
-.play { background: linear-gradient(180deg, var(--ink-2), var(--ink)); box-shadow: var(--shadow); }
 .play::before { border-color: rgba(10,10,22,0.18); }
 
 .badge-solid { background: var(--ink); }
@@ -1500,7 +1444,6 @@ input, select, textarea { font: inherit; color: inherit; }
 .scrim { background: rgba(20,20,28,0.34); }
 .sheet { box-shadow: var(--shadow-lg); }
 .stack-dot { border-color: var(--card); }
-.avatar-badge { border-color: #fff; }
 .thumb::after { background: linear-gradient(to top, rgba(10,10,22,0.7), transparent 58%); }
 .diag-pre { background: var(--sunken); }
 .suggestions { background: rgba(255,255,255,0.98); box-shadow: var(--shadow-lg); }
@@ -1650,21 +1593,6 @@ input, select, textarea { font: inherit; color: inherit; }
   padding: 4px 2px;
 }
 .add-member:hover { text-decoration: underline; }
-
-/* Real media in the gallery, rather than gradient placeholders. */
-.photo .media {
-  display: block; width: 100%; height: auto;
-  object-fit: cover; background: var(--card-2);
-}
-.photo-remove {
-  position: absolute; inset-block-start: 6px; inset-inline-start: 6px;
-  width: 22px; height: 22px; border-radius: 50%;
-  display: grid; place-items: center;
-  color: #fff; background: rgba(10,10,22,0.55);
-  backdrop-filter: blur(6px);
-  opacity: 0; transition: opacity 0.16s;
-}
-.photo:hover .photo-remove, .photo:focus-within .photo-remove { opacity: 1; }
 
 .chat-empty {
   display: flex; flex-direction: column; align-items: center;
