@@ -79,6 +79,49 @@ export default function MapCanvas({ stops, activeId, onPinClick, provider = 'car
   const frame = useRef(null)
   const [view, setView] = useState(VIEW)
 
+  // Manual drag, on top of the auto-centring transform below. The map used
+  // to only move by snapping between stops — tapping a pin or swiping the
+  // carousel — with no way to just look around. Bounded rather than a true
+  // pannable map: tiles are fetched around the day's stops plus half a
+  // viewport of margin (tileRange in lib/tiles.js), not dynamically as you
+  // drag, so panning past that would run onto blank ground with nothing
+  // there. The clamp keeps it inside what is actually loaded.
+  const [pan, setPan] = useState({ x: 0, y: 0 })
+  const drag = useRef(null)
+
+  // A different stop becoming active is a deliberate "go there" — it should
+  // win over wherever a free drag happened to leave the view.
+  useEffect(() => { setPan({ x: 0, y: 0 }) }, [activeId])
+
+  const clampPan = (p) => {
+    const maxX = view.width * 0.4
+    const maxY = view.height * 0.4
+    return {
+      x: Math.max(-maxX, Math.min(maxX, p.x)),
+      y: Math.max(-maxY, Math.min(maxY, p.y)),
+    }
+  }
+
+  const onPointerDown = (e) => {
+    if (e.button != null && e.button !== 0) return
+    drag.current = { startX: e.clientX, startY: e.clientY, startPan: pan, moved: false }
+    e.currentTarget.setPointerCapture?.(e.pointerId)
+  }
+
+  const onPointerMove = (e) => {
+    const d = drag.current
+    if (!d) return
+    const dx = e.clientX - d.startX
+    const dy = e.clientY - d.startY
+    // A few pixels of slop before this counts as a drag rather than a tap —
+    // otherwise every pin click would nudge the map by a pixel first.
+    if (!d.moved && Math.hypot(dx, dy) < 4) return
+    d.moved = true
+    setPan(clampPan({ x: d.startPan.x + dx, y: d.startPan.y + dy }))
+  }
+
+  const endDrag = () => { drag.current = null }
+
   useEffect(() => {
     const el = frame.current
     if (!el || typeof ResizeObserver === 'undefined') return
@@ -173,10 +216,23 @@ export default function MapCanvas({ stops, activeId, onPinClick, provider = 'car
   }
 
   return (
-    <div className="map-canvas" ref={frame}>
+    <div
+      className="map-canvas"
+      ref={frame}
+      style={{ touchAction: 'none' }}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
+    >
       <div
         className="map-pan"
-        style={{ transform: `translate(${shift.x}px, ${shift.y}px)` }}
+        style={{
+          transform: `translate(${shift.x + pan.x}px, ${shift.y + pan.y}px)`,
+          // No snap-animation while actively dragging — the map should
+          // follow the finger immediately, not glide half a second behind.
+          transition: drag.current?.moved ? 'none' : undefined,
+        }}
         role="img"
         aria-label={`מפת המסלול, ${stops.length} עצירות, ממוקדת על ${active.he}`}
       >

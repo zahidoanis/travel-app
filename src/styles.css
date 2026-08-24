@@ -613,9 +613,23 @@ input, select, textarea { font: inherit; color: inherit; }
 
 .map-tools {
   position: absolute; z-index: 10;
-  inset-inline-end: 14px; inset-block-start: 76px;
+  /* Below the day strip, not level with it — both sat at 76px before the
+     strip existed and would otherwise land on top of each other. */
+  inset-inline-end: 14px; inset-block-start: 130px;
   display: flex; flex-direction: column; gap: 8px;
 }
+
+/* Which day's stops the map is showing — the map had no day of its own
+   before this, silently always showing whichever day was last active
+   somewhere else in the app. */
+.day-strip {
+  position: absolute; z-index: 10; inset-inline: 0; inset-block-start: 68px;
+}
+.day-strip .hscroll { padding-block: 0; }
+/* Opaque, not the pill's usual translucent tint — this floats directly over
+   map tiles of an unpredictable colour, and needs to read regardless. */
+.day-strip .pill { background: var(--card); box-shadow: var(--shadow-sm); }
+.day-strip .pill.on { background: linear-gradient(135deg, var(--accent-2), var(--accent)); }
 .map-tool {
   width: 40px; height: 40px; border-radius: 13px; display: grid; place-items: center;
   color: var(--text-2);

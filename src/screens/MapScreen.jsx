@@ -9,7 +9,8 @@ import { PROVIDERS } from '../lib/tiles'
 import { navigateUrl } from '../lib/staticMap'
 
 export default function MapScreen() {
-  const { stops: STOPS, planning, trip } = useTrip()
+  const { stops: STOPS, days, activeDay, setActiveDay, planning, trip } = useTrip()
+  const dayList = trip ? Array.from({ length: trip.totalDays }, (_, i) => i + 1) : []
   // Whichever hotel is first in the list — most trips have exactly one, and
   // a stay only reaches the map at all once it has real coordinates, from
   // the same geocoding step onboarding already runs when one is added.
@@ -36,9 +37,36 @@ export default function MapScreen() {
     card?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
   }, [activeId])
 
+  // Rendered in both branches below — a day with no stops still needs a way
+  // out of itself. This used to live only in the branch below the empty-
+  // state check, so switching to an empty day made the switcher disappear
+  // along with everything else, with no way back to a day that had stops.
+  const daySwitcher = dayList.length > 1 && (
+    <div className="day-strip">
+      <div className="hscroll">
+        {dayList.map((d) => (
+          <button
+            key={d}
+            className={`pill ${d === activeDay ? 'on' : ''}`}
+            onClick={() => setActiveDay(d)}
+          >
+            יום <span className="num">{d}</span>
+            {(days[d]?.length ?? 0) > 0 && (
+              <> · <span className="num">{days[d].length}</span></>
+            )}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+
   if (STOPS.length === 0) {
     return (
       <div className="map-screen" style={{ display: 'grid', placeItems: 'center' }}>
+        <div style={{ position: 'relative', zIndex: 10 }}>
+          <TopBar floating />
+        </div>
+        {daySwitcher}
         <div className="card" style={{ textAlign: 'center', maxWidth: 300 }}>
           {planning ? (
             <>
@@ -60,6 +88,8 @@ export default function MapScreen() {
       <div style={{ position: 'relative', zIndex: 10 }}>
         <TopBar floating />
       </div>
+
+      {daySwitcher}
 
       <div className="map-tools">
         <button
