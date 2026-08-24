@@ -238,8 +238,17 @@ function Shell() {
             has to be reachable from Welcome too, for someone who already
             has trips on this Google account and wants them immediately
             rather than planning a new one first. */}
-        <AccountSheet open={accountOpen} onClose={closeAccount} />
-        <JoinWelcomeSheet />
+        {/* Every other top-level surface in this file is wrapped — these two
+            were the exception, and it showed: a crash inside either one had
+            nothing catching it, so it took down the entire React tree
+            instead of just the sheet. That reads as a blank white screen
+            with nothing recoverable, which is what actually got reported. */}
+        <ErrorBoundary scope="account">
+          <AccountSheet open={accountOpen} onClose={closeAccount} />
+        </ErrorBoundary>
+        <ErrorBoundary scope="join-welcome">
+          <JoinWelcomeSheet />
+        </ErrorBoundary>
       </div>
     </div>
   )

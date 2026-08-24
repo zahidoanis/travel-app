@@ -315,15 +315,37 @@ export function watchRoutes(tripId, onChange) {
 
   let stop = () => {}
   let cancelled = false
+  let retried = false
 
   firebase().then((fb) => {
     if (!fb || cancelled) return
     const { db, FS } = fb
-    stop = FS.onSnapshot(
-      FS.query(FS.collection(db, 'trips', tripId, 'routes'), FS.orderBy('day', 'asc')),
-      (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
-      (err) => record({ kind: 'db', message: `watchRoutes: ${err.message}`, stack: err.stack })
-    )
+
+    const subscribe = () => {
+      stop = FS.onSnapshot(
+        FS.query(FS.collection(db, 'trips', tripId, 'routes'), FS.orderBy('day', 'asc')),
+        (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+        (err) => {
+          // A permission-denied right after signing in is not necessarily
+          // real — linking or merging a Google account swaps the active uid
+          // essentially the moment it resolves, while adding that uid to
+          // the trip's memberIds is a separate write that can still be in
+          // flight. Firestore re-checks this listener's rule against the
+          // new uid immediately and denies it in that gap, then closes the
+          // subscription — it does not retry on its own. One retry after a
+          // beat covers that window without looping forever on someone who
+          // has genuinely lost access.
+          if (err.code === 'permission-denied' && !retried && !cancelled) {
+            retried = true
+            setTimeout(() => { if (!cancelled) subscribe() }, 1500)
+            return
+          }
+          record({ kind: 'db', message: `watchRoutes: ${err.message}`, stack: err.stack })
+        }
+      )
+    }
+
+    subscribe()
   })
 
   return () => {
