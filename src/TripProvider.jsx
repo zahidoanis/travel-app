@@ -3,7 +3,7 @@ import { PARTY_COLORS } from './data'
 import { buildItinerary } from './lib/itinerary'
 import {
   loadProfile, saveProfile, createTrip, loadTrip, saveTrip, listTrips, joinTrip,
-  listRoutes, saveRoute, watchRoutes,
+  listRoutes, saveRoute, watchRoutes, deleteTrip,
 } from './lib/db'
 import { onUser, hasFirebase } from './lib/firebase'
 import { invitedTripId, extractTripId } from './lib/share'
@@ -365,6 +365,27 @@ export function TripProvider({ children }) {
     setLoading(false)
   }
 
+  /**
+   * Deletes a trip outright — not "leave it behind" like startNewTrip, gone
+   * for everyone on it. The rules enforce owner-only server-side; this just
+   * decides what the screen shows next, since the trip being deleted might
+   * be the one currently open.
+   */
+  const removeTrip = async (tripId) => {
+    await deleteTrip(tripId)
+    setTrips((list) => list.filter((t) => t.id !== tripId))
+
+    if (trip?.id === tripId) {
+      const next = trips.find((t) => t.id !== tripId)
+      if (next) {
+        await switchTrip(next.id)
+      } else {
+        setRaw(null)
+        await saveProfile({ currentTripId: null })
+      }
+    }
+  }
+
   const updateTrip = async (patch) => {
     if (!trip) return false
     setRaw((r) => ({ ...r, ...patch }))
@@ -408,7 +429,7 @@ export function TripProvider({ children }) {
     families, isReal, planning, planWarning,
     plan, moveStop, addStop, removeStop, moveStopToDay,
     reservations, addReservation, removeReservation,
-    profile: raw, completeOnboarding, switchTrip, updateTrip, startNewTrip, joinByCode,
+    profile: raw, completeOnboarding, switchTrip, updateTrip, startNewTrip, joinByCode, removeTrip,
     addNote, updateNote, removeNote,
     accountOpen,
     openAccount: () => setAccountOpen(true),

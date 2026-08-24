@@ -47,6 +47,14 @@ function localSet(key, value) {
   return value
 }
 
+function localRemove(key) {
+  try {
+    localStorage.removeItem(LOCAL_PREFIX + key)
+  } catch {
+    /* quota or private mode */
+  }
+}
+
 /**
  * Firestore's setDoc() rejects an `undefined` field value outright, and
  * rejects synchronously — before any network call, so nothing else in the
@@ -203,6 +211,33 @@ export function saveTrip(tripId, patch) {
     },
     () => {
       localSet(`trip.${tripId}`, { ...localGet(`trip.${tripId}`, {}), ...patch })
+      return false
+    }
+  )
+}
+
+/**
+ * Deletes a trip outright. firebase.rules restricts this to the owner —
+ * one member cannot erase it for everyone else — so a non-owner's call
+ * fails there, not here.
+ */
+export function deleteTrip(tripId) {
+  breadcrumb('data', `deleteTrip ${tripId}`)
+
+  return guarded(
+    'deleteTrip',
+    async ({ db, FS }) => {
+      // Firestore does not cascade-delete subcollections when the parent
+      // document goes — the day documents underneath would just sit there
+      // orphaned, readable to nobody, forever. Best-effort cleanup first.
+      const routesSnap = await FS.getDocs(FS.collection(db, 'trips', tripId, 'routes'))
+      await Promise.all(routesSnap.docs.map((d) => FS.deleteDoc(d.ref)))
+      await FS.deleteDoc(FS.doc(db, 'trips', tripId))
+      return true
+    },
+    () => {
+      localRemove(`trip.${tripId}`)
+      localRemove(`routes.${tripId}`)
       return false
     }
   )

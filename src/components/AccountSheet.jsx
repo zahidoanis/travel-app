@@ -14,13 +14,19 @@ import { breadcrumb } from '../lib/telemetry'
  * exists, so the thing being protected is already visible.
  */
 export default function AccountSheet({ open, onClose }) {
-  const { user, trip, trips, switchTrip, startNewTrip, joinByCode, openEdit } = useTrip()
+  const { user, trip, trips, switchTrip, startNewTrip, joinByCode, openEdit, removeTrip } = useTrip()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
   const [merged, setMerged] = useState(false)
   const [code, setCode] = useState('')
   const [joining, setJoining] = useState(false)
   const [joinError, setJoinError] = useState(null)
+  // The trip a delete was requested for, awaiting confirmation — not gone
+  // on the first tap. Deleting is permanent and removes it for everyone on
+  // the trip, not just this device, which is a different order of risk than
+  // anything else this sheet does.
+  const [deletingTrip, setDeletingTrip] = useState(null)
+  const [deleting, setDeleting] = useState(false)
 
   const connect = async () => {
     setBusy(true)
@@ -81,7 +87,19 @@ export default function AccountSheet({ open, onClose }) {
     else setJoinError(result.message)
   }
 
+  const confirmDelete = async () => {
+    setDeleting(true)
+    await removeTrip(deletingTrip.id)
+    setDeleting(false)
+    setDeletingTrip(null)
+    // Only close the whole sheet if that was the trip open behind it — a
+    // deletion elsewhere in the list shouldn't kick you out of your own
+    // account view.
+    if (deletingTrip.id === trip?.id) onClose()
+  }
+
   return (
+    <>
     <Sheet open={open} title={signedIn ? 'החשבון שלך' : 'שמור את הטיול'} onClose={onClose}>
       {!hasFirebase && (
         <>
@@ -220,20 +238,27 @@ export default function AccountSheet({ open, onClose }) {
               <span className="label"><Users size={13} /> הטיולים שלך</span>
               <div className="col" style={{ gap: 8, marginBottom: 18 }}>
                 {trips.map((t) => (
-                  <button
-                    key={t.id}
-                    className={`choice ${t.id === trip?.id ? 'on' : ''}`}
-                    style={{ padding: 13 }}
-                    onClick={() => { switchTrip(t.id); onClose() }}
-                  >
-                    <span className="between">
-                      <span className="grow" style={{ textAlign: 'start' }}>
+                  <div key={t.id} className={`choice ${t.id === trip?.id ? 'on' : ''}`} style={{ padding: 13 }}>
+                    <span className="between" style={{ gap: 8 }}>
+                      <button
+                        className="grow"
+                        style={{ textAlign: 'start' }}
+                        onClick={() => { switchTrip(t.id); onClose() }}
+                      >
                         <span className="choice-title" style={{ marginTop: 0 }}>{t.destination}</span>
                         <span className="choice-sub num">{t.from} → {t.to}</span>
-                      </span>
+                      </button>
                       {t.id === trip?.id && <Check size={16} />}
+                      <button
+                        className="icon-btn"
+                        style={{ width: 32, height: 32 }}
+                        onClick={() => setDeletingTrip(t)}
+                        aria-label={`מחק את הטיול ל${t.destination}`}
+                      >
+                        <X size={15} />
+                      </button>
                     </span>
-                  </button>
+                  </div>
                 ))}
               </div>
             </>
@@ -249,6 +274,40 @@ export default function AccountSheet({ open, onClose }) {
         </>
       )}
     </Sheet>
+
+    <Sheet
+      open={deletingTrip !== null}
+      title="מחיקת טיול"
+      onClose={() => !deleting && setDeletingTrip(null)}
+    >
+      {deletingTrip && (
+        <>
+          <p className="sub" style={{ marginBottom: 20 }}>
+            למחוק את הטיול ל<strong>{deletingTrip.destination}</strong>?
+            הפעולה מוחקת אותו <strong>לצמיתות עבור כל מי שבטיול</strong>,
+            ולא ניתן לבטל אותה.
+          </p>
+          <div className="row" style={{ gap: 9 }}>
+            <button
+              className="btn btn-ghost btn-block grow"
+              onClick={() => setDeletingTrip(null)}
+              disabled={deleting}
+            >
+              ביטול
+            </button>
+            <button
+              className="btn btn-block grow"
+              style={{ background: 'var(--rose)', color: '#fff' }}
+              onClick={confirmDelete}
+              disabled={deleting}
+            >
+              {deleting ? <span className="typing"><i /><i /><i /></span> : 'מחק לצמיתות'}
+            </button>
+          </div>
+        </>
+      )}
+    </Sheet>
+    </>
   )
 }
 
