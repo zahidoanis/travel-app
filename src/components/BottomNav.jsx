@@ -2,7 +2,6 @@ import { Calendar, MapIcon, Bot, Wallet, Route, Utensils, Plane } from './Icons'
 
 /** The desktop rail shows everything; the bottom bar keeps a subset. */
 export const RAIL_ONLY = [
-  { id: 'days', label: 'מסלול', Icon: Route },
   { id: 'food', label: 'מסעדות', Icon: Utensils },
   { id: 'arrival', label: 'הגעה', Icon: Plane },
 ]
@@ -11,6 +10,7 @@ export const TABS = [
   { id: 'home', label: 'בית/לו"ז', Icon: Calendar },
   { id: 'map', label: 'מפה', Icon: MapIcon },
   { id: 'chat', label: "צ'אט AI", Icon: Bot },
+  { id: 'days', label: 'מסלול', Icon: Route },
   { id: 'finance', label: 'פיננסים', Icon: Wallet },
 ]
 
