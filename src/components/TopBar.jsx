@@ -62,7 +62,7 @@ export default function TopBar({ variant = 'centered', floating = false, onBell 
           {label}
         </div>
         <div className="row" style={{ gap: 8 }}>
-          <SyncBadge state={syncState} day={trip} />
+          <SyncBadge state={syncState} day={trip} onSave={openAccount} />
           {account}
         </div>
       </header>
@@ -100,8 +100,15 @@ export default function TopBar({ variant = 'centered', floating = false, onBell 
 /**
  * Says whether the user's work is safe. The badge that used to live here was
  * decorative — it read "מסונכרן" whether anything was synced or not.
+ *
+ * The unsaved state used to just name the fact ("מכשיר זה בלבד") and stop —
+ * true, but not actionable, and the exact condition that turned into real
+ * data loss this session (an anonymous session wiped by clearing browsing
+ * data, with the trip unreachable afterward). Now it's a button that says
+ * what to do about it and opens straight to the fix, rather than a label
+ * someone has to already know to worry about.
  */
-function SyncBadge({ state, day }) {
+function SyncBadge({ state, day, onSave }) {
   if (state === 'saving') {
     return (
       <span className="badge badge-live" title="שומר שינויים">
@@ -120,12 +127,18 @@ function SyncBadge({ state, day }) {
     )
   }
 
-  // Not signed in, or no backend at all: the work lives on this device only,
-  // and that is worth saying out loud rather than implying otherwise.
+  // Not signed in, or no backend at all: the work lives on this device only
+  // and could be gone the moment browsing data is cleared. Say what to do
+  // about it, not just that it's true.
   return (
-    <span className="badge badge-live" style={{ color: 'var(--amber)' }} title="הטיול קיים על מכשיר זה בלבד">
+    <button
+      className="badge badge-live"
+      style={{ color: 'var(--amber)' }}
+      title="הטיול קיים על מכשיר זה בלבד — לחץ כדי לשמור אותו"
+      onClick={onSave}
+    >
       <Cloud size={12} />
-      מכשיר זה בלבד
-    </span>
+      שמור את הטיול
+    </button>
   )
 }
