@@ -2,12 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import TopBar from '../components/TopBar'
 import MapCanvas from '../components/MapCanvas'
 import Sheet from '../components/Sheet'
-import { Star, Info, Navigation, Clock, Layers, Locate, Plus, Footprints, MapPin } from '../components/Icons'
+import { Star, Info, Navigation, Clock, Layers, Locate, Plus, MapPin } from '../components/Icons'
 import { CATEGORIES } from '../data'
 import { useTrip } from '../TripProvider'
 import { PROVIDERS } from '../lib/tiles'
 import { navigateUrl } from '../lib/staticMap'
-import { stepsFromMeters } from '../lib/geo'
 
 // A live dot older than this is more likely someone who closed the app
 // without switching sharing off than someone standing still that long —
@@ -25,7 +24,7 @@ function dateForDay(fromISO, day) {
 export default function MapScreen() {
   const {
     stops: STOPS, days, activeDay, setActiveDay, planning, trip,
-    presence, sharingLocation, toggleLocationSharing, todayMeters,
+    presence, sharingLocation, toggleLocationSharing,
   } = useTrip()
   const livePeople = presence.filter(
     (p) => p.active && p.lat != null && Date.now() - (p.updatedAt?.seconds ?? 0) * 1000 < PRESENCE_STALE_MS
@@ -176,16 +175,6 @@ export default function MapScreen() {
           <MapPin size={18} />
         </button>
       </div>
-
-      {/* Only once sharing is on — the count means nothing to someone not
-          currently being tracked, and showing "0" the rest of the time would
-          just invite the question of why it never moves. */}
-      {sharingLocation && (
-        <div className="steps-badge">
-          <Footprints size={13} />
-          <span className="num">{stepsFromMeters(todayMeters).toLocaleString('en-US')}</span> צעדים משוערכים היום
-        </div>
-      )}
 
       <div className="stop-deck">
         <div className="hscroll" ref={deckRef}>
