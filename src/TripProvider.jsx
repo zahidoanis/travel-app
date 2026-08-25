@@ -364,7 +364,15 @@ export function TripProvider({ children }) {
     }
 
     const { id, code } = await createTrip(located)
-    setRaw({ ...located, id, code, memberIds: [user?.uid ?? 'local'] })
+    const ownerId = user?.uid ?? 'local'
+    const created = { ...located, id, code, ownerId, memberIds: [ownerId] }
+    setRaw(created)
+    // Only the [user] effect below refetches this list, so it never changing
+    // (this device was already signed in) left a trip created mid-session
+    // invisible in "הטיולים שלך" until the next sign-in or reload — even
+    // though it saved correctly. Prepending here keeps the list honest
+    // without a second round trip to fetch what was just created locally.
+    setTrips((list) => [created, ...list.filter((t) => t.id !== id)])
     setSyncing(false)
     breadcrumb('lifecycle', `trip created: ${answers.destination}`)
   }
