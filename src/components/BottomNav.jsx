@@ -1,10 +1,14 @@
-import { Calendar, MapIcon, Bot, Wallet, Route, Utensils, Plane, Bed } from './Icons'
+import { Calendar, MapIcon, Bot, Wallet, Route, Utensils, Plane, Bed, Layers } from './Icons'
 
-/** The desktop rail shows everything; the bottom bar keeps a subset. */
+/** The desktop rail shows everything; the bottom bar keeps a subset.
+ *  `trips` isn't a routed screen — it opens the account sheet's trip
+ *  switcher instead — so whatever renders this list needs to special-case
+ *  its click rather than treating every id the same as a tab. */
 export const RAIL_ONLY = [
   { id: 'food', label: 'מסעדות', Icon: Utensils },
   { id: 'arrival', label: 'הגעה', Icon: Plane },
   { id: 'hotels', label: 'מלונות', Icon: Bed },
+  { id: 'trips', label: 'הטיולים שלי', Icon: Layers },
 ]
 
 export const TABS = [

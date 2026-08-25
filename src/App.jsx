@@ -190,7 +190,7 @@ function Shell() {
                 <button
                   key={id}
                   className={`rail-item ${tab === id ? 'active' : ''}`}
-                  onClick={() => go(id)}
+                  onClick={() => (id === 'trips' ? openAccount() : go(id))}
                   aria-current={tab === id ? 'page' : undefined}
                 >
                   <span className="rail-glyph"><Icon size={19} /></span>
