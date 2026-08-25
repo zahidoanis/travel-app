@@ -423,6 +423,10 @@ input, select, textarea { font: inherit; color: inherit; }
   padding: 16px 18px calc(18px + env(safe-area-inset-bottom));
   background: linear-gradient(0deg, var(--bg-2) 68%, rgba(20,18,31,0));
 }
+/* Full-width elsewhere in the app is a deliberate, consistent pattern for
+   primary buttons — this one is scoped to the onboarding wizard's own CTA,
+   which asked to read as a button rather than a bar spanning the screen. */
+.cta-bar > .btn { max-width: 340px; margin-inline: auto; }
 
 /* ---------- Home ---------- */
 
@@ -893,6 +897,7 @@ input, select, textarea { font: inherit; color: inherit; }
 
 @media (min-width: 1024px) {
   .nav { display: none; }
+  .home-shortcuts { display: none; }
 
   .rail {
     display: flex; flex-direction: column; gap: 4px;

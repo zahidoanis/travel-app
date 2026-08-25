@@ -335,6 +335,11 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
         </div>
       )}
 
+      {/* Every card below duplicates a destination the desktop rail already
+          shows permanently, so on a wide screen this whole block is just
+          the same navigation twice — home-shortcuts hides it there. On
+          mobile, with no rail, these cards are the only way in. */}
+      <div className="home-shortcuts">
       {/* Recommendations come from the agent, which knows the real itinerary —
           there is no canned list to fall back on. */}
       <div className="pad" style={{ marginTop: 20 }}>
@@ -436,6 +441,7 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
             <ArrowLeft size={18} />
           </button>
         </div>
+      </div>
       </div>
 
       <ShareSheet open={shareOpen} stops={STOPS} onClose={() => setShareOpen(false)} />
