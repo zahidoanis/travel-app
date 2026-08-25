@@ -352,33 +352,6 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
         </button>
       </div>
 
-      {/* The account icon up in the top bar already opens this same list —
-          it just turns out nobody finds it there. A trip switcher belongs
-          somewhere as visible as the route or the AI chat, not tucked behind
-          a settings-shaped icon. */}
-      <div className="pad" style={{ marginTop: 20 }}>
-        <button className="card between" style={{ width: '100%' }} onClick={openAccount}>
-          <span className="row">
-            <span
-              style={{
-                width: 34, height: 34, borderRadius: '50%', flex: 'none',
-                display: 'grid', placeItems: 'center', color: '#fff',
-                background: 'linear-gradient(135deg, #E8C88A, #A855F7)',
-              }}
-            >
-              <Layers size={17} />
-            </span>
-            <span className="col" style={{ gap: 2, textAlign: 'start' }}>
-              <strong style={{ fontSize: 14, fontWeight: 600 }}>הטיולים שלי</strong>
-              <span className="tiny">
-                {trips.length > 1 ? `עבור בין ${trips.length} הטיולים שלך` : 'שמור, שתף או תכנן טיול נוסף'}
-              </span>
-            </span>
-          </span>
-          <ArrowLeft size={18} />
-        </button>
-      </div>
-
       {/* The rail carries these on desktop; on mobile this is the way in. */}
       <div className="pad" style={{ marginTop: 20 }}>
         <div className="col" style={{ gap: 10 }}>
@@ -425,6 +398,23 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
                 <span className="tiny">
                   <span className="num">{stops.length}</span> עצירות · מסתיים ב-
                   <span className="num">{STOPS[STOPS.length - 1]?.time ?? '—'}</span>
+                </span>
+              </span>
+            </span>
+            <ArrowLeft size={18} />
+          </button>
+
+          {/* The account icon up in the top bar already opens this same
+              list — it just turns out nobody finds it there. Last in this
+              list rather than first, since switching trips is rarer than
+              anything above it. */}
+          <button className="card between" style={{ width: '100%' }} onClick={openAccount}>
+            <span className="row">
+              <span style={{ color: 'var(--lav)' }}><Layers size={18} /></span>
+              <span className="col" style={{ gap: 2, textAlign: 'start' }}>
+                <strong style={{ fontSize: 14, fontWeight: 600 }}>הטיולים שלי</strong>
+                <span className="tiny">
+                  {trips.length > 1 ? `עבור בין ${trips.length} הטיולים שלך` : 'שמור, שתף או תכנן טיול נוסף'}
                 </span>
               </span>
             </span>
