@@ -158,7 +158,13 @@ export default function Restaurants() {
                   <span className="hotel-price num">{r.price}</span>
                 </div>
 
-                <p className="tiny" style={{ margin: '0 0 13px' }}>{r.reason}</p>
+                <p className="tiny" style={{ margin: '0 0 9px' }}>{r.reason}</p>
+                {/* Not a real review or rating — the model has no verified
+                    source for either, and saying so plainly beats a card
+                    that looks like Google/TripAdvisor but isn't one. */}
+                <span className="badge" style={{ marginBottom: 9 }}>
+                  <Sparkles size={11} /> המלצת AI, לא ביקורת מאומתת
+                </span>
 
                 <div className="row" style={{ gap: 8 }}>
                   <button
