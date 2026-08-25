@@ -4,12 +4,26 @@ import { buildItinerary } from './lib/itinerary'
 import {
   loadProfile, saveProfile, createTrip, loadTrip, saveTrip, listTrips, joinTrip,
   listRoutes, saveRoute, watchRoutes, deleteTrip, logActivity, watchActivity,
+  updatePresence, watchPresence,
 } from './lib/db'
 import { onUser, hasFirebase } from './lib/firebase'
 import { invitedTripId } from './lib/share'
 import { geocode } from './lib/geocode'
+import { haversineMeters } from './lib/geo'
 import { CITIES } from './cities'
 import { breadcrumb, record } from './lib/telemetry'
+
+// GPS noise while standing still can read as a few meters of "movement" —
+// below this it's ignored so the distance count doesn't creep up on its own.
+const MIN_MOVE_M = 3
+// Above this in one reading it's a GPS jump (tunnel, tall buildings, a cold
+// fix), not someone actually covering that ground — dropped rather than
+// added to the total.
+const MAX_JUMP_M = 300
+// Firestore's free tier has a real daily write budget shared by every
+// feature, not just this one — a location fires far more often than a
+// person actually needs their dot on the map to move.
+const PRESENCE_WRITE_MS = 45000
 
 /**
  * Single source of truth for the current trip.
@@ -224,6 +238,72 @@ export function TripProvider({ children }) {
       setLastSeen(now)
     }
   }
+
+  /* ---- live location, opt-in per device per trip ---- */
+
+  const [presence, setPresence] = useState([])
+  const presenceWatch = useRef(null)
+  useEffect(() => {
+    presenceWatch.current?.()
+    if (!trip) return
+    presenceWatch.current = watchPresence(trip.id, setPresence)
+    return () => presenceWatch.current?.()
+  }, [trip?.id])
+
+  const sharingKey = trip ? `tripai.shareLoc.${trip.id}` : null
+  const [sharingLocation, setSharingLocation] = useState(false)
+  useEffect(() => {
+    setSharingLocation(sharingKey ? localStorage.getItem(sharingKey) === '1' : false)
+  }, [sharingKey])
+
+  // Kept across renders, not state — every incoming position needs the
+  // previous one to measure against, and none of this should itself trigger
+  // a re-render the way setState would on every GPS tick.
+  const lastPos = useRef(null)
+  const lastWriteAt = useRef(0)
+  const todayRef = useRef({ date: new Date().toDateString(), meters: 0 })
+  const [todayMeters, setTodayMeters] = useState(0)
+
+  const toggleLocationSharing = () => {
+    if (!trip || !sharingKey) return
+    const next = !sharingLocation
+    setSharingLocation(next)
+    localStorage.setItem(sharingKey, next ? '1' : '0')
+    if (!next) {
+      lastPos.current = null
+      updatePresence(trip.id, user?.uid, { active: false })
+    }
+  }
+
+  useEffect(() => {
+    if (!sharingLocation || !trip || typeof navigator === 'undefined' || !navigator.geolocation) return
+
+    const id = navigator.geolocation.watchPosition(
+      (pos) => {
+        const { latitude: lat, longitude: lng } = pos.coords
+        const today = new Date().toDateString()
+        if (todayRef.current.date !== today) todayRef.current = { date: today, meters: 0 }
+
+        if (lastPos.current) {
+          const moved = haversineMeters(lastPos.current.lat, lastPos.current.lng, lat, lng)
+          if (moved > MIN_MOVE_M && moved < MAX_JUMP_M) todayRef.current.meters += moved
+        }
+        lastPos.current = { lat, lng }
+        setTodayMeters(todayRef.current.meters)
+
+        const now = Date.now()
+        if (now - lastWriteAt.current < PRESENCE_WRITE_MS) return
+        lastWriteAt.current = now
+        updatePresence(trip.id, user?.uid, {
+          name: user?.name || 'מישהו', lat, lng, active: true,
+          meters: Math.round(todayRef.current.meters),
+        })
+      },
+      (err) => record({ kind: 'geo', level: 'warn', message: `geolocation: ${err.message}` }),
+      { enableHighAccuracy: true, maximumAge: 15000, timeout: 20000 }
+    )
+    return () => navigator.geolocation.clearWatch(id)
+  }, [sharingLocation, trip?.id, user?.uid])
 
   // Generate the current day only when nothing is stored for it.
   useEffect(() => {
@@ -533,6 +613,7 @@ export function TripProvider({ children }) {
     dismissJustJoined: () => setJustJoined(false),
     activity, unreadCount, notificationsOpen, openNotifications,
     closeNotifications: () => setNotificationsOpen(false),
+    presence, sharingLocation, toggleLocationSharing, todayMeters,
   }
 
   return <TripContext.Provider value={value}>{children}</TripContext.Provider>

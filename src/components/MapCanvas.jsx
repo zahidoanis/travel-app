@@ -70,7 +70,7 @@ function routePath(pts) {
   return d
 }
 
-export default function MapCanvas({ stops, activeId, onPinClick, provider = 'cartoLight', hotel }) {
+export default function MapCanvas({ stops, activeId, onPinClick, provider = 'cartoLight', hotel, people = [] }) {
   const active = stops.find((s) => s.id === activeId) ?? stops[0]
   const src = PROVIDERS[provider] ?? PROVIDERS.cartoLight
 
@@ -181,6 +181,15 @@ export default function MapCanvas({ stops, activeId, onPinClick, provider = 'car
           return { x: HALF + (p.x - anchor.x), y: HALF + (p.y - anchor.y) }
         })()
       : null
+
+  // Same off-anchor treatment as the hotel — wherever someone actually is,
+  // not folded into the zoom fit for the day's stops.
+  const peopleLocal = people
+    .filter((p) => p.lat != null && p.lng != null)
+    .map((p) => {
+      const proj = project(p.lat, p.lng, z)
+      return { ...p, x: HALF + (proj.x - anchor.x), y: HALF + (proj.y - anchor.y) }
+    })
 
   // A Google key, if one is ever supplied, takes precedence.
   const googleUrl = useMemo(() => {
@@ -341,6 +350,25 @@ export default function MapCanvas({ stops, activeId, onPinClick, provider = 'car
               <PinLabel x={hotelLocal.x} y={hotelLocal.y - 28} text={hotel.name} color="var(--gold, #A0783F)" bold />
             </g>
           )}
+
+          {peopleLocal.map((p) => (
+            <g key={p.id} role="img" aria-label={`מיקום חי: ${p.name ?? 'מישהו'}`}>
+              <circle cx={p.x} cy={p.y} r="16" fill="var(--emerald, #10B981)" opacity="0.28">
+                <animate attributeName="r" values="12;20;12" dur="1.8s" repeatCount="indefinite" />
+                <animate attributeName="opacity" values="0.4;0.08;0.4" dur="1.8s" repeatCount="indefinite" />
+              </circle>
+              <g filter="url(#pinShadow)">
+                <circle cx={p.x} cy={p.y} r="11" fill="var(--emerald, #10B981)" stroke="#fff" strokeWidth="2.2" />
+                <text
+                  x={p.x} y={p.y} textAnchor="middle" dominantBaseline="central"
+                  fontFamily="Rubik, Heebo, sans-serif" fontSize="10" fontWeight="700" fill="#fff"
+                >
+                  {(p.name ?? '?').trim().charAt(0)}
+                </text>
+              </g>
+              <PinLabel x={p.x} y={p.y - 19} text={p.name ?? 'מישהו'} color="var(--emerald, #10B981)" />
+            </g>
+          ))}
         </svg>
       </div>
 

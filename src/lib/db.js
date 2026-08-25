@@ -476,6 +476,58 @@ export function watchActivity(tripId, onChange) {
 }
 
 /* ------------------------------------------------------------------ *
+ * presence — live location, opt-in, one document per member who has it on.
+ * ------------------------------------------------------------------ */
+
+/** Upserts one member's live position. Merge, not overwrite — a stale field
+ *  from a slow prior write should never wipe a fresher one that landed
+ *  first from the same device's next tick. */
+export function updatePresence(tripId, uid, data) {
+  if (!tripId || !uid) return
+  return guarded(
+    'updatePresence',
+    async ({ db, FS }) => {
+      await FS.setDoc(
+        FS.doc(db, 'trips', tripId, 'presence', uid),
+        { ...data, updatedAt: FS.serverTimestamp() },
+        { merge: true }
+      )
+      return true
+    },
+    () => false
+  )
+}
+
+/** Every member currently sharing, or who has at some point — a stale
+ *  `updatedAt` is how the UI tells "closed the app without switching this
+ *  off" apart from "still here," since there is no way to run code when a
+ *  tab closes to clean the document up itself. */
+export function watchPresence(tripId, onChange) {
+  if (!hasFirebase || !tripId) {
+    onChange([])
+    return () => {}
+  }
+
+  let stop = () => {}
+  let cancelled = false
+
+  firebase().then((fb) => {
+    if (!fb || cancelled) return
+    const { db, FS } = fb
+    stop = FS.onSnapshot(
+      FS.collection(db, 'trips', tripId, 'presence'),
+      (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+      (err) => record({ kind: 'db', message: `watchPresence: ${err.message}`, stack: err.stack })
+    )
+  })
+
+  return () => {
+    cancelled = true
+    stop()
+  }
+}
+
+/* ------------------------------------------------------------------ *
  * diagnostics sink
  * ------------------------------------------------------------------ */
 

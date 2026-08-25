@@ -2,11 +2,17 @@ import { useEffect, useRef, useState } from 'react'
 import TopBar from '../components/TopBar'
 import MapCanvas from '../components/MapCanvas'
 import Sheet from '../components/Sheet'
-import { Star, Info, Navigation, Clock, Layers, Locate, Plus } from '../components/Icons'
+import { Star, Info, Navigation, Clock, Layers, Locate, Plus, Footprints } from '../components/Icons'
 import { CATEGORIES } from '../data'
 import { useTrip } from '../TripProvider'
 import { PROVIDERS } from '../lib/tiles'
 import { navigateUrl } from '../lib/staticMap'
+import { stepsFromMeters } from '../lib/geo'
+
+// A live dot older than this is more likely someone who closed the app
+// without switching sharing off than someone standing still that long —
+// there is no way to run code when a tab closes to mark it inactive itself.
+const PRESENCE_STALE_MS = 10 * 60 * 1000
 
 /** The calendar date of day N of the trip, as the same "YYYY-MM-DD" shape
  *  a stay's checkIn/checkOut is stored in. */
@@ -17,7 +23,13 @@ function dateForDay(fromISO, day) {
 }
 
 export default function MapScreen() {
-  const { stops: STOPS, days, activeDay, setActiveDay, planning, trip } = useTrip()
+  const {
+    stops: STOPS, days, activeDay, setActiveDay, planning, trip,
+    presence, sharingLocation, toggleLocationSharing, todayMeters,
+  } = useTrip()
+  const livePeople = presence.filter(
+    (p) => p.active && p.lat != null && Date.now() - (p.updatedAt?.seconds ?? 0) * 1000 < PRESENCE_STALE_MS
+  )
   const dayList = trip ? Array.from({ length: trip.totalDays }, (_, i) => i + 1) : []
   // A stay only reaches the map at all once it has real coordinates, from the
   // same geocoding step onboarding already runs when one is added. With more
@@ -111,7 +123,14 @@ export default function MapScreen() {
 
   return (
     <div className="map-screen">
-      <MapCanvas stops={STOPS} activeId={activeId} onPinClick={setActiveId} provider={provider} hotel={hotel} />
+      <MapCanvas
+        stops={STOPS}
+        activeId={activeId}
+        onPinClick={setActiveId}
+        provider={provider}
+        hotel={hotel}
+        people={livePeople}
+      />
 
       <div style={{ position: 'relative', zIndex: 10 }}>
         <TopBar floating />
@@ -133,7 +152,26 @@ export default function MapScreen() {
         </button>
         <button className="map-tool" aria-label="מרכז על המיקום שלי"><Locate size={18} /></button>
         <button className="map-tool" aria-label="הוסף עצירה"><Plus size={18} /></button>
+        <button
+          className={`map-tool ${sharingLocation ? 'on' : ''}`}
+          onClick={toggleLocationSharing}
+          aria-label={sharingLocation ? 'הפסק לשתף מיקום חי' : 'שתף מיקום חי עם הקבוצה'}
+          aria-pressed={sharingLocation}
+          title="מיקום חי"
+        >
+          <Navigation size={18} />
+        </button>
       </div>
+
+      {/* Only once sharing is on — the count means nothing to someone not
+          currently being tracked, and showing "0" the rest of the time would
+          just invite the question of why it never moves. */}
+      {sharingLocation && (
+        <div className="steps-badge">
+          <Footprints size={13} />
+          <span className="num">{stepsFromMeters(todayMeters).toLocaleString('en-US')}</span> צעדים משוערכים היום
+        </div>
+      )}
 
       <div className="stop-deck">
         <div className="hscroll" ref={deckRef}>
