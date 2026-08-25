@@ -1,3 +1,5 @@
+import { record } from './telemetry'
+
 /**
  * Firebase bootstrap and identity.
  *
@@ -172,6 +174,10 @@ export async function signInWithGoogle() {
     if (err?.code === 'auth/popup-closed-by-user') {
       throw new Error('ההתחברות בוטלה')
     }
+    // The UI only ever shows a generic message, which is fine for the user
+    // but useless for finding out what actually failed on their device —
+    // the real Firebase error code is worth keeping.
+    record({ kind: 'auth', message: `signInWithGoogle: ${err?.code ?? 'unknown'} — ${err?.message ?? ''}`, stack: err?.stack })
     throw new Error(err?.message ?? 'ההתחברות נכשלה')
   }
 }
