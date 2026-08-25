@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import TopBar from '../components/TopBar'
 import MapCanvas from '../components/MapCanvas'
 import Sheet from '../components/Sheet'
-import { Star, Info, Navigation, Clock, Layers, Locate, Plus, Footprints } from '../components/Icons'
+import { Star, Info, Navigation, Clock, Layers, Locate, Plus, Footprints, MapPin } from '../components/Icons'
 import { CATEGORIES } from '../data'
 import { useTrip } from '../TripProvider'
 import { PROVIDERS } from '../lib/tiles'
@@ -159,7 +159,7 @@ export default function MapScreen() {
           aria-pressed={sharingLocation}
           title="מיקום חי"
         >
-          <Navigation size={18} />
+          <MapPin size={18} />
         </button>
       </div>
 
