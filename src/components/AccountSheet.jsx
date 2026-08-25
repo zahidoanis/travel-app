@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import Sheet from './Sheet'
-import { Check, Users, Info, X, Plus } from './Icons'
+import { Check, Users, Info, X, Plus, Pencil, Share } from './Icons'
 import { useTrip } from '../TripProvider'
 import { joinTrip, claimOwnership } from '../lib/db'
 import { signInWithGoogle, signOutUser, hasFirebase } from '../lib/firebase'
 import { breadcrumb } from '../lib/telemetry'
 import { initials } from '../lib/text'
+import { inviteUrl, shareTrip } from '../lib/share'
 
 /**
  * Saving the trip to an account.
@@ -81,6 +82,23 @@ export default function AccountSheet({ open, onClose }) {
     if (!trip) return
     openEdit('where')
     onClose()
+  }
+
+  // Editing a trip other than the one currently open has to load it first —
+  // the wizard reads straight off the active trip's stored answers.
+  const editTripRow = async (t) => {
+    if (t.id !== trip?.id) await switchTrip(t.id)
+    openEdit('where')
+    onClose()
+  }
+
+  // No full itinerary preview here, unlike sharing the active trip from
+  // Home — that needs today's stops loaded, which a trip elsewhere in this
+  // list isn't. Just the destination and the join link, which is already
+  // everything a recipient needs to get in.
+  const shareTripRow = (t) => {
+    const url = inviteUrl(t.id)
+    shareTrip(`הצטרפו אליי לטיול ל${t.destination}! 🗺️\n\n${url}`, url)
   }
 
   const confirmDelete = async () => {
@@ -215,6 +233,22 @@ export default function AccountSheet({ open, onClose }) {
                         <span className="choice-sub num">{t.from} → {t.to}</span>
                       </button>
                       {t.id === trip?.id && <Check size={16} />}
+                      <button
+                        className="icon-btn"
+                        style={{ width: 32, height: 32 }}
+                        onClick={() => shareTripRow(t)}
+                        aria-label={`שתף את הטיול ל${t.destination}`}
+                      >
+                        <Share size={14} />
+                      </button>
+                      <button
+                        className="icon-btn"
+                        style={{ width: 32, height: 32 }}
+                        onClick={() => editTripRow(t)}
+                        aria-label={`ערוך את הטיול ל${t.destination}`}
+                      >
+                        <Pencil size={14} />
+                      </button>
                       {/* firebase.rules restricts deletion to whoever created
                           the trip — showing this to every member would just
                           be an button that fails for most people who tap it. */}
