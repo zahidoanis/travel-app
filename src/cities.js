@@ -52,12 +52,52 @@ export const CITIES = [
     "lng": -3.7035
   },
   {
+    "he": "סביליה",
+    "en": "Seville",
+    "country": "ספרד",
+    "emoji": "💃",
+    "lat": 37.3886,
+    "lng": -5.9953
+  },
+  {
+    "he": "ולנסיה",
+    "en": "Valencia",
+    "country": "ספרד",
+    "emoji": "🍊",
+    "lat": 39.4697,
+    "lng": -0.3763
+  },
+  {
+    "he": "מלגה",
+    "en": "Malaga",
+    "country": "ספרד",
+    "emoji": "🏖️",
+    "lat": 36.7648,
+    "lng": -4.4422
+  },
+  {
+    "he": "איביזה",
+    "en": "Ibiza",
+    "country": "ספרד",
+    "emoji": "🎉",
+    "lat": 38.9744,
+    "lng": 1.4197
+  },
+  {
     "he": "לונדון",
     "en": "London",
     "country": "אנגליה",
     "emoji": "☂️",
     "lat": 51.5074,
     "lng": -0.1278
+  },
+  {
+    "he": "אדינבורו",
+    "en": "Edinburgh",
+    "country": "סקוטלנד",
+    "emoji": "🏰",
+    "lat": 55.9533,
+    "lng": -3.1884
   },
   {
     "he": "אמסטרדם",
@@ -82,6 +122,30 @@ export const CITIES = [
     "emoji": "🍺",
     "lat": 48.1371,
     "lng": 11.5754
+  },
+  {
+    "he": "פרנקפורט",
+    "en": "Frankfurt",
+    "country": "גרמניה",
+    "emoji": "🏦",
+    "lat": 50.1106,
+    "lng": 8.6821
+  },
+  {
+    "he": "המבורג",
+    "en": "Hamburg",
+    "country": "גרמניה",
+    "emoji": "⚓",
+    "lat": 53.5502,
+    "lng": 10.0013
+  },
+  {
+    "he": "קלן",
+    "en": "Cologne",
+    "country": "גרמניה",
+    "emoji": "⛪",
+    "lat": 50.9384,
+    "lng": 6.96
   },
   {
     "he": "וינה",
@@ -148,12 +212,44 @@ export const CITIES = [
     "lng": 25.1333
   },
   {
+    "he": "סנטוריני",
+    "en": "Santorini",
+    "country": "יוון",
+    "emoji": "🌋",
+    "lat": 36.4071,
+    "lng": 25.4567
+  },
+  {
+    "he": "מיקונוס",
+    "en": "Mykonos",
+    "country": "יוון",
+    "emoji": "🐚",
+    "lat": 37.4514,
+    "lng": 25.3923
+  },
+  {
     "he": "לרנקה",
     "en": "Larnaca",
     "country": "קפריסין",
     "emoji": "🌅",
     "lat": 34.9236,
     "lng": 33.6236
+  },
+  {
+    "he": "פאפוס",
+    "en": "Paphos",
+    "country": "קפריסין",
+    "emoji": "🏛️",
+    "lat": 34.7744,
+    "lng": 32.4232
+  },
+  {
+    "he": "איה נאפה",
+    "en": "Ayia Napa",
+    "country": "קפריסין",
+    "emoji": "🏖️",
+    "lat": 34.9893,
+    "lng": 33.9962
   },
   {
     "he": "מילאנו",
@@ -178,6 +274,22 @@ export const CITIES = [
     "emoji": "🖼️",
     "lat": 43.7698,
     "lng": 11.2556
+  },
+  {
+    "he": "בולוניה",
+    "en": "Bologna",
+    "country": "איטליה",
+    "emoji": "🍝",
+    "lat": 44.4938,
+    "lng": 11.3426
+  },
+  {
+    "he": "פלרמו",
+    "en": "Palermo",
+    "country": "איטליה",
+    "emoji": "🍋",
+    "lat": 38.1112,
+    "lng": 13.3524
   },
   {
     "he": "טוסקנה",
@@ -284,12 +396,52 @@ export const CITIES = [
     "lng": 6.1466
   },
   {
+    "he": "לוצרן",
+    "en": "Lucerne",
+    "country": "שווייץ",
+    "emoji": "🚠",
+    "lat": 47.0521,
+    "lng": 8.3058
+  },
+  {
+    "he": "אינטרלאקן",
+    "en": "Interlaken",
+    "country": "שווייץ",
+    "emoji": "⛷️",
+    "lat": 46.6855,
+    "lng": 7.8585
+  },
+  {
     "he": "שטרסבורג",
     "en": "Strasbourg",
     "country": "צרפת",
     "emoji": "🥨",
     "lat": 48.5846,
     "lng": 7.7507
+  },
+  {
+    "he": "ניס",
+    "en": "Nice",
+    "country": "צרפת",
+    "emoji": "🌴",
+    "lat": 43.7009,
+    "lng": 7.2684
+  },
+  {
+    "he": "ליון",
+    "en": "Lyon",
+    "country": "צרפת",
+    "emoji": "🍷",
+    "lat": 45.7578,
+    "lng": 4.832
+  },
+  {
+    "he": "מרסיי",
+    "en": "Marseille",
+    "country": "צרפת",
+    "emoji": "⛵",
+    "lat": 43.2964,
+    "lng": 5.3778
   },
   {
     "he": "בריסל",
@@ -824,8 +976,8 @@ export const CITIES = [
     "en": "Nairobi",
     "country": "קניה",
     "emoji": "🦁",
-    "lat": -1.3024,
-    "lng": 36.8289
+    "lat": -1.289,
+    "lng": 36.8173
   },
   {
     "he": "סידני",
