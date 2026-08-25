@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import TopBar from '../components/TopBar'
 import ShareSheet from '../components/ShareSheet'
 import {
-  ArrowLeft, Sparkles, Bookmark, Clock, Share, Users, RefreshCw, Route, Utensils, Cloud, Plane, Note,
+  ArrowLeft, Sparkles, Bookmark, Clock, Share, Users, RefreshCw, Route, Utensils, Cloud, Plane, Note, Layers,
 } from '../components/Icons'
 import { headCount } from '../data'
 import { useTrip } from '../TripProvider'
@@ -28,7 +28,7 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
   // "all" shows the shared itinerary; picking a party narrows it to the stops
   // that party is actually attending.
   const {
-    trip: TRIP, stops: STOPS, families: FAMILIES, planning, planWarning, plan, syncState,
+    trip: TRIP, stops: STOPS, families: FAMILIES, planning, planWarning, plan, syncState, trips,
     openAccount, openEdit, addNote, updateNote, removeNote,
   } = useTrip()
   const [party, setParty] = useState('all')
@@ -346,6 +346,33 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
             <span className="col" style={{ gap: 2, textAlign: "start" }}>
               <strong style={{ fontSize: 14, fontWeight: 600 }}>שאל את הסוכן</strong>
               <span className="tiny">המלצות להמשך היום, לפי המסלול שלך</span>
+            </span>
+          </span>
+          <ArrowLeft size={18} />
+        </button>
+      </div>
+
+      {/* The account icon up in the top bar already opens this same list —
+          it just turns out nobody finds it there. A trip switcher belongs
+          somewhere as visible as the route or the AI chat, not tucked behind
+          a settings-shaped icon. */}
+      <div className="pad" style={{ marginTop: 20 }}>
+        <button className="card between" style={{ width: '100%' }} onClick={openAccount}>
+          <span className="row">
+            <span
+              style={{
+                width: 34, height: 34, borderRadius: '50%', flex: 'none',
+                display: 'grid', placeItems: 'center', color: '#fff',
+                background: 'linear-gradient(135deg, #E8C88A, #A855F7)',
+              }}
+            >
+              <Layers size={17} />
+            </span>
+            <span className="col" style={{ gap: 2, textAlign: 'start' }}>
+              <strong style={{ fontSize: 14, fontWeight: 600 }}>הטיולים שלי</strong>
+              <span className="tiny">
+                {trips.length > 1 ? `עבור בין ${trips.length} הטיולים שלך` : 'שמור, שתף או תכנן טיול נוסף'}
+              </span>
             </span>
           </span>
           <ArrowLeft size={18} />

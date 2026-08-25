@@ -6,7 +6,7 @@ import {
   listRoutes, saveRoute, watchRoutes, deleteTrip, logActivity, watchActivity,
 } from './lib/db'
 import { onUser, hasFirebase } from './lib/firebase'
-import { invitedTripId, extractTripId } from './lib/share'
+import { invitedTripId } from './lib/share'
 import { geocode } from './lib/geocode'
 import { CITIES } from './cities'
 import { breadcrumb, record } from './lib/telemetry'
@@ -382,29 +382,6 @@ export function TripProvider({ children }) {
     setDays({})
   }
 
-  /**
-   * Joins a trip from a pasted code rather than an opened link — the same
-   * `joinTrip` a WhatsApp invite link drives, just entered by hand. Returns
-   * whether it worked, since a wrong or already-used code is an everyday
-   * mistake here, not an error to log.
-   */
-  const joinByCode = async (input) => {
-    if (!input.trim()) return { ok: false, message: 'הזן קוד או קישור הצטרפות' }
-    const tripId = extractTripId(input)
-
-    setSyncing(true)
-    const joined = await joinTrip(tripId)
-    setSyncing(false)
-
-    if (!joined) return { ok: false, message: 'הקוד לא נמצא, או שאין הרשאה להצטרף' }
-
-    setRaw(joined)
-    setJustJoined(true)
-    breadcrumb('lifecycle', `joined trip via code`)
-    logActivity(tripId, { type: 'join', message: `${user?.name || 'מישהו'} הצטרף/ה לטיול` })
-    return { ok: true }
-  }
-
   const switchTrip = async (tripId) => {
     setLoading(true)
     const doc = await loadTrip(tripId)
@@ -489,7 +466,7 @@ export function TripProvider({ children }) {
     families, isReal, planning, planWarning,
     plan, moveStop, addStop, removeStop, moveStopToDay,
     reservations, addReservation, removeReservation,
-    profile: raw, completeOnboarding, switchTrip, updateTrip, startNewTrip, joinByCode, removeTrip,
+    profile: raw, completeOnboarding, switchTrip, updateTrip, startNewTrip, removeTrip,
     addNote, updateNote, removeNote,
     accountOpen,
     openAccount: () => setAccountOpen(true),

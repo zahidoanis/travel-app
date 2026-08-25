@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import Sheet from './Sheet'
-import { Check, Users, Info, Globe, X, Plus } from './Icons'
+import { Check, Users, Info, X, Plus } from './Icons'
 import { useTrip } from '../TripProvider'
-import { joinTrip } from '../lib/db'
+import { joinTrip, claimOwnership } from '../lib/db'
 import { signInWithGoogle, signOutUser, hasFirebase } from '../lib/firebase'
 import { breadcrumb } from '../lib/telemetry'
 import { initials } from '../lib/text'
@@ -15,13 +15,10 @@ import { initials } from '../lib/text'
  * exists, so the thing being protected is already visible.
  */
 export default function AccountSheet({ open, onClose }) {
-  const { user, trip, trips, switchTrip, startNewTrip, joinByCode, openEdit, removeTrip } = useTrip()
+  const { user, trip, trips, switchTrip, startNewTrip, openEdit, removeTrip } = useTrip()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
   const [merged, setMerged] = useState(false)
-  const [code, setCode] = useState('')
-  const [joining, setJoining] = useState(false)
-  const [joinError, setJoinError] = useState(null)
   // The trip a delete was requested for, awaiting confirmation — not gone
   // on the first tap. Deleting is permanent and removes it for everyone on
   // the trip, not just this device, which is a different order of risk than
@@ -35,6 +32,7 @@ export default function AccountSheet({ open, onClose }) {
     setError(null)
     // Captured before signing in, because the uid can change underneath us.
     const carried = trip?.id
+    const wasOwner = trip?.ownerId === user?.uid
     try {
       const result = await signInWithGoogle()
       breadcrumb('lifecycle', `signed in${result.merged ? ' (merged)' : ''}`)
@@ -45,6 +43,11 @@ export default function AccountSheet({ open, onClose }) {
       // promises the opposite. Joining is the same path a shared link takes.
       if (result.merged && carried) {
         await joinTrip(carried)
+        // Only when this device actually created the trip — a family member
+        // who had merely joined someone else's shared trip must not walk
+        // away owning it just because they were the one who happened to
+        // sign in on this device.
+        if (wasOwner) await claimOwnership(carried)
         breadcrumb('lifecycle', `carried trip ${carried} into the account`)
       }
 
@@ -78,15 +81,6 @@ export default function AccountSheet({ open, onClose }) {
     if (!trip) return
     openEdit('where')
     onClose()
-  }
-
-  const joinNow = async () => {
-    setJoining(true)
-    setJoinError(null)
-    const result = await joinByCode(code)
-    setJoining(false)
-    if (result.ok) onClose()
-    else setJoinError(result.message)
   }
 
   const confirmDelete = async () => {
@@ -165,24 +159,6 @@ export default function AccountSheet({ open, onClose }) {
               היא הדרך היחידה לשמור גישה לשניהם.
             </p>
           </div>
-
-          <div style={{ borderTop: '1px solid var(--border)', marginTop: 20, paddingTop: 18 }}>
-            <span className="label"><Globe size={13} /> יש לי קוד או קישור הצטרפות</span>
-            <div className="row" style={{ gap: 8, marginTop: 10 }}>
-              <input
-                className="field grow"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                placeholder="הדבק כאן את הקוד או הקישור שקיבלת"
-              />
-              <button className="btn btn-primary" onClick={joinNow} disabled={joining || !code.trim()}>
-                {joining ? <span className="typing"><i /><i /><i /></span> : 'הצטרף'}
-              </button>
-            </div>
-            {joinError && (
-              <p className="tiny" style={{ color: 'var(--rose)', marginTop: 8 }}>{joinError}</p>
-            )}
-          </div>
         </>
       )}
 
@@ -222,24 +198,6 @@ export default function AccountSheet({ open, onClose }) {
             <Plus size={16} />
             טיול נוסף
           </button>
-
-          <div style={{ marginBottom: 22 }}>
-            <span className="label"><Globe size={13} /> יש לי קוד או קישור הצטרפות</span>
-            <div className="row" style={{ gap: 8, marginTop: 10 }}>
-              <input
-                className="field grow"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                placeholder="הדבק כאן את הקוד או הקישור שקיבלת"
-              />
-              <button className="btn btn-ghost" onClick={joinNow} disabled={joining || !code.trim()}>
-                {joining ? <span className="typing"><i /><i /><i /></span> : 'הצטרף'}
-              </button>
-            </div>
-            {joinError && (
-              <p className="tiny" style={{ color: 'var(--rose)', marginTop: 8 }}>{joinError}</p>
-            )}
-          </div>
 
           {trips.length > 0 && (
             <>

@@ -295,6 +295,39 @@ export function joinTrip(tripId) {
   )
 }
 
+/**
+ * Moves a trip's ownership onto the account that just merged into it.
+ *
+ * Only called right after `joinTrip` in the one case where signing in with
+ * Google lands on a *different*, pre-existing account instead of linking the
+ * anonymous one in place (see signInWithGoogle's `merged` result) — and only
+ * for a trip this device itself created before signing in. Deletion is
+ * owner-only, so without this the person who made the trip would keep it,
+ * see it, edit it, but permanently lose the ability to delete it the moment
+ * they signed into their real account, which is the opposite of what
+ * "save this trip" promised. Must run after joinTrip, not combined with it:
+ * the rule that lets a non-member add themselves only allows touching
+ * `members`/`memberIds`, not `ownerId` — this write needs the caller to
+ * already be a member.
+ */
+export function claimOwnership(tripId) {
+  breadcrumb('data', `claimOwnership ${tripId}`)
+
+  return guarded(
+    'claimOwnership',
+    async ({ db, uid, FS }) => {
+      const ref = FS.doc(db, 'trips', tripId)
+      await FS.updateDoc(ref, {
+        ownerId: uid,
+        [`members.${uid}`]: 'owner',
+        updatedAt: FS.serverTimestamp(),
+      })
+      return true
+    },
+    () => false
+  )
+}
+
 /* ------------------------------------------------------------------ *
  * routes — one document per day of a trip
  * ------------------------------------------------------------------ */
