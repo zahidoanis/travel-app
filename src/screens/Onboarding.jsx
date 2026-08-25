@@ -8,7 +8,6 @@ import { hasAI, complete, parseRows } from '../lib/gemini'
 import { search, geocode } from '../lib/geocode'
 import { CITIES, searchCities } from '../cities'
 import { breadcrumb, watchdog } from '../lib/telemetry'
-import AgentCard from '../components/AgentCard'
 
 /**
  * One question per screen. Each step declares its own validity, so the CTA
@@ -19,7 +18,6 @@ const STEPS = [
     id: 'where',
     title: 'לאן נוסעים?',
     sub: 'בחר יעד מהרשימה או הקלד יעד משלך.',
-    hint: 'יש יעד שאתה מתלבט לגביו? ספר לי ואעזור להחליט.',
     valid: (a) => a.destination.trim().length > 1,
     blocker: () => 'בחר או הקלד יעד כדי להמשיך.',
   },
@@ -27,7 +25,6 @@ const STEPS = [
     id: 'when',
     title: 'מתי?',
     sub: 'טווח התאריכים קובע את חלוקת הימים במסלול.',
-    hint: 'לא בטוח בתאריכים? אמור לי כמה ימים בערך ואציע חלון.',
     valid: (a) => Boolean(a.from && a.to && a.to > a.from),
     blocker: (a) =>
       !a.from ? 'בחר תאריך יציאה.'
@@ -38,7 +35,6 @@ const STEPS = [
     id: 'style',
     title: 'מה אופי הטיול?',
     sub: 'אפשר לבחור כמה. זה משפיע על סוג העצירות שנציע.',
-    hint: 'רוצה לפרט יותר על חופשת החלומות שלך? אני כאן כדי להקשיב.',
     valid: (a) => a.styles.length > 0,
     blocker: () => 'בחר לפחות סגנון אחד.',
   },
@@ -46,7 +42,6 @@ const STEPS = [
     id: 'who',
     title: 'מי מטייל?',
     sub: 'שם המשפחה ושמות המשתתפים. כך אפשר לסנן את הלו"ז ולחלק הוצאות לפי משפחה.',
-    hint: 'כל משפחה מקבלת צבע משלה במפה ובלו"ז.',
     valid: (a) =>
       a.parties.length > 0 &&
       a.parties.every((p) => p.name.trim() && p.members.some((m) => memberName(m).trim())),
@@ -62,7 +57,6 @@ const STEPS = [
     id: 'food',
     title: 'מה אוהבים לאכול?',
     sub: 'ההעדפות האלה מסננות את המלצות המסעדות לאורך כל הטיול.',
-    hint: 'יש אלרגיה או משהו שאתם לא אוכלים? כתבו לי ואתחשב בזה.',
     valid: (a) => a.cuisines.length > 0,
     blocker: () => 'בחר לפחות סוג מטבח אחד.',
   },
@@ -70,14 +64,12 @@ const STEPS = [
     id: 'flight',
     title: 'איך מגיעים?',
     sub: 'מספר טיסה וחברת תעופה — כדי שנוכל לתכנן את ההגעה למלון.',
-    hint: 'לא זוכר את מספר הטיסה? אפשר לדלג ולהוסיף אחר כך.',
     valid: () => true,
   },
   {
     id: 'stay',
     title: 'איפה תישנו?',
     sub: 'אם כבר הזמנתם — נאתר את המלון על המפה. אם לא, הסוכן ימצא לכם.',
-    hint: 'אפשר להוסיף כמה מלונות, אם הטיול עובר בין ערים.',
     // Optional — a trip is plannable without a hotel picked yet.
     valid: () => true,
   },
@@ -295,23 +287,6 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
       setSearching(false)
     }
   }
-
-  /**
-   * What the agent knows when the user asks it something. Everything answered
-   * so far, so a question on step 4 is not answered as if it were step 1.
-   */
-  const agentContext = [
-    `השאלה הנוכחית: ${current.title}`,
-    answers.destination && `יעד שנבחר: ${answers.destination} ${answers.country}`,
-    answers.from && answers.to && `תאריכים: ${answers.from} עד ${answers.to} (${nights} לילות)`,
-    answers.styles.length > 0 &&
-      `אופי: ${TRAVEL_STYLES.filter((s) => answers.styles.includes(s.id)).map((s) => s.title).join(', ')}`,
-    `נוסעים: ${travellers} ב-${answers.parties.length} משפחות`,
-    answers.cuisines.length > 0 &&
-      `העדפות אוכל: ${CUISINES.filter((c) => answers.cuisines.includes(c.id)).map((c) => c.label).join(', ')}`,
-  ]
-    .filter(Boolean)
-    .join('\n')
 
   const next = () => {
     if (!canAdvance) return
@@ -942,18 +917,6 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
           )}
         </div>
       </div>
-
-      {/* The agent's prompt follows the question being asked. */}
-      <AgentCard
-        step={current.id}
-        hint={current.hint}
-        context={agentContext}
-        onPick={
-          current.id === "where"
-            ? (p) => { set({ destination: p.city, country: p.country }); setCityHits([]) }
-            : undefined
-        }
-      />
 
       <div className="cta-bar">
         {/* A disabled button with no explanation is a dead end — the user can
