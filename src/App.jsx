@@ -12,6 +12,7 @@ import Days from './screens/Days'
 import Restaurants from './screens/Restaurants'
 import Arrival from './screens/Arrival'
 import Hotels from './screens/Hotels'
+import Summary from './screens/Summary'
 import Diagnostics from './screens/Diagnostics'
 import { TripProvider, useTrip } from './TripProvider'
 import { PARTY_COLORS } from './data'
@@ -226,6 +227,7 @@ function Shell() {
                     onOpenFood={() => go('food')}
                     onOpenArrival={() => go('arrival')}
                     onOpenHotels={() => go('hotels')}
+                    onOpenSummary={() => go('summary')}
                   />
                 )}
                 {tab === 'map' && <MapScreen />}
@@ -235,6 +237,7 @@ function Shell() {
                 {tab === 'food' && <Restaurants />}
                 {tab === 'arrival' && <Arrival />}
                 {tab === 'hotels' && <Hotels />}
+                {tab === 'summary' && <Summary />}
               </ErrorBoundary>
             </div>
 

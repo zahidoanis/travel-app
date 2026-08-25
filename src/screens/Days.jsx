@@ -20,7 +20,7 @@ import { breadcrumb, watchdog } from '../lib/telemetry'
  * is built from the parts instead, as a local-midnight date, which is
  * immune to the viewer's own timezone.
  */
-function dateForDay(trip, day) {
+export function dateForDay(trip, day) {
   if (!trip.from) return null
   const [y, m, d] = trip.from.split('-').map(Number)
   if (!y || !m || !d) return null

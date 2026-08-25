@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import TopBar from '../components/TopBar'
 import ShareSheet from '../components/ShareSheet'
 import {
-  ArrowLeft, Sparkles, Bookmark, Clock, Share, Users, RefreshCw, Route, Utensils, Cloud, Plane, Note, Layers, Bed,
+  ArrowLeft, Sparkles, Bookmark, Clock, Share, Users, RefreshCw, Route, Utensils, Cloud, Plane, Note, Layers, Bed, Printer,
 } from '../components/Icons'
 import { headCount } from '../data'
 import { useTrip } from '../TripProvider'
@@ -24,7 +24,7 @@ const TOD_TINT = {
 }
 
 
-export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood, onOpenArrival, onOpenHotels }) {
+export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood, onOpenArrival, onOpenHotels, onOpenSummary }) {
   // "all" shows the shared itinerary; picking a party narrows it to the stops
   // that party is actually attending.
   const {
@@ -405,6 +405,17 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
                     ? `${TRIP.stays.length} מקומות לינה`
                     : 'עוד לא הוספתם מלון'}
                 </span>
+              </span>
+            </span>
+            <ArrowLeft size={18} />
+          </button>
+
+          <button className="card between" style={{ width: '100%' }} onClick={onOpenSummary}>
+            <span className="row">
+              <span style={{ color: 'var(--lav)' }}><Printer size={18} /></span>
+              <span className="col" style={{ gap: 2, textAlign: 'start' }}>
+                <strong style={{ fontSize: 14, fontWeight: 600 }}>סיכום להדפסה</strong>
+                <span className="tiny">כל הימים במסמך אחד, לשיתוף או הדפסה</span>
               </span>
             </span>
             <ArrowLeft size={18} />

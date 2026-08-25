@@ -1,4 +1,4 @@
-import { Calendar, MapIcon, Bot, Wallet, Route, Utensils, Plane, Bed, Layers } from './Icons'
+import { Calendar, MapIcon, Bot, Wallet, Route, Utensils, Plane, Bed, Layers, Printer } from './Icons'
 
 /** The desktop rail shows everything; the bottom bar keeps a subset.
  *  `trips` isn't a routed screen — it opens the account sheet's trip
@@ -8,6 +8,7 @@ export const RAIL_ONLY = [
   { id: 'food', label: 'מסעדות', Icon: Utensils },
   { id: 'arrival', label: 'הגעה', Icon: Plane },
   { id: 'hotels', label: 'מלונות', Icon: Bed },
+  { id: 'summary', label: 'סיכום להדפסה', Icon: Printer },
   { id: 'trips', label: 'הטיולים שלי', Icon: Layers },
 ]
 
