@@ -31,6 +31,8 @@ const CITIES = `
 ברלין|Berlin, Germany|גרמניה|🐻
 מינכן|Munich, Germany|גרמניה|🍺
 וינה|Vienna, Austria|אוסטריה|🎻
+זלצבורג|Salzburg, Austria|אוסטריה|🎼
+טירול|Tyrol, Austria|אוסטריה|⛰️
 בודפשט|Budapest, Hungary|הונגריה|♨️
 אתונה|Athens, Greece|יוון|🏺
 סלוניקי|Thessaloniki, Greece|יוון|🌊
@@ -40,6 +42,8 @@ const CITIES = `
 מילאנו|Milan, Italy|איטליה|👗
 ונציה|Venice, Italy|איטליה|🚤
 פירנצה|Florence, Italy|איטליה|🖼️
+טוסקנה|Tuscany, Italy|איטליה|🍷
+דולומיטים|Dolomites, Italy|איטליה|🏔️
 נאפולי|Naples, Italy|איטליה|🍕
 ליסבון|Lisbon, Portugal|פורטוגל|🚋
 פורטו|Porto, Portugal|פורטוגל|🍷
@@ -51,6 +55,7 @@ const CITIES = `
 רייקיאוויק|Reykjavik, Iceland|איסלנד|🌋
 ציריך|Zurich, Switzerland|שווייץ|🏔️
 ז׳נבה|Geneva, Switzerland|שווייץ|⛲
+שטרסבורג|Strasbourg, France|צרפת|🥨
 בריסל|Brussels, Belgium|בלגיה|🧇
 ורשה|Warsaw, Poland|פולין|🏛️
 קרקוב|Krakow, Poland|פולין|🐉
