@@ -8,13 +8,31 @@ import { useTrip } from '../TripProvider'
 import { PROVIDERS } from '../lib/tiles'
 import { navigateUrl } from '../lib/staticMap'
 
+/** The calendar date of day N of the trip, as the same "YYYY-MM-DD" shape
+ *  a stay's checkIn/checkOut is stored in. */
+function dateForDay(fromISO, day) {
+  const d = new Date(fromISO)
+  d.setDate(d.getDate() + (day - 1))
+  return d.toISOString().slice(0, 10)
+}
+
 export default function MapScreen() {
   const { stops: STOPS, days, activeDay, setActiveDay, planning, trip } = useTrip()
   const dayList = trip ? Array.from({ length: trip.totalDays }, (_, i) => i + 1) : []
-  // Whichever hotel is first in the list — most trips have exactly one, and
-  // a stay only reaches the map at all once it has real coordinates, from
-  // the same geocoding step onboarding already runs when one is added.
-  const hotel = trip?.stays?.find((s) => s.lat != null && s.lng != null) ?? null
+  // A stay only reaches the map at all once it has real coordinates, from the
+  // same geocoding step onboarding already runs when one is added. With more
+  // than one hotel, the active day's date picks which one — falling back to
+  // the first when no stay's range covers it, which is also what happens for
+  // trips made before per-stay dates existed.
+  const locatedStays = trip?.stays?.filter((s) => s.lat != null && s.lng != null) ?? []
+  const hotel =
+    locatedStays.length <= 1
+      ? locatedStays[0] ?? null
+      : locatedStays.find((s) => {
+          if (!s.checkIn && !s.checkOut) return false
+          const day = dateForDay(trip.from, activeDay)
+          return (!s.checkIn || day >= s.checkIn) && (!s.checkOut || day <= s.checkOut)
+        }) ?? locatedStays[0] ?? null
   const [activeId, setActiveId] = useState(null)
   const [details, setDetails] = useState(null)
   const [provider, setProvider] = useState('cartoLight')

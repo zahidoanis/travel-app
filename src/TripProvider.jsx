@@ -460,6 +460,26 @@ export function TripProvider({ children }) {
     return updateTrip({ notes: trip.notes.filter((n) => n.id !== id) })
   }
 
+  /**
+   * Places to sleep. More than one is normal — a trip that moves between
+   * cities, or a family that splits up for part of it — so each stay carries
+   * its own optional date range rather than the trip having one hotel.
+   */
+  const addStay = (stay) => {
+    if (!trip || trip.stays.some((s) => s.label === stay.label)) return
+    return updateTrip({ stays: [...trip.stays, stay] })
+  }
+
+  const updateStay = (label, patch) => {
+    if (!trip) return
+    return updateTrip({ stays: trip.stays.map((s) => (s.label === label ? { ...s, ...patch } : s)) })
+  }
+
+  const removeStay = (label) => {
+    if (!trip) return
+    return updateTrip({ stays: trip.stays.filter((s) => s.label !== label) })
+  }
+
   const value = {
     user, trip, trips, loading, syncState, skipWelcome,
     stops, days, activeDay, setActiveDay,
@@ -468,6 +488,7 @@ export function TripProvider({ children }) {
     reservations, addReservation, removeReservation,
     profile: raw, completeOnboarding, switchTrip, updateTrip, startNewTrip, removeTrip,
     addNote, updateNote, removeNote,
+    addStay, updateStay, removeStay,
     accountOpen,
     openAccount: () => setAccountOpen(true),
     closeAccount: () => setAccountOpen(false),
