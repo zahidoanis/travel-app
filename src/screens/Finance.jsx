@@ -11,7 +11,10 @@ const fmt = (n) =>
   n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 export default function Finance() {
-  const { families: FAMILIES, trip } = useTrip()
+  const {
+    families: FAMILIES, trip,
+    addExpense, updateExpense, removeExpense: removeExpenseFromTrip,
+  } = useTrip()
   // Every traveller is a member of exactly one party.
   // "You" are the first member of the first party.
   // Members carry the names entered during onboarding.
@@ -93,8 +96,7 @@ export default function Finance() {
     setTouched(true)
   }
 
-  // Starts empty. Seeded expenses would show as real spending that nobody made.
-  const [expenses, setExpenses] = useState([])
+  const expenses = trip?.expenses ?? []
   const [addOpen, setAddOpen] = useState(false)
   const [title, setTitle] = useState('')
   const [value, setValue] = useState('')
@@ -164,16 +166,9 @@ export default function Finance() {
     if (!title.trim() || !Number.isFinite(n) || n <= 0) return
 
     if (editingId) {
-      setExpenses((list) =>
-        list.map((e) =>
-          e.id === editingId ? { ...e, title: title.trim(), payer: payerId, amount: n } : e
-        )
-      )
+      updateExpense(editingId, { title: title.trim(), payer: payerId, amount: n })
     } else {
-      setExpenses((list) => [
-        { id: `e${Date.now()}`, title: title.trim(), payer: payerId, amount: n, split: shares },
-        ...list,
-      ])
+      addExpense({ id: `e${Date.now()}`, title: title.trim(), payer: payerId, amount: n, split: shares })
     }
 
     setSaved(true)
@@ -184,7 +179,7 @@ export default function Finance() {
   }
 
   const removeExpense = () => {
-    setExpenses((list) => list.filter((e) => e.id !== editingId))
+    removeExpenseFromTrip(editingId)
     closeSheet()
   }
 

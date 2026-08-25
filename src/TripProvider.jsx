@@ -44,6 +44,7 @@ function toTrip(raw) {
   return {
     id: raw.id,
     code: raw.code ?? '',
+    ownerId: raw.ownerId ?? null,
     city: raw.destination,
     cityEn: raw.destinationEn ?? raw.destination,
     country: raw.country ?? '',
@@ -58,6 +59,7 @@ function toTrip(raw) {
     stays: raw.stays ?? [],
     flight: raw.flight ?? {},
     notes: raw.notes ?? [],
+    expenses: raw.expenses ?? [],
     memberIds: raw.memberIds ?? [],
   }
 }
@@ -471,6 +473,27 @@ export function TripProvider({ children }) {
   }
 
   /**
+   * Shared expenses, for the split-the-bill screen. These used to live only
+   * in that screen's own useState — real spending that vanished the moment
+   * the tab closed or the app was reopened, with nothing to say it hadn't
+   * saved.
+   */
+  const addExpense = (expense) => {
+    if (!trip) return
+    return updateTrip({ expenses: [expense, ...trip.expenses] })
+  }
+
+  const updateExpense = (id, patch) => {
+    if (!trip) return
+    return updateTrip({ expenses: trip.expenses.map((e) => (e.id === id ? { ...e, ...patch } : e)) })
+  }
+
+  const removeExpense = (id) => {
+    if (!trip) return
+    return updateTrip({ expenses: trip.expenses.filter((e) => e.id !== id) })
+  }
+
+  /**
    * Places to sleep. More than one is normal — a trip that moves between
    * cities, or a family that splits up for part of it — so each stay carries
    * its own optional date range rather than the trip having one hotel.
@@ -498,6 +521,7 @@ export function TripProvider({ children }) {
     reservations, addReservation, removeReservation,
     profile: raw, completeOnboarding, switchTrip, updateTrip, startNewTrip, removeTrip,
     addNote, updateNote, removeNote,
+    addExpense, updateExpense, removeExpense,
     addStay, updateStay, removeStay,
     accountOpen,
     openAccount: () => setAccountOpen(true),
