@@ -70,7 +70,10 @@ function routePath(pts) {
   return d
 }
 
-export default function MapCanvas({ stops, activeId, onPinClick, provider = 'cartoLight', hotel, people = [] }) {
+export default function MapCanvas({
+  stops, activeId, onPinClick, provider = 'cartoLight', hotel, people = [],
+  myLocation, locateSignal,
+}) {
   const active = stops.find((s) => s.id === activeId) ?? stops[0]
   const src = PROVIDERS[provider] ?? PROVIDERS.cartoLight
 
@@ -167,6 +170,18 @@ export default function MapCanvas({ stops, activeId, onPinClick, provider = 'car
   const center = project(active.lat, active.lng, z)
   const shift = { x: anchor.x - center.x, y: anchor.y - center.y }
 
+  // "Locate me" reuses the pan mechanism rather than moving the anchor
+  // itself — the active stop stays the frame's real centre, this only
+  // nudges the view the same way a manual drag would, and inherits the
+  // same clamp (so it degrades to "as close as the loaded tiles allow"
+  // rather than breaking when the real position is far from today's stops).
+  useEffect(() => {
+    if (!myLocation || locateSignal == null) return
+    const gps = project(myLocation.lat, myLocation.lng, z)
+    setPan(clampPan({ x: center.x - gps.x, y: center.y - gps.y }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locateSignal])
+
   // Overlay coordinates, relative to the anchor.
   const local = pts.map((p) => ({ ...p, x: HALF + (p.x - anchor.x), y: HALF + (p.y - anchor.y) }))
 
@@ -178,6 +193,14 @@ export default function MapCanvas({ stops, activeId, onPinClick, provider = 'car
     hotel?.lat != null && hotel?.lng != null
       ? (() => {
           const p = project(hotel.lat, hotel.lng, z)
+          return { x: HALF + (p.x - anchor.x), y: HALF + (p.y - anchor.y) }
+        })()
+      : null
+
+  const myLocationLocal =
+    myLocation?.lat != null && myLocation?.lng != null
+      ? (() => {
+          const p = project(myLocation.lat, myLocation.lng, z)
           return { x: HALF + (p.x - anchor.x), y: HALF + (p.y - anchor.y) }
         })()
       : null
@@ -348,6 +371,19 @@ export default function MapCanvas({ stops, activeId, onPinClick, provider = 'car
                 </g>
               </g>
               <PinLabel x={hotelLocal.x} y={hotelLocal.y - 28} text={hotel.name} color="var(--gold, #A0783F)" bold />
+            </g>
+          )}
+
+          {myLocationLocal && (
+            // Google Maps' own convention for "this device, right now" — kept
+            // visually distinct from the green live-shared dots above, which
+            // are other people (or this device on a much slower cadence).
+            <g role="img" aria-label="המיקום שלך">
+              <circle cx={myLocationLocal.x} cy={myLocationLocal.y} r="13" fill="#4285F4" opacity="0.25">
+                <animate attributeName="r" values="10;18;10" dur="1.6s" repeatCount="indefinite" />
+                <animate attributeName="opacity" values="0.35;0.06;0.35" dur="1.6s" repeatCount="indefinite" />
+              </circle>
+              <circle cx={myLocationLocal.x} cy={myLocationLocal.y} r="7" fill="#4285F4" stroke="#fff" strokeWidth="2.5" />
             </g>
           )}
 

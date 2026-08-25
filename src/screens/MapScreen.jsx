@@ -48,7 +48,19 @@ export default function MapScreen() {
   const [activeId, setActiveId] = useState(null)
   const [details, setDetails] = useState(null)
   const [provider, setProvider] = useState('cartoLight')
+  const [myLoc, setMyLoc] = useState(null)
   const deckRef = useRef(null)
+
+  // One-shot, unlike the live-sharing toggle — this just jumps the view to
+  // where you are right now, nothing is written anywhere or kept running.
+  const locateMe = () => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) return
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setMyLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude, seq: Date.now() }),
+      () => {},
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+    )
+  }
 
   // Switching days used to leave the map showing one day's pins with the
   // card carousel still on the previous day's stop — every day's stops were
@@ -130,6 +142,8 @@ export default function MapScreen() {
         provider={provider}
         hotel={hotel}
         people={livePeople}
+        myLocation={myLoc}
+        locateSignal={myLoc?.seq}
       />
 
       <div style={{ position: 'relative', zIndex: 10 }}>
@@ -150,7 +164,7 @@ export default function MapScreen() {
         >
           <Layers size={18} />
         </button>
-        <button className="map-tool" aria-label="מרכז על המיקום שלי"><Locate size={18} /></button>
+        <button className="map-tool" onClick={locateMe} aria-label="מרכז על המיקום שלי"><Locate size={18} /></button>
         <button className="map-tool" aria-label="הוסף עצירה"><Plus size={18} /></button>
         <button
           className={`map-tool ${sharingLocation ? 'on' : ''}`}
