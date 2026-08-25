@@ -1581,6 +1581,7 @@ input, select, textarea { font: inherit; color: inherit; }
   background: var(--sunken);
 }
 .member-row .field-bare { font-size: 13.5px; }
+.member-age { flex: none; width: 42px; text-align: center; }
 .member-index {
   width: 18px; height: 18px; border-radius: 6px; flex: none;
   display: grid; place-items: center;

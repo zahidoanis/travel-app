@@ -4,6 +4,7 @@ import { Plane, Car, Sparkles, Info, Navigation, Clock } from '../components/Ico
 import { useTrip } from '../TripProvider'
 import { hasAI, complete, parseRows } from '../lib/gemini'
 import { breadcrumb, watchdog } from '../lib/telemetry'
+import { memberName } from '../data'
 
 /**
  * Getting from the airport to where you sleep.
@@ -57,7 +58,7 @@ export default function Arrival() {
           (flight.arrivalAirport ? `שדה תעופה: ${flight.arrivalAirport}\n` : '') +
           (flight.arrivalTime ? `שעת נחיתה מתוכננת: ${flight.arrivalTime}\n` : '') +
           `יעד: ${dest}\n` +
-          `נוסעים: ${profile?.parties?.reduce((n, p) => n + p.members.filter(Boolean).length, 0) ?? 2}\n\n` +
+          `נוסעים: ${profile?.parties?.reduce((n, p) => n + p.members.filter((m) => memberName(m).trim()).length, 0) ?? 2}\n\n` +
           'איך מגיעים משדה התעופה ליעד?',
       })
 

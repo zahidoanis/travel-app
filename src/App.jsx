@@ -115,7 +115,7 @@ function Shell() {
       to: profile.to ?? '',
       styles: profile.styles ?? [],
       parties: profile.parties?.length ? profile.parties : [
-        { id: 'p1', name: '', members: [''], color: PARTY_COLORS[0] },
+        { id: 'p1', name: '', members: [{ name: '', age: '' }], color: PARTY_COLORS[0] },
       ],
       cuisines: profile.cuisines ?? ['local'],
       flight: profile.flight ?? { airline: '', number: '', arrivalAirport: '', date: '' },

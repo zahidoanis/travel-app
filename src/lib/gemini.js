@@ -30,8 +30,14 @@ export function systemPrompt({ trip, stops, families, prefs }) {
     .map((s, i) => `${i + 1}. ${s.time} — ${s.he} (${s.desc})`)
     .join('\n')
 
+  // Ages are optional and only ever entered for a "kids" trip — worth
+  // telling the agent when they exist, so it can actually pace and pick
+  // activities by age instead of just knowing headcount.
   const parties = families
-    .map((f) => `- ${f.name}: ${f.members.length} נוסעים${f.joined ? '' : ' (טרם הצטרפו)'}`)
+    .map((f) => {
+      const ages = f.members.filter((m) => m.age).map((m) => `${m.name} (${m.age})`).join(', ')
+      return `- ${f.name}: ${f.members.length} נוסעים${ages ? ` — גילאים: ${ages}` : ''}${f.joined ? '' : ' (טרם הצטרפו)'}`
+    })
     .join('\n')
 
   return `אתה סוכן הנסיעות של TripAI. אתה עוזר לקבוצה שמטיילת ב${trip.city}, ${trip.country}.

@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { PARTY_COLORS } from './data'
+import { PARTY_COLORS, memberName, memberAge } from './data'
 import { buildItinerary } from './lib/itinerary'
 import {
   loadProfile, saveProfile, createTrip, loadTrip, saveTrip, listTrips, joinTrip,
@@ -67,13 +67,15 @@ function toFamilies(raw) {
   if (!raw?.parties?.length) return []
 
   return raw.parties.map((p, i) => {
-    const names = (p.members ?? []).map((m) => String(m).trim()).filter(Boolean)
+    const named = (p.members ?? [])
+      .map((m) => ({ name: memberName(m).trim(), age: memberAge(m) }))
+      .filter((m) => m.name)
     return {
       id: p.id,
       name: p.name,
       short: p.name.trim().charAt(0) || String(i + 1),
       color: p.color ?? PARTY_COLORS[i % PARTY_COLORS.length],
-      members: names.map((name, k) => ({ id: `${p.id}-m${k}`, name })),
+      members: named.map((m, k) => ({ id: `${p.id}-m${k}`, name: m.name, age: m.age })),
       joined: i === 0,
     }
   })

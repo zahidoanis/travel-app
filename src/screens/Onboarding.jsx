@@ -3,7 +3,7 @@ import {
   ArrowLeft, ArrowRight, Check, Mic, Bot, Plus, X, Users, MapPin, Calendar,
   Bed, Sparkles, Info, Navigation,
 } from '../components/Icons'
-import { TRAVEL_STYLES, DESTINATIONS, PARTY_COLORS, CUISINES } from '../data'
+import { TRAVEL_STYLES, DESTINATIONS, PARTY_COLORS, CUISINES, memberName, memberAge } from '../data'
 import { hasAI, complete, parseRows } from '../lib/gemini'
 import { search, geocode } from '../lib/geocode'
 import { CITIES, searchCities } from '../cities'
@@ -49,11 +49,11 @@ const STEPS = [
     hint: 'כל משפחה מקבלת צבע משלה במפה ובלו"ז.',
     valid: (a) =>
       a.parties.length > 0 &&
-      a.parties.every((p) => p.name.trim() && p.members.some((m) => m.trim())),
+      a.parties.every((p) => p.name.trim() && p.members.some((m) => memberName(m).trim())),
     blocker: (a) => {
       const i = a.parties.findIndex((p) => !p.name.trim())
       if (i >= 0) return `למשפחה ${i + 1} חסר שם.`
-      const j = a.parties.findIndex((p) => !p.members.some((m) => m.trim()))
+      const j = a.parties.findIndex((p) => !p.members.some((m) => memberName(m).trim()))
       if (j >= 0) return `למשפחת ${a.parties[j].name} חסר לפחות משתתף אחד.`
       return 'מלא את פרטי המשפחות.'
     },
@@ -107,7 +107,7 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
     from: '',
     to: '',
     styles: [],
-    parties: [{ id: 'p1', name: '', members: [''], color: PARTY_COLORS[0] }],
+    parties: [{ id: 'p1', name: '', members: [{ name: '', age: '' }], color: PARTY_COLORS[0] }],
     cuisines: ['local'],
     flight: { airline: '', number: '', arrivalAirport: '', date: '' },
     stays: [],
@@ -194,11 +194,24 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
   const patchParty = (id, patch) =>
     set({ parties: answers.parties.map((p) => (p.id === id ? { ...p, ...patch } : p)) })
 
+  // A member entered before ages existed is a bare string. Touching either
+  // field upgrades it to { name, age } without disturbing the other one.
+  const asMember = (m) => (typeof m === 'string' ? { name: m, age: '' } : m)
+
   const setMember = (id, index, value) =>
     set({
       parties: answers.parties.map((p) =>
         p.id === id
-          ? { ...p, members: p.members.map((m, i) => (i === index ? value : m)) }
+          ? { ...p, members: p.members.map((m, i) => (i === index ? { ...asMember(m), name: value } : m)) }
+          : p
+      ),
+    })
+
+  const setMemberAge = (id, index, value) =>
+    set({
+      parties: answers.parties.map((p) =>
+        p.id === id
+          ? { ...p, members: p.members.map((m, i) => (i === index ? { ...asMember(m), age: value } : m)) }
           : p
       ),
     })
@@ -206,7 +219,7 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
   const addMember = (id) =>
     set({
       parties: answers.parties.map((p) =>
-        p.id === id && p.members.length < 12 ? { ...p, members: [...p.members, ''] } : p
+        p.id === id && p.members.length < 12 ? { ...p, members: [...p.members, { name: '', age: '' }] } : p
       ),
     })
 
@@ -224,7 +237,7 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
         {
           id: `p${Date.now()}`,
           name: '',
-          members: [''],
+          members: [{ name: '', age: '' }],
           color: PARTY_COLORS[answers.parties.length % PARTY_COLORS.length],
         },
       ],
@@ -238,7 +251,7 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
     return Math.max(0, Math.round(ms / 86400000))
   }, [answers.from, answers.to])
 
-  const travellers = answers.parties.reduce((n, p) => n + p.members.filter((m) => m.trim()).length, 0)
+  const travellers = answers.parties.reduce((n, p) => n + p.members.filter((m) => memberName(m).trim()).length, 0)
 
   /**
    * Asks the agent for hotels, using everything gathered so far rather than
@@ -557,11 +570,26 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                           <span className="member-index num">{mi + 1}</span>
                           <input
                             className="field-bare grow"
-                            value={m}
+                            value={memberName(m)}
                             onChange={(e) => setMember(p.id, mi, e.target.value)}
                             placeholder={mi === 0 ? "שם המבוגר האחראי" : "שם המשתתף"}
                             aria-label={`משתתף ${mi + 1} ב${p.name}`}
                           />
+                          {/* Only asked for a trip with kids — an adult-only
+                              trip has no use for this field. */}
+                          {answers.styles.includes('kids') && (
+                            <input
+                              className="field-bare member-age"
+                              type="number"
+                              min="0"
+                              max="120"
+                              inputMode="numeric"
+                              value={memberAge(m)}
+                              onChange={(e) => setMemberAge(p.id, mi, e.target.value)}
+                              placeholder="גיל"
+                              aria-label={`גיל משתתף ${mi + 1} ב${p.name}`}
+                            />
+                          )}
                           {p.members.length > 1 && (
                             <button
                               className="icon-btn" style={{ width: 26, height: 26 }}

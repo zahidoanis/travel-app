@@ -46,6 +46,15 @@ export const PARTY_COLORS = ['#5B4BD6', '#D14B68', '#0E8F5E', '#B5842A', '#0E8E9
 export const headCount = (ids, families = []) =>
   families.filter((f) => ids.includes(f.id)).reduce((n, f) => n + f.members.length, 0)
 
+/**
+ * A traveller within a party. Age arrived after the field already had real
+ * data in it — every trip made before this shipped stored a member as a
+ * bare name string, so both shapes have to keep working rather than
+ * migrating every stored trip at once.
+ */
+export const memberName = (m) => (typeof m === 'string' ? m : m?.name ?? '')
+export const memberAge = (m) => (typeof m === 'string' ? '' : m?.age ?? '')
+
 /** Suggested destinations on the first onboarding question. */
 export const DESTINATIONS = [
   { id: 'paris', city: 'פריז', en: 'Paris', country: 'צרפת', emoji: '🗼' },
