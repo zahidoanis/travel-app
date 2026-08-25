@@ -56,9 +56,23 @@ function Shell() {
   }, [saveError])
 
   const go = (next) => {
+    if (next === tab) return
     breadcrumb('nav', `tab -> ${next}`)
     setTab(next)
+    // Without this, switching screens never touched the browser's own
+    // history — so the very first "back" press had nothing of the app's
+    // own to land on and left the site entirely, from anywhere inside it.
+    history.pushState({ tab: next }, '', location.pathname)
   }
+
+  // The reverse direction: back/forward moving through the history entries
+  // go() just started creating. No entry (the page's original load) means
+  // home, same as the tab this component itself starts on.
+  useEffect(() => {
+    const onPop = (e) => setTab(e.state?.tab ?? 'home')
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
 
   if (debug) {
     return (
