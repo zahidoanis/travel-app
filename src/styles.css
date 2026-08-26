@@ -1310,7 +1310,15 @@ input, select, textarea { font: inherit; color: inherit; }
 }
 
 @media (min-width: 700px) {
-  .cta-bar { position: static; padding-block: 8px 26px; background: none; }
+  /* Sticky, not static — a step with a tall grid of choices (the
+     destination list, all six travel styles) pushed the only way to
+     advance the wizard past the bottom of the viewport, discoverable only
+     by scrolling past content that already looked complete on its own. */
+  .cta-bar {
+    position: sticky; bottom: 0; z-index: 5;
+    padding-block: 14px 26px;
+    background: linear-gradient(0deg, var(--bg-2) 72%, rgba(20,18,31,0));
+  }
   .cta-bar > .btn { max-width: 520px; margin-inline: auto; display: flex; }
   .screen { padding-bottom: 32px !important; }
 }
