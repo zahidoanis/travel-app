@@ -9,6 +9,16 @@ import { search, geocode } from '../lib/geocode'
 import { CITIES, searchCities } from '../cities'
 import { breadcrumb, watchdog } from '../lib/telemetry'
 
+/** Half-hour increments, all 48 of them — a plain <select> that commits the
+ *  moment you pick something, rather than a native time input whose
+ *  confirm gesture (or total absence of one) varies by platform. Nobody
+ *  plans an arrival down to the minute anyway. */
+const TIME_OPTIONS = Array.from({ length: 48 }, (_, i) => {
+  const h = String(Math.floor(i / 2)).padStart(2, '0')
+  const m = i % 2 === 0 ? '00' : '30'
+  return `${h}:${m}`
+})
+
 /**
  * One question per screen. Each step declares its own validity, so the CTA
  * enables itself rather than every step re-implementing the same check.
@@ -571,15 +581,17 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                           </label>
                           <label className="col" style={{ gap: 3, flex: 1 }}>
                             <span className="tiny">שעת הגעה</span>
-                            <input
-                              type="time"
+                            <select
                               className="field" value={p.arriveAt?.split('T')[1] ?? ''}
                               onChange={(e) => {
                                 const date = p.arriveAt?.split('T')[0] ?? answers.from
                                 patchParty(p.id, { arriveAt: date ? `${date}T${e.target.value || '00:00'}` : null })
                               }}
                               aria-label={`שעת הגעה של ${p.name}`}
-                            />
+                            >
+                              <option value="">בחר שעה</option>
+                              {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+                            </select>
                           </label>
                         </div>
                         <div className="row" style={{ gap: 8 }}>
@@ -597,15 +609,17 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                           </label>
                           <label className="col" style={{ gap: 3, flex: 1 }}>
                             <span className="tiny">שעת עזיבה</span>
-                            <input
-                              type="time"
+                            <select
                               className="field" value={p.departAt?.split('T')[1] ?? ''}
                               onChange={(e) => {
                                 const date = p.departAt?.split('T')[0] ?? answers.to
                                 patchParty(p.id, { departAt: date ? `${date}T${e.target.value || '00:00'}` : null })
                               }}
                               aria-label={`שעת עזיבה של ${p.name}`}
-                            />
+                            >
+                              <option value="">בחר שעה</option>
+                              {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+                            </select>
                           </label>
                         </div>
                       </div>
