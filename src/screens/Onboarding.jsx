@@ -541,31 +541,67 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
 
                     {/* Only matters once there is more than one family — a
                         solo family's own trip dates already say when they're
-                        there. Blank means "the whole trip", same as today. */}
+                        there. Blank means "the whole trip", same as today.
+                        Date and time as two separate, separately-labeled
+                        fields rather than one datetime-local control — the
+                        combined widget's time segment reads as easy to miss,
+                        and the time is exactly the part that's critical
+                        here (arriving at 22:00 is not there for dinner even
+                        though "day 3" started at midnight). */}
                     {answers.parties.length > 1 && (
-                      <div className="row" style={{ gap: 8, marginTop: 10 }}>
-                        <label className="col" style={{ gap: 3, flex: 1 }}>
-                          <span className="tiny">תאריך ושעת הגעה</span>
-                          <input
-                            type="datetime-local"
-                            min={answers.from ? `${answers.from}T00:00` : undefined}
-                            max={answers.to ? `${answers.to}T23:59` : undefined}
-                            className="field" value={p.arriveAt ?? ''}
-                            onChange={(e) => patchParty(p.id, { arriveAt: e.target.value || null })}
-                            aria-label={`תאריך ושעת הגעה של ${p.name}`}
-                          />
-                        </label>
-                        <label className="col" style={{ gap: 3, flex: 1 }}>
-                          <span className="tiny">תאריך ושעת עזיבה</span>
-                          <input
-                            type="datetime-local"
-                            min={answers.from ? `${answers.from}T00:00` : undefined}
-                            max={answers.to ? `${answers.to}T23:59` : undefined}
-                            className="field" value={p.departAt ?? ''}
-                            onChange={(e) => patchParty(p.id, { departAt: e.target.value || null })}
-                            aria-label={`תאריך ושעת עזיבה של ${p.name}`}
-                          />
-                        </label>
+                      <div className="col" style={{ gap: 8, marginTop: 10 }}>
+                        <div className="row" style={{ gap: 8 }}>
+                          <label className="col" style={{ gap: 3, flex: 1 }}>
+                            <span className="tiny">תאריך הגעה</span>
+                            <input
+                              type="date" min={answers.from} max={answers.to}
+                              className="field" value={p.arriveAt?.split('T')[0] ?? ''}
+                              onChange={(e) => {
+                                const time = p.arriveAt?.split('T')[1] ?? '00:00'
+                                patchParty(p.id, { arriveAt: e.target.value ? `${e.target.value}T${time}` : null })
+                              }}
+                              aria-label={`תאריך הגעה של ${p.name}`}
+                            />
+                          </label>
+                          <label className="col" style={{ gap: 3, flex: 1 }}>
+                            <span className="tiny">שעת הגעה</span>
+                            <input
+                              type="time"
+                              className="field" value={p.arriveAt?.split('T')[1] ?? ''}
+                              onChange={(e) => {
+                                const date = p.arriveAt?.split('T')[0] ?? answers.from
+                                patchParty(p.id, { arriveAt: date ? `${date}T${e.target.value || '00:00'}` : null })
+                              }}
+                              aria-label={`שעת הגעה של ${p.name}`}
+                            />
+                          </label>
+                        </div>
+                        <div className="row" style={{ gap: 8 }}>
+                          <label className="col" style={{ gap: 3, flex: 1 }}>
+                            <span className="tiny">תאריך עזיבה</span>
+                            <input
+                              type="date" min={answers.from} max={answers.to}
+                              className="field" value={p.departAt?.split('T')[0] ?? ''}
+                              onChange={(e) => {
+                                const time = p.departAt?.split('T')[1] ?? '00:00'
+                                patchParty(p.id, { departAt: e.target.value ? `${e.target.value}T${time}` : null })
+                              }}
+                              aria-label={`תאריך עזיבה של ${p.name}`}
+                            />
+                          </label>
+                          <label className="col" style={{ gap: 3, flex: 1 }}>
+                            <span className="tiny">שעת עזיבה</span>
+                            <input
+                              type="time"
+                              className="field" value={p.departAt?.split('T')[1] ?? ''}
+                              onChange={(e) => {
+                                const date = p.departAt?.split('T')[0] ?? answers.to
+                                patchParty(p.id, { departAt: date ? `${date}T${e.target.value || '00:00'}` : null })
+                              }}
+                              aria-label={`שעת עזיבה של ${p.name}`}
+                            />
+                          </label>
+                        </div>
                       </div>
                     )}
 
