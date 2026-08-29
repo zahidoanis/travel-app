@@ -30,7 +30,7 @@ function normaliseCategory(word = '') {
 /**
  * @returns {Promise<{stops: Array, source: 'ai'|'fallback', warning?: string}>}
  */
-export async function buildItinerary({ trip, families, signal }) {
+export async function buildItinerary({ trip, families, already = [], signal }) {
   if (!hasAI) {
     return { stops: [], source: 'fallback', warning: 'סוכן ה-AI אינו מחובר' }
   }
@@ -56,8 +56,11 @@ export async function buildItinerary({ trip, families, signal }) {
         `עיר: ${trip.city}${trip.country ? `, ${trip.country}` : ''}\n` +
         `יום ${trip.day} מתוך ${trip.totalDays}\n` +
         `נוסעים: ${families.reduce((n, f) => n + f.members.length, 0)}\n` +
-        `אופי הטיול: ${styleNames || 'כללי'}\n\n` +
-        'תכנן יום אחד, מ-09:00 עד הערב, עם מרחקי הליכה סבירים בין העצירות.',
+        `אופי הטיול: ${styleNames || 'כללי'}\n` +
+        (already.length > 0
+          ? `כבר מתוכננים בימים אחרים של אותו טיול — אל תציע אותם שוב: ${already.join(', ')}\n`
+          : '') +
+        '\nתכנן יום אחד, מ-09:00 עד הערב, עם מרחקי הליכה סבירים בין העצירות.',
     })
 
     const rows = parseRows(text, ['time', 'name', 'he', 'category', 'desc'])

@@ -280,31 +280,56 @@ export function TripProvider({ children }) {
 
   useEffect(() => () => chatAbort.current?.abort(), [])
 
+  // The model puts this as the literal first line of its reply when the
+  // user asked it to actually plan/build/replace one or more full days —
+  // see the "יכולת מיוחדת" block in systemPrompt(). Caught here rather than
+  // shown to the user, then acted on for real via the same plan() every
+  // other "בנה מסלול מחדש" button already calls.
+  const PLAN_DAYS_MARKER = /^\s*PLAN_DAYS:\s*([\d,\s]+)/i
+
   const askAgent = async (history) => {
     const controller = new AbortController()
     chatAbort.current = controller
     setChatError(null)
     setChatTyping(true)
 
-    const id = `a${Date.now()}`
-    let started = false
     const system = systemPrompt({ trip, stops, families })
 
     try {
+      // Buffered rather than shown chunk-by-chunk like before: the marker
+      // has to be caught before anything renders, which means knowing the
+      // whole reply first. The cost is losing the live-typing animation for
+      // chat replies; the alternative was risking "PLAN_DAYS: 1,2,3" flashing
+      // on screen as if it were the agent talking to the user directly.
+      let full = ''
       await streamReply({
         messages: history,
         system,
         signal: controller.signal,
-        onChunk: (delta) => {
-          if (!started) {
-            started = true
-            setChatTyping(false)
-            setChatMessages((m) => [...m, { id, role: 'ai', text: delta }])
-            return
-          }
-          setChatMessages((m) => m.map((x) => (x.id === id ? { ...x, text: x.text + delta } : x)))
-        },
+        onChunk: (delta) => { full += delta },
       })
+
+      const match = full.match(PLAN_DAYS_MARKER)
+      const wantsDays = match && trip
+        ? [...new Set(
+            match[1].split(',').map((n) => parseInt(n.trim(), 10)).filter((n) => n >= 1 && n <= trip.totalDays)
+          )]
+        : []
+      const rest = match ? full.slice(match[0].length).trim() : full
+
+      if (wantsDays.length > 0) {
+        breadcrumb('action', `chat planned days ${wantsDays.join(',')}`)
+        for (const day of wantsDays) await plan(day)
+        const confirm = rest || (wantsDays.length === 1
+          ? `בניתי מסלול חדש ליום ${wantsDays[0]}.`
+          : `בניתי מסלול חדש לימים ${wantsDays.join(', ')}.`)
+        setChatMessages((m) => [...m, {
+          id: `a${Date.now()}`, role: 'ai',
+          text: `${confirm}\n\nאפשר לראות את זה במסך "מסלול הטיול".`,
+        }])
+      } else {
+        setChatMessages((m) => [...m, { id: `a${Date.now()}`, role: 'ai', text: rest }])
+      }
     } catch (err) {
       if (err?.name !== 'AbortError') setChatError(err.message)
     } finally {
@@ -401,9 +426,18 @@ export function TripProvider({ children }) {
     setPlanWarning(null)
 
     const planningFamily = families.find((f) => f.id === activeFamily)
+    // What this family already has on its OTHER days — without this, asking
+    // for several days in one go (the chat's "plan 4 days") generated each
+    // one blind to the rest, and a well-known city's "obvious" top picks
+    // landed on more than one day.
+    const already = Object.entries(days)
+      .filter(([d]) => Number(d) !== day)
+      .flatMap(([, list]) => list.map((s) => s.he || s.name))
+
     const { stops: fresh, warning } = await buildItinerary({
       trip: { ...trip, day },
       families: planningFamily ? [planningFamily] : families,
+      already,
     })
 
     if (fresh.length > 0) {
