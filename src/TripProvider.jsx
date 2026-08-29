@@ -36,12 +36,32 @@ export const useTrip = () => {
   return ctx
 }
 
+/**
+ * The trip's own from/to (set early in onboarding, before any family beyond
+ * the first even exists) is only ever a starting guess — a second family
+ * arriving earlier or staying later is exactly as real a part of the trip,
+ * so the range everything else is computed against has to be the union
+ * across every family's arrival/departure, not just the nominal dates.
+ */
+function effectiveRange(raw) {
+  let from = raw?.from ?? null
+  let to = raw?.to ?? null
+  for (const p of raw?.parties ?? []) {
+    const arrive = p.arriveAt?.split('T')[0]
+    const depart = p.departAt?.split('T')[0]
+    if (arrive && (!from || arrive < from)) from = arrive
+    if (depart && (!to || depart > to)) to = depart
+  }
+  return { from, to }
+}
+
 /** Stored trip -> the shape the rest of the app expects. */
 function toTrip(raw) {
   if (!raw?.destination) return null
 
-  const from = raw.from ? new Date(raw.from) : null
-  const to = raw.to ? new Date(raw.to) : null
+  const { from: fromStr, to: toStr } = effectiveRange(raw)
+  const from = fromStr ? new Date(fromStr) : null
+  const to = toStr ? new Date(toStr) : null
   const totalDays = from && to ? Math.max(1, Math.round((to - from) / 86400000) + 1) : 1
 
   const day = from
@@ -57,8 +77,11 @@ function toTrip(raw) {
     country: raw.country ?? '',
     lat: raw.lat ?? null,
     lng: raw.lng ?? null,
-    from: raw.from,
-    to: raw.to,
+    // The effective (possibly widened) range — not raw.from/raw.to
+    // verbatim, since a family outside the nominal dates is still really
+    // part of the trip and every day-number everywhere is anchored to this.
+    from: fromStr,
+    to: toStr,
     day,
     totalDays,
     styles: raw.styles ?? [],
@@ -89,6 +112,11 @@ function dayNumberFromDate(fromISO, dateTimeStr) {
 function toFamilies(raw) {
   if (!raw?.parties?.length) return []
 
+  // Anchored to the same effective (possibly widened) start toTrip() uses —
+  // day numbers have to agree with each other, or a family arriving before
+  // the trip's nominal start would land on day 0 or negative.
+  const { from: effectiveFrom } = effectiveRange(raw)
+
   return raw.parties.map((p, i) => {
     const named = (p.members ?? [])
       .map((m) => ({ name: memberName(m).trim(), age: memberAge(m) }))
@@ -106,8 +134,8 @@ function toFamilies(raw) {
       // Which day of the trip that falls on, for bounding the day switcher —
       // null departDay means "through the end of the trip", resolved by
       // whoever reads it against the actual trip length.
-      arriveDay: dayNumberFromDate(raw.from, p.arriveAt) ?? 1,
-      departDay: dayNumberFromDate(raw.from, p.departAt),
+      arriveDay: dayNumberFromDate(effectiveFrom, p.arriveAt) ?? 1,
+      departDay: dayNumberFromDate(effectiveFrom, p.departAt),
       sharedDays: p.sharedDays ?? [],
     }
   })

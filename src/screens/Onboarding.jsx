@@ -547,14 +547,20 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                         combined widget's time segment reads as easy to miss,
                         and the time is exactly the part that's critical
                         here (arriving at 22:00 is not there for dinner even
-                        though "day 3" started at midnight). */}
+                        though "day 3" started at midnight).
+                        No min/max on the date: the trip's own from/to is set
+                        earlier in this same wizard, before this family was
+                        even added — a family staying longer than that
+                        nominal range is exactly as real a part of the trip,
+                        not an invalid date. The trip's own span widens to
+                        cover it (see effectiveRange() in TripProvider). */}
                     {answers.parties.length > 1 && (
                       <div className="col" style={{ gap: 8, marginTop: 10 }}>
                         <div className="row" style={{ gap: 8 }}>
                           <label className="col" style={{ gap: 3, flex: 1 }}>
                             <span className="tiny">תאריך הגעה</span>
                             <input
-                              type="date" min={answers.from} max={answers.to}
+                              type="date"
                               className="field" value={p.arriveAt?.split('T')[0] ?? ''}
                               onChange={(e) => {
                                 const time = p.arriveAt?.split('T')[1] ?? '00:00'
@@ -580,7 +586,7 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                           <label className="col" style={{ gap: 3, flex: 1 }}>
                             <span className="tiny">תאריך עזיבה</span>
                             <input
-                              type="date" min={answers.from} max={answers.to}
+                              type="date"
                               className="field" value={p.departAt?.split('T')[0] ?? ''}
                               onChange={(e) => {
                                 const time = p.departAt?.split('T')[1] ?? '00:00'
