@@ -9,6 +9,7 @@ import {
 import { onUser, hasFirebase } from './lib/firebase'
 import { invitedTripId } from './lib/share'
 import { geocode } from './lib/geocode'
+import { hasAI, systemPrompt, streamReply } from './lib/gemini'
 import { CITIES } from './cities'
 import { breadcrumb, record } from './lib/telemetry'
 
@@ -229,6 +230,85 @@ export function TripProvider({ children }) {
       localStorage.setItem(lastSeenKey, String(now))
       setLastSeen(now)
     }
+  }
+
+  /**
+   * The AI chat's own state, lifted here rather than left in Chat.jsx —
+   * switching to another tab used to unmount it, and with it the whole
+   * conversation. Living here instead means an in-flight reply keeps
+   * streaming even while looking at the map, not just that the history
+   * survives.
+   */
+  const [chatMessages, setChatMessages] = useState([])
+  const [chatDraft, setChatDraft] = useState('')
+  const [chatTyping, setChatTyping] = useState(false)
+  const [chatError, setChatError] = useState(null)
+  const chatAbort = useRef(null)
+
+  // A new trip is a new conversation — the old one was about a different
+  // itinerary and would confuse the agent as much as the person reading it.
+  useEffect(() => {
+    chatAbort.current?.abort()
+    setChatMessages([])
+    setChatDraft('')
+    setChatTyping(false)
+    setChatError(null)
+  }, [trip?.id])
+
+  useEffect(() => () => chatAbort.current?.abort(), [])
+
+  const askAgent = async (history) => {
+    const controller = new AbortController()
+    chatAbort.current = controller
+    setChatError(null)
+    setChatTyping(true)
+
+    const id = `a${Date.now()}`
+    let started = false
+    const system = systemPrompt({ trip, stops, families })
+
+    try {
+      await streamReply({
+        messages: history,
+        system,
+        signal: controller.signal,
+        onChunk: (delta) => {
+          if (!started) {
+            started = true
+            setChatTyping(false)
+            setChatMessages((m) => [...m, { id, role: 'ai', text: delta }])
+            return
+          }
+          setChatMessages((m) => m.map((x) => (x.id === id ? { ...x, text: x.text + delta } : x)))
+        },
+      })
+    } catch (err) {
+      if (err?.name !== 'AbortError') setChatError(err.message)
+    } finally {
+      setChatTyping(false)
+      chatAbort.current = null
+    }
+  }
+
+  const sendChatMessage = (overrideText) => {
+    const text = (overrideText ?? chatDraft).trim()
+    if (!text || chatTyping) return
+    breadcrumb('action', 'chat message sent')
+    setChatDraft('')
+    const mine = { id: `u${Date.now()}`, role: 'me', text }
+    const history = [...chatMessages, mine]
+    setChatMessages(history)
+    if (hasAI) askAgent(history)
+    else setChatError('הסוכן אינו מחובר כרגע.')
+  }
+
+  /** Re-runs the last question, dropping the failed exchange. */
+  const retryChatMessage = () => {
+    const lastMine = [...chatMessages].reverse().find((m) => m.role === 'me')
+    if (!lastMine) return
+    const upTo = chatMessages.slice(0, chatMessages.lastIndexOf(lastMine) + 1)
+    setChatMessages(upTo)
+    askAgent(upTo)
   }
 
   /* ---- live location, opt-in per device per trip ---- */
@@ -588,6 +668,8 @@ export function TripProvider({ children }) {
     activity, unreadCount, notificationsOpen, openNotifications,
     closeNotifications: () => setNotificationsOpen(false),
     presence, sharingLocation, toggleLocationSharing,
+    chatMessages, chatDraft, setChatDraft, chatTyping, chatError,
+    sendChatMessage, retryChatMessage,
   }
 
   return <TripContext.Provider value={value}>{children}</TripContext.Provider>

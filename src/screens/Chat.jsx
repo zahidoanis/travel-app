@@ -1,10 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import TopBar from '../components/TopBar'
 import { AlertTriangle, Bot, Mic, Paperclip, Send, Sparkles } from '../components/Icons'
 import { useTrip } from '../TripProvider'
-import { hasAI, aiMode, aiModel, systemPrompt, streamReply } from '../lib/gemini'
+import { hasAI, aiMode, aiModel } from '../lib/gemini'
 import { useSpeech } from '../lib/speech'
-import { breadcrumb } from '../lib/telemetry'
 
 /** Openers, so an empty thread still shows what the agent is for. */
 const STARTERS = [
@@ -14,82 +13,23 @@ const STARTERS = [
   'כמה זמן ייקח להגיע בין העצירות?',
 ]
 
+/**
+ * The conversation itself lives in TripProvider now, not here — switching to
+ * another tab used to unmount this component and lose it entirely. This is
+ * just the view onto that state.
+ */
 export default function Chat() {
-  const { trip, stops, families } = useTrip()
+  const {
+    chatMessages: messages, chatDraft: draft, setChatDraft: setDraft,
+    chatTyping: typing, chatError: error, sendChatMessage, retryChatMessage,
+  } = useTrip()
 
-  const [messages, setMessages] = useState([])
-  const [draft, setDraft] = useState('')
-  const [typing, setTyping] = useState(false)
-  const [error, setError] = useState(null)
   const endRef = useRef(null)
-  const abortRef = useRef(null)
-
-  const speech = useSpeech({ onResult: (said) => send(said) })
+  const speech = useSpeech({ onResult: (said) => sendChatMessage(said) })
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
   }, [messages, typing])
-
-  // A stream left running after the screen unmounts keeps writing into state.
-  useEffect(() => () => abortRef.current?.abort(), [])
-
-  const system = systemPrompt({ trip, stops, families })
-
-  const ask = async (history) => {
-    const controller = new AbortController()
-    abortRef.current = controller
-    setError(null)
-    setTyping(true)
-
-    const id = `a${Date.now()}`
-    let started = false
-
-    try {
-      await streamReply({
-        messages: history,
-        system,
-        signal: controller.signal,
-        onChunk: (delta) => {
-          if (!started) {
-            started = true
-            setTyping(false)
-            setMessages((m) => [...m, { id, role: 'ai', text: delta }])
-            return
-          }
-          setMessages((m) => m.map((x) => (x.id === id ? { ...x, text: x.text + delta } : x)))
-        },
-      })
-    } catch (err) {
-      if (err?.name !== 'AbortError') setError(err.message)
-    } finally {
-      setTyping(false)
-      abortRef.current = null
-    }
-  }
-
-  const send = (override) => {
-    const text = (override ?? draft).trim()
-    if (!text || typing) return
-
-    breadcrumb('action', 'chat message sent')
-    setDraft('')
-
-    const mine = { id: `u${Date.now()}`, role: 'me', text }
-    const history = [...messages, mine]
-    setMessages(history)
-
-    if (hasAI) ask(history)
-    else setError('הסוכן אינו מחובר כרגע.')
-  }
-
-  /** Re-runs the last question, dropping the failed exchange. */
-  const retry = () => {
-    const lastMine = [...messages].reverse().find((m) => m.role === 'me')
-    if (!lastMine) return
-    const upTo = messages.slice(0, messages.lastIndexOf(lastMine) + 1)
-    setMessages(upTo)
-    ask(upTo)
-  }
 
   const shown = speech.listening && speech.interim ? speech.interim : draft
   const empty = messages.length === 0
@@ -122,12 +62,12 @@ export default function Chat() {
               </div>
               <h2 className="h2" style={{ marginTop: 14 }}>מה תרצה לדעת?</h2>
               <p className="sub" style={{ marginTop: 6, maxWidth: '30ch' }}>
-                הסוכן מכיר את המסלול שלך{trip ? ` ב${trip.city}` : ''} — את השעות, המקומות ומי מטייל.
+                הסוכן מכיר את המסלול שלך — את השעות, המקומות ומי מטייל.
               </p>
 
               <div className="starters">
                 {STARTERS.map((s) => (
-                  <button key={s} className="starter" onClick={() => send(s)} disabled={!hasAI}>
+                  <button key={s} className="starter" onClick={() => sendChatMessage(s)} disabled={!hasAI}>
                     {s}
                   </button>
                 ))}
@@ -152,7 +92,7 @@ export default function Chat() {
                 <strong style={{ fontSize: 13.5, fontWeight: 600 }}>הסוכן לא הצליח לענות</strong>
               </div>
               <p className="tiny" style={{ margin: '0 0 12px' }}>{error}</p>
-              <button className="btn btn-ghost btn-sm" onClick={retry}>נסה שוב</button>
+              <button className="btn btn-ghost btn-sm" onClick={retryChatMessage}>נסה שוב</button>
             </div>
           )}
 
@@ -168,7 +108,7 @@ export default function Chat() {
         <input
           value={shown}
           onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && send()}
+          onKeyDown={(e) => e.key === 'Enter' && sendChatMessage()}
           placeholder={speech.listening ? 'מקשיב...' : 'שאל את סוכן ה-AI...'}
           aria-label="הודעה"
           disabled={!hasAI}
@@ -187,7 +127,7 @@ export default function Chat() {
           </button>
         )}
 
-        <button className="send" onClick={() => send()} disabled={!draft.trim() || typing} aria-label="שלח">
+        <button className="send" onClick={() => sendChatMessage()} disabled={!draft.trim() || typing} aria-label="שלח">
           <Send size={16} />
         </button>
       </div>

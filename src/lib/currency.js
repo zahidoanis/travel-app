@@ -1,26 +1,28 @@
 /**
  * Local currency for the destination, and live exchange rates.
  *
- * Rates come from Frankfurter (European Central Bank data) — free, no key,
- * CORS open, updated每 working day. The hardcoded table that used to live in
- * data.js had drifted 15% on EUR, which is the kind of error that looks
- * plausible right up until someone budgets with it.
+ * Rates come from exchangerate-api.com's open endpoint — free, no key, CORS
+ * open, updated daily. Used to be Frankfurter (ECB data), which only tracks
+ * ~30 currencies — real destinations on this app's own list (Georgia,
+ * Armenia, Vietnam, Kenya, the whole Gulf) had no live rate at all and fell
+ * back to showing USD instead of the currency someone actually asked about.
+ * This feed carries all 166 currencies it lists rates for, which covers
+ * every currency this app can ever resolve a destination to.
  */
 
 import { record } from './telemetry'
 
-// frankfurter.app moved to frankfurter.dev (and /latest -> /v1/latest). The
-// old domain still resolves, but as a 301 with no CORS header on the
-// redirect itself — a browser refuses to follow a cross-origin redirect
-// that isn't explicitly allowed, so fetch() failed outright with an opaque
-// "Failed to fetch" no matter how the request was built.
-const API = 'https://api.frankfurter.dev/v1/latest'
+const API = 'https://open.er-api.com/v6/latest'
 
-/** Currencies the ECB feed covers. Anything outside falls back to EUR/USD. */
+/** Every currency localCurrency() can return has a live rate on this feed —
+ *  kept as its own list (rather than reading SYMBOL directly) so a currency
+ *  that turns out to be missing fails isConvertible() instead of assuming. */
 export const SUPPORTED = [
   'ILS', 'EUR', 'USD', 'GBP', 'CHF', 'JPY', 'AUD', 'CAD', 'NZD', 'SGD',
   'HKD', 'CNY', 'KRW', 'INR', 'IDR', 'MYR', 'PHP', 'THB', 'TRY', 'ZAR',
   'BRL', 'MXN', 'CZK', 'PLN', 'HUF', 'RON', 'DKK', 'SEK', 'NOK', 'ISK',
+  'AED', 'EGP', 'MAD', 'JOD', 'QAR', 'BGN', 'RSD', 'GEL', 'AMD', 'AZN',
+  'VND', 'NPR', 'LKR', 'MVR', 'ARS', 'CLP', 'PEN', 'COP', 'CUP', 'KES',
 ]
 
 export const SYMBOL = {
@@ -29,8 +31,6 @@ export const SYMBOL = {
   INR: '₹', IDR: 'Rp', MYR: 'RM', PHP: '₱', THB: '฿', TRY: '₺', ZAR: 'R',
   BRL: 'R$', MXN: 'MX$', CZK: 'Kč', PLN: 'zł', HUF: 'Ft', RON: 'lei',
   DKK: 'kr', SEK: 'kr', NOK: 'kr', ISK: 'kr',
-  // Real currencies with no live rate available — see isConvertible(). Their
-  // symbol still matters for the "this is what you'll actually spend" note.
   AED: 'د.إ', EGP: 'ج.م', MAD: 'DH', JOD: 'JD', QAR: 'ر.ق',
   BGN: 'лв', RSD: 'дин.', GEL: '₾', AMD: '֏', AZN: '₼',
   VND: '₫', NPR: 'रू', LKR: 'Rs', MVR: 'Rf',
@@ -158,11 +158,17 @@ export const isConvertible = (code) => SUPPORTED.includes(code)
  */
 export async function fetchRates(base = 'ILS') {
   try {
-    const res = await fetch(`${API}?base=${encodeURIComponent(base)}`)
+    const res = await fetch(`${API}/${encodeURIComponent(base)}`)
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
 
     const data = await res.json()
-    return { base: data.base, date: data.date, rates: { ...data.rates, [base]: 1 } }
+    if (data.result !== 'success') throw new Error(data['error-type'] ?? 'unknown error')
+
+    return {
+      base: data.base_code,
+      date: new Date(data.time_last_update_unix * 1000).toISOString().slice(0, 10),
+      rates: data.rates,
+    }
   } catch (err) {
     record({
       kind: 'network',
