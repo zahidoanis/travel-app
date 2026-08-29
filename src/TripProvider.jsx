@@ -121,6 +121,8 @@ function toFamilies(raw) {
     const named = (p.members ?? [])
       .map((m) => ({ name: memberName(m).trim(), age: memberAge(m) }))
       .filter((m) => m.name)
+    const arriveDay = dayNumberFromDate(effectiveFrom, p.arriveAt) ?? 1
+    const rawDepartDay = dayNumberFromDate(effectiveFrom, p.departAt)
     return {
       id: p.id,
       name: p.name,
@@ -133,9 +135,13 @@ function toFamilies(raw) {
       departAt: p.departAt ?? null,
       // Which day of the trip that falls on, for bounding the day switcher —
       // null departDay means "through the end of the trip", resolved by
-      // whoever reads it against the actual trip length.
-      arriveDay: dayNumberFromDate(effectiveFrom, p.arriveAt) ?? 1,
-      departDay: dayNumberFromDate(effectiveFrom, p.departAt),
+      // whoever reads it against the actual trip length. A departure typed
+      // in before the arrival (a mis-set date-picker field, easy to do by
+      // accident) must not turn into a negative bound — that collapses the
+      // day switcher to nothing, hiding every day but whichever was already
+      // loaded. Treated as "unset" instead of trusted as-is.
+      arriveDay,
+      departDay: rawDepartDay != null && rawDepartDay >= arriveDay ? rawDepartDay : null,
       sharedDays: p.sharedDays ?? [],
     }
   })

@@ -590,6 +590,7 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                             <input
                               type="date"
                               className="field" value={p.departAt?.split('T')[0] ?? ''}
+                              min={p.arriveAt?.split('T')[0] || answers.from || undefined}
                               onChange={(e) => {
                                 const time = p.departAt?.split('T')[1] ?? '00:00'
                                 patchParty(p.id, { departAt: e.target.value ? `${e.target.value}T${time}` : null })

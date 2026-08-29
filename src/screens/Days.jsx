@@ -64,7 +64,7 @@ export default function Days() {
   const activeFamilyObj = families.find((f) => f.id === activeFamily)
   const rangeStart = activeFamilyObj?.arriveDay ?? 1
   const rangeEnd = activeFamilyObj?.departDay ?? trip.totalDays
-  const dayList = Array.from({ length: rangeEnd - rangeStart + 1 }, (_, i) => rangeStart + i)
+  const dayList = Array.from({ length: Math.max(0, rangeEnd - rangeStart + 1) }, (_, i) => rangeStart + i)
   const isSharedDay = (activeFamilyObj?.sharedDays ?? []).includes(activeDay)
 
   /** Asks for stops that are not already in the day, so repeats are unlikely. */

@@ -149,6 +149,7 @@ export default function JoinWelcomeSheet() {
             <input
               type="date" className="field"
               value={departAt.split('T')[0] ?? ''}
+              min={arriveAt.split('T')[0] || trip.from || undefined}
               onChange={(e) => setDepartAt(e.target.value ? `${e.target.value}T${departAt.split('T')[1] ?? '00:00'}` : '')}
               aria-label="תאריך עזיבה"
             />
