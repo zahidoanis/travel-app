@@ -44,11 +44,20 @@ export const whatsappUrl = (text) => `https://wa.me/?text=${encodeURIComponent(t
  * Prefer the OS share sheet where it exists (it lists WhatsApp alongside
  * everything else), and fall back to opening WhatsApp directly.
  * Returns how it was shared, so the UI can report accurately.
+ *
+ * `text` is expected to already contain the link — every caller builds it
+ * that way, since the plain wa.me fallback below has no separate `url` slot
+ * at all. The native Web Share API's own `url` field used to also be filled
+ * in here alongside it, which put the exact same link in the shared message
+ * twice: once as a plain line inside `text`, once again as its own entry —
+ * the second one gets a real link-preview card (title fetched, thumbnail),
+ * the first doesn't, so it read as two different links rather than one
+ * appearing twice.
  */
-export async function shareTrip(text, url) {
+export async function shareTrip(text) {
   if (typeof navigator !== 'undefined' && navigator.share) {
     try {
-      await navigator.share({ title: 'TripAI', text, url })
+      await navigator.share({ title: 'TripAI', text })
       return 'native'
     } catch (err) {
       // AbortError just means the user dismissed the sheet — not a failure.

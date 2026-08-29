@@ -45,7 +45,7 @@ export default function ShareSheet({ open, stops, onClose }) {
       <button
         className="btn btn-block"
         style={{ background: '#25D366', color: '#06281A', marginBottom: 10 }}
-        onClick={() => shareTrip(text, url)}
+        onClick={() => shareTrip(text)}
       >
         <WhatsApp size={19} />
         שלח בוואטסאפ

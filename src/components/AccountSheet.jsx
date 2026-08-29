@@ -97,8 +97,7 @@ export default function AccountSheet({ open, onClose }) {
   // list isn't. Just the destination and the join link, which is already
   // everything a recipient needs to get in.
   const shareTripRow = (t) => {
-    const url = inviteUrl(t.id)
-    shareTrip(`הצטרפו אליי לטיול ל${t.destination}! 🗺️\n\n${url}`, url)
+    shareTrip(`הצטרפו אליי לטיול ל${t.destination}! 🗺️\n\n${inviteUrl(t.id)}`)
   }
 
   const confirmDelete = async () => {
