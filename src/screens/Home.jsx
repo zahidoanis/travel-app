@@ -1,10 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import TopBar from '../components/TopBar'
 import ShareSheet from '../components/ShareSheet'
 import {
   ArrowLeft, Sparkles, Bookmark, Clock, Share, Users, RefreshCw, Route, Utensils, Cloud, Plane, Note, Layers, Bed, Printer,
 } from '../components/Icons'
-import { headCount } from '../data'
 import { useTrip } from '../TripProvider'
 import PlacePhoto from '../components/PlacePhoto'
 import { heroPhoto as fetchHeroPhoto } from '../lib/photos'
@@ -25,13 +24,11 @@ const TOD_TINT = {
 
 
 export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood, onOpenArrival, onOpenHotels, onOpenSummary }) {
-  // "all" shows the shared itinerary; picking a party narrows it to the stops
-  // that party is actually attending.
   const {
-    trip: TRIP, stops: STOPS, families: FAMILIES, planning, planWarning, plan, syncState, trips,
+    trip: TRIP, stops: STOPS, families: FAMILIES, activeFamily, switchFamily,
+    planning, planWarning, plan, syncState, trips,
     openAccount, openEdit, addNote, updateNote, removeNote,
   } = useTrip()
-  const [party, setParty] = useState('all')
   const [shareOpen, setShareOpen] = useState(false)
   const [forecast, setForecast] = useState(null)
   const [forecastOpen, setForecastOpen] = useState(false)
@@ -88,17 +85,12 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
     return () => { cancelled = true }
   }, [TRIP?.id, TRIP?.lat, TRIP?.lng])
 
-  const stops = useMemo(
-    () => (party === 'all' ? STOPS : STOPS.filter((s) => s.who.includes(party))),
-    [party, STOPS]
-  )
-
   // After every hook: an early return above them changes the hook count
   // between renders, which React rejects outright.
   if (!TRIP) return null
 
-  // The "next" stop is the first one still ahead of us in the filtered day.
-  const nextId = stops[1]?.id ?? stops[0]?.id
+  // The "next" stop is the first one still ahead of us today.
+  const nextId = STOPS[1]?.id ?? STOPS[0]?.id
 
   return (
     <div className="screen">
@@ -226,31 +218,31 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
         </span>
       </div>
 
-      <div className="hscroll chips" style={{ paddingBlock: 0 }}>
-        <button className={`pill ${party === 'all' ? 'on' : ''}`} onClick={() => setParty('all')}>
-          כולם (<span className="num">{headCount(FAMILIES.map((f) => f.id), FAMILIES)}</span>)
-        </button>
-        {FAMILIES.map((f) => (
-          <button
-            key={f.id}
-            className={`pill ${party === f.id ? 'on' : ''}`}
-            onClick={() => setParty(f.id)}
-          >
-            <i className="dot" style={{ background: f.color, marginInlineEnd: 6 }} />
-            {f.name}
-          </button>
-        ))}
-      </div>
+      {FAMILIES.length > 1 && (
+        <div className="hscroll chips" style={{ paddingBlock: 0 }}>
+          {FAMILIES.map((f) => (
+            <button
+              key={f.id}
+              className={`pill ${activeFamily === f.id ? 'on' : ''}`}
+              onClick={() => switchFamily(f.id)}
+            >
+              <i className="dot" style={{ background: f.color, marginInlineEnd: 6 }} />
+              {f.name}
+              <span className="tiny" style={{ marginInlineStart: 4 }}>
+                (<span className="num">{f.members.length}</span>)
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="pad section-head">
-        <h2 className="h2">התכנון להיום</h2>
+        <h2 className="h2">
+          {FAMILIES.length > 1 ? `התכנון של ${FAMILIES.find((f) => f.id === activeFamily)?.name ?? ''}` : 'התכנון להיום'}
+        </h2>
         <span className="row" style={{ gap: 10 }}>
           <span className="tiny">
-            {party === 'all' ? (
-              <>יום <span className="num">{TRIP.day}</span> מתוך <span className="num">{TRIP.totalDays}</span></>
-            ) : (
-              <><span className="num">{stops.length}</span> מתוך <span className="num">{STOPS.length}</span> עצירות</>
-            )}
+            יום <span className="num">{TRIP.day}</span> מתוך <span className="num">{TRIP.totalDays}</span>
           </span>
           <button
             className="icon-btn"
@@ -272,9 +264,8 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
       )}
 
       <div className="hscroll">
-        {stops.map((s) => {
+        {STOPS.map((s) => {
           const isNext = s.id === nextId
-          const going = FAMILIES.filter((f) => s.who.includes(f.id))
           return (
             <button key={s.id} className={`timeline-card ${isNext ? 'next' : ''}`} onClick={onStartRoute}>
               <div className="between">
@@ -288,34 +279,20 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
 
               <PlacePhoto name={s.name} cat={s.cat} title={s.name} />
 
-              <p className="tiny" style={{ margin: '0 0 10px' }}>{s.desc}</p>
-
-              {/* Who is attending this stop */}
-              <div className="row" style={{ gap: 5 }}>
-                <span className="stack">
-                  {going.map((f) => (
-                    <i key={f.id} className="stack-dot" style={{ background: f.color }} title={f.name} />
-                  ))}
-                </span>
-                <span className="tiny">
-                  {going.length === FAMILIES.length
-                    ? 'כולם'
-                    : <><span className="num">{headCount(s.who, FAMILIES)}</span> נוסעים</>}
-                </span>
-              </div>
+              <p className="tiny" style={{ margin: 0 }}>{s.desc}</p>
             </button>
           )
         })}
 
-        {planning && stops.length === 0 && (
+        {planning && STOPS.length === 0 && (
           <div className="timeline-card" style={{ display: 'grid', placeItems: 'center', height: 180 }}>
             <span className="typing"><i /><i /><i /></span>
           </div>
         )}
 
-        {!planning && stops.length === 0 && (
+        {!planning && STOPS.length === 0 && (
           <div className="timeline-card" style={{ display: 'grid', placeItems: 'center', height: 180 }}>
-            <span className="tiny">אין עצירות משותפות ליום הזה</span>
+            <span className="tiny">אין עצירות ליום הזה</span>
           </div>
         )}
       </div>
@@ -427,7 +404,7 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
               <span className="col" style={{ gap: 2, textAlign: 'start' }}>
                 <strong style={{ fontSize: 14, fontWeight: 600 }}>הלו"ז המלא של היום</strong>
                 <span className="tiny">
-                  <span className="num">{stops.length}</span> עצירות · מסתיים ב-
+                  <span className="num">{STOPS.length}</span> עצירות · מסתיים ב-
                   <span className="num">{STOPS[STOPS.length - 1]?.time ?? '—'}</span>
                 </span>
               </span>

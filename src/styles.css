@@ -601,6 +601,12 @@ input, select, textarea { font: inherit; color: inherit; }
   position: absolute; z-index: 10; inset-inline: 0; inset-block-start: 68px;
 }
 .day-strip .hscroll { padding-block: 0; }
+/* Sits above .day-strip when a trip has more than one family — most trips
+   have only one, and never render this at all. */
+.family-strip { position: absolute; z-index: 10; inset-inline: 0; inset-block-start: 16px; }
+.family-strip .hscroll { padding-block: 0; }
+.family-strip .pill { background: var(--card); box-shadow: var(--shadow-sm); }
+.family-strip .pill.on { background: linear-gradient(135deg, var(--accent-2), var(--accent)); }
 /* Opaque, not the pill's usual translucent tint — this floats directly over
    map tiles of an unpredictable colour, and needs to read regardless. */
 .day-strip .pill { background: var(--card); box-shadow: var(--shadow-sm); }
@@ -857,16 +863,6 @@ input, select, textarea { font: inherit; color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
-
-/* ---------- Travel parties ---------- */
-
-/* Overlapping colour dots showing which parties attend a stop. */
-.stack { display: inline-flex; align-items: center; }
-.stack-dot {
-  width: 14px; height: 14px; border-radius: 50%;
-  border: 2px solid var(--card);
-}
-.stack-dot + .stack-dot { margin-inline-start: -5px; }
 
 .split-toggle {
   display: inline-flex; padding: 3px; border-radius: var(--r-pill);
@@ -1421,7 +1417,6 @@ input, select, textarea { font: inherit; color: inherit; }
 .ai-avatar { background: linear-gradient(150deg, var(--accent-2), var(--accent)); }
 .scrim { background: rgba(20,20,28,0.34); }
 .sheet { box-shadow: var(--shadow-lg); }
-.stack-dot { border-color: var(--card); }
 .thumb::after { background: linear-gradient(to top, rgba(10,10,22,0.7), transparent 58%); }
 .diag-pre { background: var(--sunken); }
 .suggestions { background: rgba(255,255,255,0.98); box-shadow: var(--shadow-lg); }

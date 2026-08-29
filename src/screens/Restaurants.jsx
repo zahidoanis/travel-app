@@ -90,7 +90,6 @@ export default function Restaurants() {
       rating: null,
       lat: hit.lat,
       lng: hit.lng,
-      who: [],
     })
     setAdded((a) => [...a, r.name])
   }

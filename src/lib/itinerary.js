@@ -93,8 +93,6 @@ export async function buildItinerary({ trip, families, signal }) {
         rating: null,
         lat: r.lat,
         lng: r.lng,
-        // Everyone attends by default; the user re-assigns per stop later.
-        who: families.map((f) => f.id),
       }))
 
     const dropped = located.length - stops.length

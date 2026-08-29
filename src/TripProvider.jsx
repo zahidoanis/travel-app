@@ -127,6 +127,24 @@ export function TripProvider({ children }) {
   const stops = days[activeDay] ?? []
 
   /**
+   * Each family plans its own days independently rather than sharing one
+   * itinerary — a parent checking what the grandparents planned separately
+   * is a real, common shape for a multi-family trip. `families[0]` is
+   * always "your own" (toFamilies marks it `joined: true`), so that's what
+   * opening Days or the map shows by default; switching to another family's
+   * plan is explicit.
+   */
+  const [activeFamily, setActiveFamily] = useState(null)
+  useEffect(() => {
+    setActiveFamily(families[0]?.id ?? null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trip?.id])
+  const switchFamily = (id) => {
+    setActiveDay(1)
+    setActiveFamily(id)
+  }
+
+  /**
    * Sync state, said plainly. A user has to be able to tell whether their
    * work is safe, and the badge that used to sit in the top bar was
    * decorative.
@@ -187,20 +205,25 @@ export function TripProvider({ children }) {
 
   /* ---- days ---- */
 
-  // Live, so a stop someone else adds shows up without a refresh.
+  useEffect(() => {
+    if (trip) setActiveDay(trip.day)
+  }, [trip?.id])
+
+  // Live, so a stop someone else in the same family adds shows up without a
+  // refresh. Keyed on activeFamily too — switching whose plan is showing is
+  // a different set of documents entirely, not a filter over one shared set.
   useEffect(() => {
     stopWatch.current?.()
-    if (!trip) return
+    if (!trip || !activeFamily) return
 
-    stopWatch.current = watchRoutes(trip.id, (routes) => {
+    stopWatch.current = watchRoutes(trip.id, activeFamily, (routes) => {
       const next = {}
       for (const r of routes) if (r.stops?.length) next[r.day] = r.stops
       setDays(next)
     })
 
-    setActiveDay(trip.day)
     return () => stopWatch.current?.()
-  }, [trip?.id])
+  }, [trip?.id, activeFamily])
 
   /* ---- activity feed, for the bell ---- */
 
@@ -359,24 +382,28 @@ export function TripProvider({ children }) {
     return () => navigator.geolocation.clearWatch(id)
   }, [sharingLocation, trip?.id, user?.uid])
 
-  // Generate the current day only when nothing is stored for it.
+  // Generate the current day only when nothing is stored for it — for
+  // whichever family is active, since switching to a family that hasn't
+  // planned yet is exactly the same "nothing stored" situation as opening
+  // the trip for the first time.
   useEffect(() => {
-    if (!trip || loading) return
-    listRoutes(trip.id).then((routes) => {
+    if (!trip || !activeFamily || loading) return
+    listRoutes(trip.id, activeFamily).then((routes) => {
       if (routes.some((r) => r.day === trip.day && r.stops?.length)) return
       plan(trip.day)
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trip?.id, loading])
+  }, [trip?.id, activeFamily, loading])
 
   const plan = async (day = activeDay) => {
-    if (planning || !trip) return
+    if (planning || !trip || !activeFamily) return
     setPlanning(true)
     setPlanWarning(null)
 
+    const planningFamily = families.find((f) => f.id === activeFamily)
     const { stops: fresh, warning } = await buildItinerary({
       trip: { ...trip, day },
-      families,
+      families: planningFamily ? [planningFamily] : families,
     })
 
     if (fresh.length > 0) {
@@ -388,9 +415,9 @@ export function TripProvider({ children }) {
   }
 
   const persist = async (day, next) => {
-    if (!trip) return
+    if (!trip || !activeFamily) return
     setSyncing(true)
-    await saveRoute(trip.id, { day, city: trip.city, stops: next })
+    await saveRoute(trip.id, activeFamily, { day, city: trip.city, stops: next })
     setSyncing(false)
   }
 
@@ -649,7 +676,7 @@ export function TripProvider({ children }) {
 
   const value = {
     user, trip, trips, loading, syncState, skipWelcome,
-    stops, days, activeDay, setActiveDay,
+    stops, days, activeDay, setActiveDay, activeFamily, switchFamily,
     families, isReal, planning, planWarning,
     plan, moveStop, addStop, removeStop, moveStopToDay,
     reservations, addReservation, removeReservation,

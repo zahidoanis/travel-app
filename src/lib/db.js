@@ -329,33 +329,40 @@ export function claimOwnership(tripId) {
 }
 
 /* ------------------------------------------------------------------ *
- * routes — one document per day of a trip
+ * routes — one document per day, scoped under the family planning it.
+ * Each family plans its own days independently, so the path carries both:
+ * trips/{tripId}/families/{familyId}/routes/{day}. No rules change needed —
+ * the generic member-write subcollection rule matches any depth under a
+ * trip, not just one level.
  * ------------------------------------------------------------------ */
 
-export function listRoutes(tripId) {
-  if (!tripId) return Promise.resolve([])
+export function listRoutes(tripId, familyId) {
+  if (!tripId || !familyId) return Promise.resolve([])
 
   return guarded(
     'listRoutes',
     async ({ db, FS }) => {
       const snap = await FS.getDocs(
-        FS.query(FS.collection(db, 'trips', tripId, 'routes'), FS.orderBy('day', 'asc'))
+        FS.query(
+          FS.collection(db, 'trips', tripId, 'families', familyId, 'routes'),
+          FS.orderBy('day', 'asc')
+        )
       )
       return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
     },
-    () => localGet(`routes.${tripId}`, [])
+    () => localGet(`routes.${tripId}.${familyId}`, [])
   )
 }
 
-export function saveRoute(tripId, route) {
-  if (!tripId) return Promise.resolve(false)
+export function saveRoute(tripId, familyId, route) {
+  if (!tripId || !familyId) return Promise.resolve(false)
 
   return guarded(
     'saveRoute',
     async ({ db, FS }) => {
       const id = route.id ?? `day-${route.day}`
       await FS.setDoc(
-        FS.doc(db, 'trips', tripId, 'routes', id),
+        FS.doc(db, 'trips', tripId, 'families', familyId, 'routes', id),
         { ...route, id, updatedAt: FS.serverTimestamp() },
         { merge: true }
       )
@@ -363,21 +370,21 @@ export function saveRoute(tripId, route) {
     },
     () => {
       const id = route.id ?? `day-${route.day}`
-      const all = localGet(`routes.${tripId}`, []).filter((r) => r.id !== id)
-      localSet(`routes.${tripId}`, [...all, { ...route, id }].sort((a, b) => a.day - b.day))
+      const all = localGet(`routes.${tripId}.${familyId}`, []).filter((r) => r.id !== id)
+      localSet(`routes.${tripId}.${familyId}`, [...all, { ...route, id }].sort((a, b) => a.day - b.day))
       return false
     }
   )
 }
 
 /**
- * Live updates for a trip's routes — this is what makes a shared trip feel
- * shared: a stop someone else adds appears without a refresh.
- * Returns an unsubscribe function.
+ * Live updates for one family's routes — this is what makes a shared trip
+ * feel shared: a stop someone else in the same family adds appears without
+ * a refresh. Returns an unsubscribe function.
  */
-export function watchRoutes(tripId, onChange) {
-  if (!hasFirebase || !tripId) {
-    onChange(localGet(`routes.${tripId}`, []))
+export function watchRoutes(tripId, familyId, onChange) {
+  if (!hasFirebase || !tripId || !familyId) {
+    onChange(localGet(`routes.${tripId}.${familyId}`, []))
     return () => {}
   }
 
@@ -391,7 +398,10 @@ export function watchRoutes(tripId, onChange) {
 
     const subscribe = () => {
       stop = FS.onSnapshot(
-        FS.query(FS.collection(db, 'trips', tripId, 'routes'), FS.orderBy('day', 'asc')),
+        FS.query(
+          FS.collection(db, 'trips', tripId, 'families', familyId, 'routes'),
+          FS.orderBy('day', 'asc')
+        ),
         (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
         (err) => {
           // A permission-denied right after signing in is not necessarily

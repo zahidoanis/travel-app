@@ -24,6 +24,7 @@ function dateForDay(fromISO, day) {
 export default function MapScreen() {
   const {
     stops: STOPS, days, activeDay, setActiveDay, planning, trip,
+    families, activeFamily, switchFamily,
     presence, sharingLocation, toggleLocationSharing,
   } = useTrip()
   const livePeople = presence.filter(
@@ -92,6 +93,26 @@ export default function MapScreen() {
   // out of itself. This used to live only in the branch below the empty-
   // state check, so switching to an empty day made the switcher disappear
   // along with everything else, with no way back to a day that had stops.
+  // Same reasoning as daySwitcher below — rendered regardless of whether the
+  // active family happens to have stops for this day, since switching to a
+  // family that hasn't planned yet is exactly when you'd want the switcher.
+  const familySwitcher = families.length > 1 && (
+    <div className="family-strip">
+      <div className="hscroll">
+        {families.map((f) => (
+          <button
+            key={f.id}
+            className={`pill ${activeFamily === f.id ? 'on' : ''}`}
+            onClick={() => switchFamily(f.id)}
+          >
+            <i className="dot" style={{ background: f.color, marginInlineEnd: 6 }} />
+            {f.name}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+
   const daySwitcher = dayList.length > 1 && (
     <div className="day-strip">
       <div className="hscroll">
@@ -117,6 +138,7 @@ export default function MapScreen() {
         <div style={{ position: 'relative', zIndex: 10 }}>
           <TopBar floating />
         </div>
+        {familySwitcher}
         {daySwitcher}
         <div className="card" style={{ textAlign: 'center', maxWidth: 300 }}>
           {planning ? (
@@ -149,6 +171,7 @@ export default function MapScreen() {
         <TopBar floating />
       </div>
 
+      {familySwitcher}
       {daySwitcher}
 
       <div className="map-tools">

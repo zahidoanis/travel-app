@@ -38,6 +38,7 @@ const CAT_FROM_WORD = (w = '') => {
 export default function Days() {
   const {
     trip, days, activeDay, setActiveDay, stops,
+    families, activeFamily, switchFamily,
     planning, planWarning, plan, moveStop, addStop, removeStop,
     reservations, removeReservation, moveStopToDay,
   } = useTrip()
@@ -141,7 +142,6 @@ export default function Days() {
       rating: null,
       lat: hit?.lat ?? null,
       lng: hit?.lng ?? null,
-      who: [],
     })
 
     if (!hit) setError(`"${name}" נוסף ללו"ז אבל לא אותר על המפה.`)
@@ -170,7 +170,6 @@ export default function Days() {
       rating: null,
       lat: hit.lat,
       lng: hit.lng,
-      who: [],
     })
     setSuggestions((s) => s.filter((x) => x.name !== row.name))
   }
@@ -185,6 +184,24 @@ export default function Days() {
           {trip.city} · <span className="num">{trip.totalDays}</span> ימים
         </p>
       </div>
+
+      {/* Each family plans its own days — this switches whose plan is showing,
+          not a filter over one shared plan. Hidden for a solo family since
+          there is nothing to switch between. */}
+      {families.length > 1 && (
+        <div className="hscroll chips" style={{ marginTop: 14 }}>
+          {families.map((f) => (
+            <button
+              key={f.id}
+              className={`pill ${activeFamily === f.id ? 'on' : ''}`}
+              onClick={() => switchFamily(f.id)}
+            >
+              <i className="dot" style={{ background: f.color, marginInlineEnd: 6 }} />
+              {f.name}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Day selector */}
       <div className="hscroll chips" style={{ marginTop: 18 }}>
