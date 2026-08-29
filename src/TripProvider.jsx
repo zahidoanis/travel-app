@@ -86,6 +86,12 @@ function toFamilies(raw) {
       color: p.color ?? PARTY_COLORS[i % PARTY_COLORS.length],
       members: named.map((m, k) => ({ id: `${p.id}-m${k}`, name: m.name, age: m.age })),
       joined: i === 0,
+      // null departDay means "through the end of the trip" — resolved by
+      // whoever reads it against the actual trip length, not fixed here,
+      // since toFamilies() never sees totalDays and shouldn't need to.
+      arriveDay: p.arriveDay ?? 1,
+      departDay: p.departDay ?? null,
+      sharedDays: p.sharedDays ?? [],
     }
   })
 }
@@ -95,7 +101,12 @@ export function TripProvider({ children }) {
   const [raw, setRaw] = useState(null)        // the stored trip document
   const [trips, setTrips] = useState([])
   const [loading, setLoading] = useState(true)
-  const [days, setDays] = useState({})
+  // Split in two: a family's own private days, and the days everyone doing
+  // a shared day opts into together. Which bucket a given day actually
+  // comes from is decided per day below, once `families` (and so each
+  // family's own sharedDays list) exists.
+  const [ownDays, setOwnDays] = useState({})
+  const [sharedRoutes, setSharedRoutes] = useState({})
   const [activeDay, setActiveDay] = useState(1)
   const [planning, setPlanning] = useState(false)
   const [planWarning, setPlanWarning] = useState(null)
@@ -120,11 +131,11 @@ export function TripProvider({ children }) {
   const [activity, setActivity] = useState([])
   const activityWatch = useRef(null)
   const stopWatch = useRef(null)
+  const sharedWatch = useRef(null)
 
   const trip = useMemo(() => toTrip(raw), [raw])
   const families = useMemo(() => toFamilies(raw), [raw])
   const isReal = Boolean(trip)
-  const stops = days[activeDay] ?? []
 
   /**
    * Each family plans its own days independently rather than sharing one
@@ -140,9 +151,50 @@ export function TripProvider({ children }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trip?.id])
   const switchFamily = (id) => {
-    setActiveDay(1)
+    // Day 1 isn't necessarily this family's day at all — someone joining a
+    // multi-family trip partway through would land on a day they were never
+    // on, showing an empty plan that looks broken rather than just early.
+    setActiveDay(families.find((f) => f.id === id)?.arriveDay ?? 1)
     setActiveFamily(id)
   }
+
+  const activeFamilyObj = families.find((f) => f.id === activeFamily) ?? null
+  const sharedDaySet = new Set(activeFamilyObj?.sharedDays ?? [])
+
+  /**
+   * Opts one day in or out of the shared plan, for whichever family is
+   * currently active. Two families both marking the same day "together"
+   * land on the identical shared bucket without either one having to be
+   * "the host" — there's nothing to reconcile, they were always pointed at
+   * the same document once both flags are set.
+   */
+  const toggleSharedDay = (day) => {
+    if (!trip || !activeFamily) return
+    const parties = (raw.parties ?? []).map((p) => {
+      if (p.id !== activeFamily) return p
+      const set = new Set(p.sharedDays ?? [])
+      if (set.has(day)) set.delete(day)
+      else set.add(day)
+      return { ...p, sharedDays: [...set].sort((a, b) => a - b) }
+    })
+    return updateTrip({ parties })
+  }
+
+  /**
+   * The active family's real day list — their own days, except wherever
+   * they've opted a specific day into the shared plan, which then shows
+   * (and is edited as) exactly what every other family who joined that same
+   * day sees. Two families each toggling day 3 "together" both land on this
+   * same merged view of day 3, from the one shared bucket.
+   */
+  const days = useMemo(() => {
+    const merged = { ...ownDays }
+    for (const day of sharedDaySet) merged[day] = sharedRoutes[day] ?? []
+    return merged
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ownDays, sharedRoutes, activeFamilyObj?.sharedDays])
+
+  const stops = days[activeDay] ?? []
 
   /**
    * Sync state, said plainly. A user has to be able to tell whether their
@@ -219,11 +271,27 @@ export function TripProvider({ children }) {
     stopWatch.current = watchRoutes(trip.id, activeFamily, (routes) => {
       const next = {}
       for (const r of routes) if (r.stops?.length) next[r.day] = r.stops
-      setDays(next)
+      setOwnDays(next)
     })
 
     return () => stopWatch.current?.()
   }, [trip?.id, activeFamily])
+
+  // The shared bucket is watched independently of whether the active family
+  // has actually opted any day into it yet — switching a day into "together"
+  // needs its data to already be flowing, not fetched only after the fact.
+  useEffect(() => {
+    sharedWatch.current?.()
+    if (!trip) return
+
+    sharedWatch.current = watchRoutes(trip.id, 'shared', (routes) => {
+      const next = {}
+      for (const r of routes) if (r.stops?.length) next[r.day] = r.stops
+      setSharedRoutes(next)
+    })
+
+    return () => sharedWatch.current?.()
+  }, [trip?.id])
 
   /* ---- activity feed, for the bell ---- */
 
@@ -413,7 +481,8 @@ export function TripProvider({ children }) {
   // the trip for the first time.
   useEffect(() => {
     if (!trip || !activeFamily || loading) return
-    listRoutes(trip.id, activeFamily).then((routes) => {
+    const bucket = sharedDaySet.has(trip.day) ? 'shared' : activeFamily
+    listRoutes(trip.id, bucket).then((routes) => {
       if (routes.some((r) => r.day === trip.day && r.stops?.length)) return
       plan(trip.day)
     })
@@ -441,7 +510,7 @@ export function TripProvider({ children }) {
     })
 
     if (fresh.length > 0) {
-      setDays((d) => ({ ...d, [day]: fresh }))
+      applyLocalDay(day, fresh)
       persist(day, fresh)
     }
     setPlanWarning(warning ?? null)
@@ -451,12 +520,20 @@ export function TripProvider({ children }) {
   const persist = async (day, next) => {
     if (!trip || !activeFamily) return
     setSyncing(true)
-    await saveRoute(trip.id, activeFamily, { day, city: trip.city, stops: next })
+    const bucket = sharedDaySet.has(day) ? 'shared' : activeFamily
+    await saveRoute(trip.id, bucket, { day, city: trip.city, stops: next })
     setSyncing(false)
   }
 
+  /** Updates whichever local bucket (own or shared) actually backs this day,
+   *  matching persist()'s choice of where the write itself goes. */
+  const applyLocalDay = (day, next) => {
+    if (sharedDaySet.has(day)) setSharedRoutes((d) => ({ ...d, [day]: next }))
+    else setOwnDays((d) => ({ ...d, [day]: next }))
+  }
+
   const setDayStops = (day, next) => {
-    setDays((d) => ({ ...d, [day]: next }))
+    applyLocalDay(day, next)
     persist(day, next)
   }
 
@@ -508,8 +585,8 @@ export function TripProvider({ children }) {
     )
 
     breadcrumb('action', `move stop ${fromDay} -> ${toDay}`)
-    // One state update for both days, so the stop is never briefly duplicated.
-    setDays((d) => ({ ...d, [fromDay]: remaining, [toDay]: target }))
+    applyLocalDay(fromDay, remaining)
+    applyLocalDay(toDay, target)
     persist(fromDay, remaining)
     persist(toDay, target)
   }
@@ -711,6 +788,7 @@ export function TripProvider({ children }) {
   const value = {
     user, trip, trips, loading, syncState, skipWelcome,
     stops, days, activeDay, setActiveDay, activeFamily, switchFamily,
+    sharedDaySet, toggleSharedDay,
     families, isReal, planning, planWarning,
     plan, moveStop, addStop, removeStop, moveStopToDay,
     reservations, addReservation, removeReservation,

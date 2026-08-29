@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import TopBar from '../components/TopBar'
 import {
-  Sparkles, Plus, X, ArrowUp, ArrowDown, RefreshCw, Clock, Ticket, Phone, MapPin,
+  Sparkles, Plus, X, ArrowUp, ArrowDown, RefreshCw, Clock, Ticket, Phone, MapPin, Users,
 } from '../components/Icons'
 import { CATEGORIES } from '../data'
 import BookingSheet from '../components/BookingSheet'
@@ -38,7 +38,7 @@ const CAT_FROM_WORD = (w = '') => {
 export default function Days() {
   const {
     trip, days, activeDay, setActiveDay, stops,
-    families, activeFamily, switchFamily,
+    families, activeFamily, switchFamily, toggleSharedDay,
     planning, planWarning, plan, moveStop, addStop, removeStop,
     reservations, removeReservation, moveStopToDay,
   } = useTrip()
@@ -61,7 +61,11 @@ export default function Days() {
 
   if (!trip) return null
 
-  const dayList = Array.from({ length: trip.totalDays }, (_, i) => i + 1)
+  const activeFamilyObj = families.find((f) => f.id === activeFamily)
+  const rangeStart = activeFamilyObj?.arriveDay ?? 1
+  const rangeEnd = activeFamilyObj?.departDay ?? trip.totalDays
+  const dayList = Array.from({ length: rangeEnd - rangeStart + 1 }, (_, i) => rangeStart + i)
+  const isSharedDay = (activeFamilyObj?.sharedDays ?? []).includes(activeDay)
 
   /** Asks for stops that are not already in the day, so repeats are unlikely. */
   const suggest = async () => {
@@ -235,16 +239,32 @@ export default function Days() {
             <span className="tiny">{dateForDay(trip, activeDay)}</span>
           )}
         </span>
-        <button
-          className="icon-btn"
-          style={{ width: 30, height: 30 }}
-          onClick={() => plan(activeDay)}
-          disabled={planning}
-          aria-label="בנה את היום מחדש"
-          title="בנה את היום מחדש"
-        >
-          <RefreshCw size={15} />
-        </button>
+        <span className="row" style={{ gap: 8 }}>
+          {/* Any family that marks the same day "together" lands on the
+              identical shared plan — nobody is "hosting" it. */}
+          {families.length > 1 && (
+            <button
+              className={`pill ${isSharedDay ? 'on' : ''}`}
+              style={{ padding: '6px 12px' }}
+              onClick={() => toggleSharedDay(activeDay)}
+              aria-pressed={isSharedDay}
+              title={isSharedDay ? 'היום הזה מתוכנן יחד עם כל מי שהצטרף אליו' : 'תכנן את היום הזה יחד עם משפחות אחרות'}
+            >
+              <Users size={13} style={{ marginInlineEnd: 5 }} />
+              יחד
+            </button>
+          )}
+          <button
+            className="icon-btn"
+            style={{ width: 30, height: 30 }}
+            onClick={() => plan(activeDay)}
+            disabled={planning}
+            aria-label="בנה את היום מחדש"
+            title="בנה את היום מחדש"
+          >
+            <RefreshCw size={15} />
+          </button>
+        </span>
       </div>
 
       {planWarning && (

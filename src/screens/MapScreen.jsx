@@ -30,7 +30,10 @@ export default function MapScreen() {
   const livePeople = presence.filter(
     (p) => p.active && p.lat != null && Date.now() - (p.updatedAt?.seconds ?? 0) * 1000 < PRESENCE_STALE_MS
   )
-  const dayList = trip ? Array.from({ length: trip.totalDays }, (_, i) => i + 1) : []
+  const activeFamilyObj = families.find((f) => f.id === activeFamily)
+  const rangeStart = activeFamilyObj?.arriveDay ?? 1
+  const rangeEnd = activeFamilyObj?.departDay ?? trip?.totalDays ?? 1
+  const dayList = trip ? Array.from({ length: rangeEnd - rangeStart + 1 }, (_, i) => rangeStart + i) : []
   // A stay only reaches the map at all once it has real coordinates, from the
   // same geocoding step onboarding already runs when one is added. With more
   // than one hotel, the active day's date picks which one — falling back to

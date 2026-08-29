@@ -539,6 +539,34 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                       )}
                     </div>
 
+                    {/* Only matters once there is more than one family — a
+                        solo family's own trip dates already say when they're
+                        there. Blank means "the whole trip", same as today. */}
+                    {answers.parties.length > 1 && (
+                      <div className="row" style={{ gap: 8, marginTop: 10 }}>
+                        <label className="col" style={{ gap: 3, flex: 1 }}>
+                          <span className="tiny">מגיעים ביום</span>
+                          <input
+                            type="number" min="1" max={nights + 1}
+                            className="field" value={p.arriveDay ?? ''}
+                            onChange={(e) => patchParty(p.id, { arriveDay: e.target.value ? Number(e.target.value) : null })}
+                            placeholder="1"
+                            aria-label={`יום הגעה של ${p.name}`}
+                          />
+                        </label>
+                        <label className="col" style={{ gap: 3, flex: 1 }}>
+                          <span className="tiny">עוזבים ביום</span>
+                          <input
+                            type="number" min="1" max={nights + 1}
+                            className="field" value={p.departDay ?? ''}
+                            onChange={(e) => patchParty(p.id, { departDay: e.target.value ? Number(e.target.value) : null })}
+                            placeholder={String(nights + 1)}
+                            aria-label={`יום עזיבה של ${p.name}`}
+                          />
+                        </label>
+                      </div>
+                    )}
+
                     <div className="member-list">
                       {p.members.map((m, mi) => (
                         <div key={mi} className="member-row">
