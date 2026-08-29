@@ -64,8 +64,10 @@ export default function JoinWelcomeSheet() {
 
   if (stage === 'pick') {
     return (
-      <Sheet open={justJoined} title={`הצטרפת לטיול ל${trip.city}!`} onClose={close}>
-        <p className="sub" style={{ marginBottom: 16 }}>מי אתה בטיול הזה?</p>
+      <Sheet open={justJoined} title="איזו משפחה אתם?" onClose={close}>
+        <p className="sub" style={{ marginBottom: 16 }}>
+          הצטרפתם לטיול ל{trip.city}! נשאר רק לדעת עם מי אנחנו.
+        </p>
         <div className="col" style={{ gap: 8, marginBottom: 16 }}>
           {families.map((f) => (
             <button
