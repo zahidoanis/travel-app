@@ -1,25 +1,179 @@
+import { useState } from 'react'
 import Sheet from './Sheet'
-import { Route, Wallet, Users, Check } from './Icons'
+import { Route, Wallet, Users, Check, Plus } from './Icons'
 import { useTrip } from '../TripProvider'
+import { TIME_OPTIONS } from '../data'
 
 /**
  * Shown once, right after joining someone else's trip by link or by code.
  * Landing silently inside a shared plan with no explanation of what you can
  * actually do with it was the gap — this is the one-time orientation.
  *
- * The route description below has to hold both shapes at once: a solo
- * family's trip really is one shared plan, but once a second family
- * exists, each one plans independently and this same joiner can freely
- * switch between and edit *any* of them — there's no per-family login,
- * "who you are" here is just whichever plan you have open.
+ * It opens on a question the old version skipped entirely: *which* family
+ * is this? Joining never assigns anyone to a party — without asking, every
+ * joiner defaulted to whichever family the trip's creator happens to be,
+ * silently editing that family's plan instead of their own. Picking an
+ * existing family just remembers the choice on this device; picking "new"
+ * collects that family's own real arrival/departure instead of the trip's
+ * creator guessing on their behalf.
  */
 export default function JoinWelcomeSheet() {
-  const { justJoined, dismissJustJoined, trip, families } = useTrip()
+  const { justJoined, dismissJustJoined, trip, families, setMyFamily, addFamily } = useTrip()
+  const [stage, setStage] = useState('pick')
+  const [name, setName] = useState('')
+  const [membersText, setMembersText] = useState('')
+  const [arriveAt, setArriveAt] = useState('')
+  const [departAt, setDepartAt] = useState('')
+  const [saving, setSaving] = useState(false)
 
   if (!trip) return null
 
+  const reset = () => {
+    setStage('pick')
+    setName('')
+    setMembersText('')
+    setArriveAt('')
+    setDepartAt('')
+  }
+
+  const close = () => {
+    reset()
+    dismissJustJoined()
+  }
+
+  const pickExisting = (id) => {
+    setMyFamily(id)
+    setStage('info')
+  }
+
+  const createFamily = async () => {
+    if (!name.trim() || saving) return
+    setSaving(true)
+    const id = await addFamily({
+      name,
+      members: membersText.split(',').filter((m) => m.trim()),
+      arriveAt: arriveAt && `${arriveAt}`,
+      departAt: departAt && `${departAt}`,
+    })
+    setSaving(false)
+    if (id) {
+      setMyFamily(id)
+      setStage('info')
+    }
+  }
+
+  if (stage === 'pick') {
+    return (
+      <Sheet open={justJoined} title={`הצטרפת לטיול ל${trip.city}!`} onClose={close}>
+        <p className="sub" style={{ marginBottom: 16 }}>מי אתה בטיול הזה?</p>
+        <div className="col" style={{ gap: 8, marginBottom: 16 }}>
+          {families.map((f) => (
+            <button
+              key={f.id}
+              className="choice"
+              style={{ padding: 13 }}
+              onClick={() => pickExisting(f.id)}
+            >
+              <span className="row" style={{ gap: 10 }}>
+                <i className="dot" style={{ background: f.color }} />
+                <span className="grow" style={{ textAlign: 'start' }}>
+                  <span className="choice-title" style={{ marginTop: 0 }}>{f.name}</span>
+                  <span className="choice-sub tiny">
+                    <span className="num">{f.members.length}</span> נוסעים
+                  </span>
+                </span>
+              </span>
+            </button>
+          ))}
+        </div>
+        <button className="btn btn-ghost btn-block" onClick={() => setStage('newFamily')}>
+          <Plus size={16} />
+          אני משפחה חדשה
+        </button>
+      </Sheet>
+    )
+  }
+
+  if (stage === 'newFamily') {
+    return (
+      <Sheet open={justJoined} title="המשפחה שלכם" onClose={close}>
+        <p className="sub" style={{ marginBottom: 16 }}>
+          הפרטים האלה שלכם בלבד — כולל מתי אתם בפועל מגיעים ועוזבים.
+        </p>
+
+        <span className="label">שם המשפחה</span>
+        <input
+          className="field" style={{ marginBottom: 14 }}
+          value={name} onChange={(e) => setName(e.target.value)}
+          placeholder="לדוגמה: כהן"
+          aria-label="שם המשפחה"
+        />
+
+        <span className="label">משתתפים (מופרדים בפסיק)</span>
+        <input
+          className="field" style={{ marginBottom: 14 }}
+          value={membersText} onChange={(e) => setMembersText(e.target.value)}
+          placeholder="דנה, יוסי, נועה"
+          aria-label="שמות המשתתפים"
+        />
+
+        <div className="row" style={{ gap: 8, marginBottom: 10 }}>
+          <label className="col" style={{ gap: 3, flex: 1 }}>
+            <span className="tiny">תאריך הגעה</span>
+            <input
+              type="date" className="field"
+              value={arriveAt.split('T')[0] ?? ''}
+              onChange={(e) => setArriveAt(e.target.value ? `${e.target.value}T${arriveAt.split('T')[1] ?? '00:00'}` : '')}
+              aria-label="תאריך הגעה"
+            />
+          </label>
+          <label className="col" style={{ gap: 3, flex: 1 }}>
+            <span className="tiny">שעת הגעה</span>
+            <select
+              className="field"
+              value={arriveAt.split('T')[1] ?? ''}
+              onChange={(e) => setArriveAt(`${arriveAt.split('T')[0] || trip.from}T${e.target.value || '00:00'}`)}
+              aria-label="שעת הגעה"
+            >
+              <option value="">בחר שעה</option>
+              {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </label>
+        </div>
+
+        <div className="row" style={{ gap: 8, marginBottom: 18 }}>
+          <label className="col" style={{ gap: 3, flex: 1 }}>
+            <span className="tiny">תאריך עזיבה</span>
+            <input
+              type="date" className="field"
+              value={departAt.split('T')[0] ?? ''}
+              onChange={(e) => setDepartAt(e.target.value ? `${e.target.value}T${departAt.split('T')[1] ?? '00:00'}` : '')}
+              aria-label="תאריך עזיבה"
+            />
+          </label>
+          <label className="col" style={{ gap: 3, flex: 1 }}>
+            <span className="tiny">שעת עזיבה</span>
+            <select
+              className="field"
+              value={departAt.split('T')[1] ?? ''}
+              onChange={(e) => setDepartAt(`${departAt.split('T')[0] || trip.to}T${e.target.value || '00:00'}`)}
+              aria-label="שעת עזיבה"
+            >
+              <option value="">בחר שעה</option>
+              {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </label>
+        </div>
+
+        <button className="btn btn-primary btn-block" onClick={createFamily} disabled={!name.trim() || saving}>
+          {saving ? <span className="typing"><i /><i /><i /></span> : <><Check size={17} /> המשך</>}
+        </button>
+      </Sheet>
+    )
+  }
+
   return (
-    <Sheet open={justJoined} title={`הצטרפת לטיול ל${trip.city}!`} onClose={dismissJustJoined}>
+    <Sheet open={justJoined} title={`הצטרפת לטיול ל${trip.city}!`} onClose={close}>
       <p className="sub" style={{ marginBottom: 18 }}>
         {families.length > 1
           ? 'כל משפחה מתכננת את הימים שלה בנפרד — אפשר לעבור בין המשפחות ולערוך את כולן, ולסמן ימים שנמצאים ביחד כ"יחד" כדי לתכנן אותם על אותו לו"ז משותף.'
@@ -48,7 +202,7 @@ export default function JoinWelcomeSheet() {
         </div>
       </div>
 
-      <button className="btn btn-primary btn-block" onClick={dismissJustJoined}>
+      <button className="btn btn-primary btn-block" onClick={close}>
         <Check size={17} />
         הבנתי, בואו נתחיל
       </button>

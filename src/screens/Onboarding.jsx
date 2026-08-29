@@ -3,21 +3,11 @@ import {
   ArrowLeft, ArrowRight, Check, Mic, Bot, Plus, X, Users, MapPin, Calendar,
   Bed, Sparkles, Info, Navigation,
 } from '../components/Icons'
-import { TRAVEL_STYLES, DESTINATIONS, PARTY_COLORS, CUISINES, memberName, memberAge } from '../data'
+import { TRAVEL_STYLES, DESTINATIONS, PARTY_COLORS, CUISINES, memberName, memberAge, TIME_OPTIONS } from '../data'
 import { hasAI, complete, parseRows } from '../lib/gemini'
 import { search, geocode } from '../lib/geocode'
 import { CITIES, searchCities } from '../cities'
 import { breadcrumb, watchdog } from '../lib/telemetry'
-
-/** Half-hour increments, all 48 of them — a plain <select> that commits the
- *  moment you pick something, rather than a native time input whose
- *  confirm gesture (or total absence of one) varies by platform. Nobody
- *  plans an arrival down to the minute anyway. */
-const TIME_OPTIONS = Array.from({ length: 48 }, (_, i) => {
-  const h = String(Math.floor(i / 2)).padStart(2, '0')
-  const m = i % 2 === 0 ? '00' : '30'
-  return `${h}:${m}`
-})
 
 /**
  * One question per screen. Each step declares its own validity, so the CTA

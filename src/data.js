@@ -55,6 +55,16 @@ export const headCount = (ids, families = []) =>
 export const memberName = (m) => (typeof m === 'string' ? m : m?.name ?? '')
 export const memberAge = (m) => (typeof m === 'string' ? '' : m?.age ?? '')
 
+/** Half-hour increments, all 48 of them — a plain <select> that commits the
+ *  moment you pick something, rather than a native time input whose
+ *  confirm gesture (or total absence of one) varies by platform. Nobody
+ *  plans an arrival down to the minute anyway. */
+export const TIME_OPTIONS = Array.from({ length: 48 }, (_, i) => {
+  const h = String(Math.floor(i / 2)).padStart(2, '0')
+  const m = i % 2 === 0 ? '00' : '30'
+  return `${h}:${m}`
+})
+
 /** Suggested destinations on the first onboarding question. */
 export const DESTINATIONS = [
   { id: 'paris', city: 'פריז', en: 'Paris', country: 'צרפת', emoji: '🗼' },

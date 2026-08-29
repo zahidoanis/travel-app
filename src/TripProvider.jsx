@@ -192,7 +192,12 @@ export function TripProvider({ children }) {
    */
   const [activeFamily, setActiveFamily] = useState(null)
   useEffect(() => {
-    setActiveFamily(families[0]?.id ?? null)
+    // A device that already said "I'm family X" for this trip — set once,
+    // right after joining via the family picker — opens straight to that
+    // family's plan on every later visit, not always back to families[0].
+    const saved = trip ? localStorage.getItem(`tripai.myFamily.${trip.id}`) : null
+    const stillReal = saved && families.some((f) => f.id === saved)
+    setActiveFamily(stillReal ? saved : families[0]?.id ?? null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trip?.id])
   const switchFamily = (id) => {
@@ -201,6 +206,33 @@ export function TripProvider({ children }) {
     // on, showing an empty plan that looks broken rather than just early.
     setActiveDay(families.find((f) => f.id === id)?.arriveDay ?? 1)
     setActiveFamily(id)
+  }
+
+  /** Remembers "this device is family X" for next time, then switches to it —
+   *  used once, right after the join-family picker resolves. */
+  const setMyFamily = (id) => {
+    if (trip) localStorage.setItem(`tripai.myFamily.${trip.id}`, id)
+    switchFamily(id)
+  }
+
+  /**
+   * A brand new family joining an existing trip — someone who wasn't part
+   * of the original "who's traveling" list, entering their own real
+   * details rather than having the trip's creator guess on their behalf.
+   */
+  const addFamily = async ({ name, members, arriveAt, departAt }) => {
+    if (!trip) return null
+    const id = `p${Date.now()}`
+    const party = {
+      id,
+      name: name.trim(),
+      members: members.map((m) => m.trim()).filter(Boolean).map((m) => ({ name: m, age: '' })),
+      color: PARTY_COLORS[(raw.parties?.length ?? 0) % PARTY_COLORS.length],
+      arriveAt: arriveAt || null,
+      departAt: departAt || null,
+    }
+    const ok = await updateTrip({ parties: [...(raw.parties ?? []), party] })
+    return ok ? id : null
   }
 
   const activeFamilyObj = families.find((f) => f.id === activeFamily) ?? null
@@ -833,7 +865,7 @@ export function TripProvider({ children }) {
   const value = {
     user, trip, trips, loading, syncState, skipWelcome,
     stops, days, activeDay, setActiveDay, activeFamily, switchFamily,
-    sharedDaySet, toggleSharedDay,
+    sharedDaySet, toggleSharedDay, setMyFamily, addFamily,
     families, isReal, planning, planWarning,
     plan, moveStop, addStop, removeStop, moveStopToDay,
     reservations, addReservation, removeReservation,
