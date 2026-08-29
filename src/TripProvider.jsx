@@ -71,6 +71,20 @@ function toTrip(raw) {
   }
 }
 
+/**
+ * Which day of the trip a "YYYY-MM-DDTHH:MM" datetime falls on. Only the
+ * date half is used — mixing a bare date (parsed as UTC midnight, same as
+ * trip.from/to elsewhere) with a datetime-local value (parsed in the
+ * viewer's own timezone) would drift the day number near midnight depending
+ * on where the viewer actually is. The time itself is for display only.
+ */
+function dayNumberFromDate(fromISO, dateTimeStr) {
+  if (!fromISO || !dateTimeStr) return null
+  const from = new Date(fromISO)
+  const d = new Date(dateTimeStr.split('T')[0])
+  return Math.round((d - from) / 86400000) + 1
+}
+
 /** Stored parties -> the families shape used across the app. */
 function toFamilies(raw) {
   if (!raw?.parties?.length) return []
@@ -86,11 +100,14 @@ function toFamilies(raw) {
       color: p.color ?? PARTY_COLORS[i % PARTY_COLORS.length],
       members: named.map((m, k) => ({ id: `${p.id}-m${k}`, name: m.name, age: m.age })),
       joined: i === 0,
-      // null departDay means "through the end of the trip" — resolved by
-      // whoever reads it against the actual trip length, not fixed here,
-      // since toFamilies() never sees totalDays and shouldn't need to.
-      arriveDay: p.arriveDay ?? 1,
-      departDay: p.departDay ?? null,
+      // The exact date+time, for display — "מגיעים ב-25.8 בשעה 14:30".
+      arriveAt: p.arriveAt ?? null,
+      departAt: p.departAt ?? null,
+      // Which day of the trip that falls on, for bounding the day switcher —
+      // null departDay means "through the end of the trip", resolved by
+      // whoever reads it against the actual trip length.
+      arriveDay: dayNumberFromDate(raw.from, p.arriveAt) ?? 1,
+      departDay: dayNumberFromDate(raw.from, p.departAt),
       sharedDays: p.sharedDays ?? [],
     }
   })

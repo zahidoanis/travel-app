@@ -545,23 +545,25 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                     {answers.parties.length > 1 && (
                       <div className="row" style={{ gap: 8, marginTop: 10 }}>
                         <label className="col" style={{ gap: 3, flex: 1 }}>
-                          <span className="tiny">מגיעים ביום</span>
+                          <span className="tiny">תאריך ושעת הגעה</span>
                           <input
-                            type="number" min="1" max={nights + 1}
-                            className="field" value={p.arriveDay ?? ''}
-                            onChange={(e) => patchParty(p.id, { arriveDay: e.target.value ? Number(e.target.value) : null })}
-                            placeholder="1"
-                            aria-label={`יום הגעה של ${p.name}`}
+                            type="datetime-local"
+                            min={answers.from ? `${answers.from}T00:00` : undefined}
+                            max={answers.to ? `${answers.to}T23:59` : undefined}
+                            className="field" value={p.arriveAt ?? ''}
+                            onChange={(e) => patchParty(p.id, { arriveAt: e.target.value || null })}
+                            aria-label={`תאריך ושעת הגעה של ${p.name}`}
                           />
                         </label>
                         <label className="col" style={{ gap: 3, flex: 1 }}>
-                          <span className="tiny">עוזבים ביום</span>
+                          <span className="tiny">תאריך ושעת עזיבה</span>
                           <input
-                            type="number" min="1" max={nights + 1}
-                            className="field" value={p.departDay ?? ''}
-                            onChange={(e) => patchParty(p.id, { departDay: e.target.value ? Number(e.target.value) : null })}
-                            placeholder={String(nights + 1)}
-                            aria-label={`יום עזיבה של ${p.name}`}
+                            type="datetime-local"
+                            min={answers.from ? `${answers.from}T00:00` : undefined}
+                            max={answers.to ? `${answers.to}T23:59` : undefined}
+                            className="field" value={p.departAt ?? ''}
+                            onChange={(e) => patchParty(p.id, { departAt: e.target.value || null })}
+                            aria-label={`תאריך ושעת עזיבה של ${p.name}`}
                           />
                         </label>
                       </div>

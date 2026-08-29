@@ -13,6 +13,18 @@ import { CITIES } from '../cities'
 import WeatherSheet from '../components/WeatherSheet'
 import NoteSheet from '../components/NoteSheet'
 
+/** "מגיעים ב-25.8 בשעה 14:30 · עוזבים ב-28.8" — the tooltip on a family's
+ *  pill, built from whichever of arriveAt/departAt were actually set. */
+function arrivalTitle(f) {
+  const part = (label, dt) => {
+    if (!dt) return null
+    const [datePart, time] = dt.split('T')
+    const [, m, d] = datePart.split('-').map(Number)
+    return `${label} ב-${d}.${m}${time ? ` בשעה ${time}` : ''}`
+  }
+  return [part('מגיעים', f.arriveAt), part('עוזבים', f.departAt)].filter(Boolean).join(' · ') || undefined
+}
+
 /** Color wash over the hero photo, matched to the same period the
  *  temperature line already reports — golden hour reads golden. */
 const TOD_TINT = {
@@ -225,6 +237,7 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
               key={f.id}
               className={`pill ${activeFamily === f.id ? 'on' : ''}`}
               onClick={() => switchFamily(f.id)}
+              title={arrivalTitle(f)}
             >
               <i className="dot" style={{ background: f.color, marginInlineEnd: 6 }} />
               {f.name}
