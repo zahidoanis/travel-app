@@ -183,6 +183,17 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
 
   /* ---- travel parties ---- */
 
+  // Whether more than one family is on this trip, asked up front rather
+  // than inferred from how many party cards happen to exist. Inferring it
+  // meant the per-family arrival/departure fields (and the fields validate
+  // against) only appeared once a *second* family had already been added,
+  // so the first family's own fields could silently stay unset — exactly
+  // the gap that produced a before-arrival departure date for family 1 on
+  // a real trip. Defaults to whatever is already true of `initial` (editing
+  // a trip that already has multiple families reopens straight into that
+  // state) rather than always starting on "just us".
+  const [multiFamily, setMultiFamily] = useState(() => answers.parties.length > 1)
+
   const patchParty = (id, patch) =>
     set({ parties: answers.parties.map((p) => (p.id === id ? { ...p, ...patch } : p)) })
 
@@ -518,6 +529,36 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
 
           {current.id === "who" && (
             <>
+              <div className="row" style={{ gap: 8, marginBottom: 16 }}>
+                <button
+                  className={`choice ${!multiFamily ? "on" : ""}`}
+                  style={{ flex: 1, padding: 13 }}
+                  onClick={() => {
+                    setMultiFamily(false)
+                    // Not just hiding the extra cards — their data would
+                    // otherwise resurface if "כמה משפחות" gets picked again,
+                    // as families nobody meant to keep.
+                    set({ parties: [{ ...answers.parties[0], arriveAt: null, departAt: null }] })
+                  }}
+                  aria-pressed={!multiFamily}
+                >
+                  <span className="radio">{!multiFamily && <Check size={11} />}</span>
+                  רק אנחנו
+                </button>
+                <button
+                  className={`choice ${multiFamily ? "on" : ""}`}
+                  style={{ flex: 1, padding: 13 }}
+                  onClick={() => {
+                    setMultiFamily(true)
+                    if (answers.parties.length < 2) addParty()
+                  }}
+                  aria-pressed={multiFamily}
+                >
+                  <span className="radio">{multiFamily && <Check size={11} />}</span>
+                  כמה משפחות ביחד
+                </button>
+              </div>
+
               <div className="col" style={{ gap: 12 }}>
                 {answers.parties.map((p, pi) => (
                   <div key={p.id} className={`party-card ${p.name.trim() ? "" : "needs"}`}>
@@ -539,22 +580,22 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                       )}
                     </div>
 
-                    {/* Only matters once there is more than one family — a
-                        solo family's own trip dates already say when they're
-                        there. Blank means "the whole trip", same as today.
-                        Date and time as two separate, separately-labeled
-                        fields rather than one datetime-local control — the
-                        combined widget's time segment reads as easy to miss,
-                        and the time is exactly the part that's critical
-                        here (arriving at 22:00 is not there for dinner even
+                    {/* Only matters for a shared trip — a solo family's own
+                        trip dates already say when they're there. Blank
+                        means "the whole trip", same as today. Date and time
+                        as two separate, separately-labeled fields rather
+                        than one datetime-local control — the combined
+                        widget's time segment reads as easy to miss, and the
+                        time is exactly the part that's critical here
+                        (arriving at 22:00 is not there for dinner even
                         though "day 3" started at midnight).
-                        No min/max on the date: the trip's own from/to is set
-                        earlier in this same wizard, before this family was
-                        even added — a family staying longer than that
-                        nominal range is exactly as real a part of the trip,
-                        not an invalid date. The trip's own span widens to
-                        cover it (see effectiveRange() in TripProvider). */}
-                    {answers.parties.length > 1 && (
+                        Gated on the explicit multiFamily toggle above, not
+                        on how many party cards exist — shown for every
+                        family including the first the moment "כמה משפחות"
+                        is picked, so the first family's own dates are never
+                        the one left unset just because it was here before
+                        anyone else was added. */}
+                    {multiFamily && (
                       <div className="col" style={{ gap: 8, marginTop: 10 }}>
                         <div className="row" style={{ gap: 8 }}>
                           <label className="col" style={{ gap: 3, flex: 1 }}>
@@ -660,15 +701,17 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                 ))}
               </div>
 
-              <button
-                className="btn btn-ghost btn-block"
-                style={{ marginTop: 12 }}
-                onClick={addParty}
-                disabled={answers.parties.length >= 6}
-              >
-                <Plus size={16} />
-                הוסף משפחה
-              </button>
+              {multiFamily && (
+                <button
+                  className="btn btn-ghost btn-block"
+                  style={{ marginTop: 12 }}
+                  onClick={addParty}
+                  disabled={answers.parties.length >= 6}
+                >
+                  <Plus size={16} />
+                  הוסף משפחה
+                </button>
+              )}
 
               <div className="range-summary on" style={{ marginTop: 16 }}>
                 <Users size={17} />
