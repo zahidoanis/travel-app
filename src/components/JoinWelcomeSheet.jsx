@@ -3,6 +3,7 @@ import Sheet from './Sheet'
 import { Route, Wallet, Users, Check, Plus } from './Icons'
 import { useTrip } from '../TripProvider'
 import { TIME_OPTIONS } from '../data'
+import DateRangeCalendar from './DateRangeCalendar'
 
 /**
  * Shown once, right after joining someone else's trip by link or by code.
@@ -119,18 +120,21 @@ export default function JoinWelcomeSheet() {
           aria-label="שמות המשתתפים"
         />
 
-        <div className="row" style={{ gap: 8, marginBottom: 10 }}>
-          <label className="col" style={{ gap: 3, flex: 1 }}>
-            <span className="tiny">תאריך הגעה</span>
-            <input
-              type="date" className="field"
-              value={arriveAt.split('T')[0] ?? ''}
-              onChange={(e) => setArriveAt(e.target.value ? `${e.target.value}T${arriveAt.split('T')[1] ?? '00:00'}` : '')}
-              aria-label="תאריך הגעה"
-            />
-          </label>
-          <label className="col" style={{ gap: 3, flex: 1 }}>
-            <span className="tiny">שעת הגעה</span>
+        <div style={{ marginBottom: 14 }}>
+          <DateRangeCalendar
+            from={arriveAt.split('T')[0] ?? ''}
+            to={departAt.split('T')[0] ?? ''}
+            min={trip.from}
+            onChange={({ from, to }) => {
+              setArriveAt(from ? `${from}T${arriveAt.split('T')[1] ?? '00:00'}` : '')
+              setDepartAt(to ? `${to}T${departAt.split('T')[1] ?? '00:00'}` : '')
+            }}
+          />
+        </div>
+
+        <div className="date-grid" style={{ marginBottom: 18 }}>
+          <label className="date-cell">
+            <span className="label">שעת הגעה</span>
             <select
               className="field"
               value={arriveAt.split('T')[1] ?? ''}
@@ -141,21 +145,8 @@ export default function JoinWelcomeSheet() {
               {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
           </label>
-        </div>
-
-        <div className="row" style={{ gap: 8, marginBottom: 18 }}>
-          <label className="col" style={{ gap: 3, flex: 1 }}>
-            <span className="tiny">תאריך עזיבה</span>
-            <input
-              type="date" className="field"
-              value={departAt.split('T')[0] ?? ''}
-              min={arriveAt.split('T')[0] || trip.from || undefined}
-              onChange={(e) => setDepartAt(e.target.value ? `${e.target.value}T${departAt.split('T')[1] ?? '00:00'}` : '')}
-              aria-label="תאריך עזיבה"
-            />
-          </label>
-          <label className="col" style={{ gap: 3, flex: 1 }}>
-            <span className="tiny">שעת עזיבה</span>
+          <label className="date-cell">
+            <span className="label">שעת עזיבה</span>
             <select
               className="field"
               value={departAt.split('T')[1] ?? ''}

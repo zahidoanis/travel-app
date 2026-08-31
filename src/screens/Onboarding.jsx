@@ -607,22 +607,23 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                         the one left unset just because it was here before
                         anyone else was added. */}
                     {multiFamily && (
-                      <div className="col" style={{ gap: 8, marginTop: 10 }}>
-                        <div className="row" style={{ gap: 8 }}>
-                          <label className="col" style={{ gap: 3, flex: 1 }}>
-                            <span className="tiny">תאריך הגעה</span>
-                            <input
-                              type="date"
-                              className="field" value={p.arriveAt?.split('T')[0] ?? ''}
-                              onChange={(e) => {
-                                const time = p.arriveAt?.split('T')[1] ?? '00:00'
-                                patchParty(p.id, { arriveAt: e.target.value ? `${e.target.value}T${time}` : null })
-                              }}
-                              aria-label={`תאריך הגעה של ${p.name}`}
-                            />
-                          </label>
-                          <label className="col" style={{ gap: 3, flex: 1 }}>
-                            <span className="tiny">שעת הגעה</span>
+                      <div className="col" style={{ gap: 10, marginTop: 10 }}>
+                        <DateRangeCalendar
+                          from={p.arriveAt?.split('T')[0] ?? ''}
+                          to={p.departAt?.split('T')[0] ?? ''}
+                          min={answers.from || today}
+                          onChange={({ from, to }) => {
+                            const arriveTime = p.arriveAt?.split('T')[1] ?? '00:00'
+                            const departTime = p.departAt?.split('T')[1] ?? '00:00'
+                            patchParty(p.id, {
+                              arriveAt: from ? `${from}T${arriveTime}` : null,
+                              departAt: to ? `${to}T${departTime}` : null,
+                            })
+                          }}
+                        />
+                        <div className="date-grid">
+                          <label className="date-cell">
+                            <span className="label">שעת הגעה</span>
                             <select
                               className="field" value={p.arriveAt?.split('T')[1] ?? ''}
                               onChange={(e) => {
@@ -635,23 +636,8 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                               {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
                             </select>
                           </label>
-                        </div>
-                        <div className="row" style={{ gap: 8 }}>
-                          <label className="col" style={{ gap: 3, flex: 1 }}>
-                            <span className="tiny">תאריך עזיבה</span>
-                            <input
-                              type="date"
-                              className="field" value={p.departAt?.split('T')[0] ?? ''}
-                              min={p.arriveAt?.split('T')[0] || answers.from || undefined}
-                              onChange={(e) => {
-                                const time = p.departAt?.split('T')[1] ?? '00:00'
-                                patchParty(p.id, { departAt: e.target.value ? `${e.target.value}T${time}` : null })
-                              }}
-                              aria-label={`תאריך עזיבה של ${p.name}`}
-                            />
-                          </label>
-                          <label className="col" style={{ gap: 3, flex: 1 }}>
-                            <span className="tiny">שעת עזיבה</span>
+                          <label className="date-cell">
+                            <span className="label">שעת עזיבה</span>
                             <select
                               className="field" value={p.departAt?.split('T')[1] ?? ''}
                               onChange={(e) => {
