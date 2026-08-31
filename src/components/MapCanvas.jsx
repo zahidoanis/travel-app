@@ -71,11 +71,11 @@ function routePath(pts) {
 }
 
 export default function MapCanvas({
-  stops, activeId, onPinClick, provider = 'cartoLight', hotel, people = [],
+  stops, activeId, onPinClick, provider = 'osm', hotels = [], people = [],
   myLocation, locateSignal,
 }) {
   const active = stops.find((s) => s.id === activeId) ?? stops[0]
-  const src = PROVIDERS[provider] ?? PROVIDERS.cartoLight
+  const src = PROVIDERS[provider] ?? PROVIDERS.osm
 
   // Measure the frame rather than assuming a phone. Rounding to whole tiles
   // keeps this from re-fetching on every pixel of a window drag.
@@ -185,17 +185,20 @@ export default function MapCanvas({
   // Overlay coordinates, relative to the anchor.
   const local = pts.map((p) => ({ ...p, x: HALF + (p.x - anchor.x), y: HALF + (p.y - anchor.y) }))
 
-  // The hotel is not part of the anchor/zoom fit above — it stays wherever it
-  // really is, even off in a corner, rather than pulling the day's frame out
-  // to a zoom where the streets stop being legible just to fit a stop nobody
-  // asked to see zoomed out for. It's still projected and drawn every time.
-  const hotelLocal =
-    hotel?.lat != null && hotel?.lng != null
-      ? (() => {
-          const p = project(hotel.lat, hotel.lng, z)
-          return { x: HALF + (p.x - anchor.x), y: HALF + (p.y - anchor.y) }
-        })()
-      : null
+  // Hotels are not part of the anchor/zoom fit above — each stays wherever
+  // it really is, even off in a corner, rather than pulling the day's frame
+  // out to a zoom where the streets stop being legible just to fit a stay
+  // nobody asked to see zoomed out for. Every located stay is drawn, not
+  // just whichever one happens to match today's date — a stay added without
+  // check-in/check-out dates set (the common case, right after adding it)
+  // has no date to match against, and used to just vanish behind whichever
+  // stay happened to be first instead of showing up at all.
+  const hotelsLocal = hotels
+    .filter((h) => h.lat != null && h.lng != null)
+    .map((h) => {
+      const p = project(h.lat, h.lng, z)
+      return { ...h, x: HALF + (p.x - anchor.x), y: HALF + (p.y - anchor.y) }
+    })
 
   const myLocationLocal =
     myLocation?.lat != null && myLocation?.lng != null
@@ -347,22 +350,22 @@ export default function MapCanvas({
             )
           })}
 
-          {hotelLocal && (
+          {hotelsLocal.map((h) => (
             // Not a stop — nothing to select, so no click handler or pin
             // affordances, just a marker that is always on the map.
-            <g role="img" aria-label={`מלון: ${hotel.name}`}>
-              {/* Unlike a stop's pulse, this glow never turns off — the hotel
-                  is the one point on the map that matters regardless of
-                  which stop happens to be active. */}
-              <circle cx={hotelLocal.x} cy={hotelLocal.y} r="26" fill="var(--gold, #A0783F)" opacity="0.22">
+            <g key={h.label ?? h.name} role="img" aria-label={`מלון: ${h.name}`}>
+              {/* Unlike a stop's pulse, this glow never turns off — a hotel
+                  is a point on the map that matters regardless of which
+                  stop happens to be active. */}
+              <circle cx={h.x} cy={h.y} r="26" fill="var(--gold, #A0783F)" opacity="0.22">
                 <animate attributeName="r" values="20;30;20" dur="3s" repeatCount="indefinite" />
                 <animate attributeName="opacity" values="0.3;0.12;0.3" dur="3s" repeatCount="indefinite" />
               </circle>
               <g filter="url(#pinShadow)">
-                <circle cx={hotelLocal.x} cy={hotelLocal.y} r="19" fill="var(--gold, #A0783F)"
+                <circle cx={h.x} cy={h.y} r="19" fill="var(--gold, #A0783F)"
                         stroke="#fff" strokeWidth="2.5" />
                 <g
-                  transform={`translate(${hotelLocal.x - 9.5} ${hotelLocal.y - 9.5}) scale(0.79)`}
+                  transform={`translate(${h.x - 9.5} ${h.y - 9.5}) scale(0.79)`}
                   fill="none" stroke="#fff" strokeWidth="2.4"
                   strokeLinecap="round" strokeLinejoin="round"
                   style={{ pointerEvents: 'none' }}
@@ -370,9 +373,9 @@ export default function MapCanvas({
                   {BED_GLYPH.map((d) => <path key={d} d={d} />)}
                 </g>
               </g>
-              <PinLabel x={hotelLocal.x} y={hotelLocal.y - 28} text={hotel.name} color="var(--gold, #A0783F)" bold />
+              <PinLabel x={h.x} y={h.y - 28} text={h.name} color="var(--gold, #A0783F)" bold />
             </g>
-          )}
+          ))}
 
           {myLocationLocal && (
             // Google Maps' own convention for "this device, right now" — kept

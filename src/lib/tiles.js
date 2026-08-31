@@ -16,36 +16,16 @@ export const TILE_SIZE = 256
  *
  * Fair use: these are free public endpoints. Fine for a prototype or a modest
  * app; a high-traffic production deployment is expected to sign up with the
- * provider (CARTO, MapTiler, Stadia all have free tiers) or self-host.
+ * provider or self-host.
+ *
+ * CARTO's basemaps (light_all / dark_all / light_nolabels) used to be here
+ * too, and were the default — CARTO has since locked anonymous access behind
+ * an API key. The tile request still returns 200 with a real image, just
+ * with "API KEY REQUIRED" baked into it, so this broke silently rather than
+ * throwing anything catchable. OSM's own tile server is the one provider
+ * left that is still genuinely keyless.
  */
 export const PROVIDERS = {
-  // Positron is the light counterpart to Dark Matter: desaturated, minimal
-  // labels, almost no colour of its own — which is what lets the route and
-  // pins be the only saturated thing on the screen.
-  cartoLight: {
-    label: 'בהיר',
-    attribution: '© OpenStreetMap · © CARTO',
-    maxZoom: 20,
-    dark: false,
-    url: (z, x, y, retina) =>
-      `https://${'abcd'[(x + y) % 4]}.basemaps.cartocdn.com/light_all/${z}/${x}/${y}${retina ? '@2x' : ''}.png`,
-  },
-  cartoLightNoLabels: {
-    label: 'בהיר ללא תוויות',
-    attribution: '© OpenStreetMap · © CARTO',
-    maxZoom: 20,
-    dark: false,
-    url: (z, x, y, retina) =>
-      `https://${'abcd'[(x + y) % 4]}.basemaps.cartocdn.com/light_nolabels/${z}/${x}/${y}${retina ? '@2x' : ''}.png`,
-  },
-  cartoDark: {
-    label: 'כהה',
-    attribution: '© OpenStreetMap · © CARTO',
-    maxZoom: 20,
-    dark: true,
-    url: (z, x, y, retina) =>
-      `https://${'abcd'[(x + y) % 4]}.basemaps.cartocdn.com/dark_all/${z}/${x}/${y}${retina ? '@2x' : ''}.png`,
-  },
   osm: {
     label: 'OpenStreetMap',
     attribution: '© OpenStreetMap contributors',

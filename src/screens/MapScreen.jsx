@@ -2,24 +2,15 @@ import { useEffect, useRef, useState } from 'react'
 import TopBar from '../components/TopBar'
 import MapCanvas from '../components/MapCanvas'
 import Sheet from '../components/Sheet'
-import { Star, Info, Navigation, Clock, Layers, Locate, Plus, MapPin } from '../components/Icons'
+import { Star, Info, Navigation, Clock, Locate, Plus, MapPin } from '../components/Icons'
 import { CATEGORIES } from '../data'
 import { useTrip } from '../TripProvider'
-import { PROVIDERS } from '../lib/tiles'
 import { navigateUrl } from '../lib/staticMap'
 
 // A live dot older than this is more likely someone who closed the app
 // without switching sharing off than someone standing still that long —
 // there is no way to run code when a tab closes to mark it inactive itself.
 const PRESENCE_STALE_MS = 10 * 60 * 1000
-
-/** The calendar date of day N of the trip, as the same "YYYY-MM-DD" shape
- *  a stay's checkIn/checkOut is stored in. */
-function dateForDay(fromISO, day) {
-  const d = new Date(fromISO)
-  d.setDate(d.getDate() + (day - 1))
-  return d.toISOString().slice(0, 10)
-}
 
 export default function MapScreen() {
   const {
@@ -35,22 +26,18 @@ export default function MapScreen() {
   const rangeEnd = activeFamilyObj?.departDay ?? trip?.totalDays ?? 1
   const dayList = trip ? Array.from({ length: Math.max(0, rangeEnd - rangeStart + 1) }, (_, i) => rangeStart + i) : []
   // A stay only reaches the map at all once it has real coordinates, from the
-  // same geocoding step onboarding already runs when one is added. With more
-  // than one hotel, the active day's date picks which one — falling back to
-  // the first when no stay's range covers it, which is also what happens for
-  // trips made before per-stay dates existed.
+  // same geocoding step onboarding already runs when one is added. Every
+  // located stay is shown — picking just one by matching the active day
+  // against check-in/check-out used to hide any stay added without those
+  // dates set (the normal case right after adding one) behind whichever
+  // stay happened to be first, which read as the new one never showing up.
   const locatedStays = trip?.stays?.filter((s) => s.lat != null && s.lng != null) ?? []
-  const hotel =
-    locatedStays.length <= 1
-      ? locatedStays[0] ?? null
-      : locatedStays.find((s) => {
-          if (!s.checkIn && !s.checkOut) return false
-          const day = dateForDay(trip.from, activeDay)
-          return (!s.checkIn || day >= s.checkIn) && (!s.checkOut || day <= s.checkOut)
-        }) ?? locatedStays[0] ?? null
   const [activeId, setActiveId] = useState(null)
   const [details, setDetails] = useState(null)
-  const [provider, setProvider] = useState('cartoLight')
+  // Was a cycle through several free tile styles — CARTO locked its
+  // basemaps behind an API key, leaving OSM's own tiles as the one style
+  // that is still genuinely keyless, so there is nothing left to switch to.
+  const provider = 'osm'
   const [myLoc, setMyLoc] = useState(null)
   const deckRef = useRef(null)
 
@@ -164,7 +151,7 @@ export default function MapScreen() {
         activeId={activeId}
         onPinClick={setActiveId}
         provider={provider}
-        hotel={hotel}
+        hotels={locatedStays}
         people={livePeople}
         myLocation={myLoc}
         locateSignal={myLoc?.seq}
@@ -178,17 +165,6 @@ export default function MapScreen() {
       {daySwitcher}
 
       <div className="map-tools">
-        <button
-          className="map-tool"
-          onClick={() => {
-            const keys = Object.keys(PROVIDERS)
-            setProvider(keys[(keys.indexOf(provider) + 1) % keys.length])
-          }}
-          aria-label={`שכבת מפה: ${PROVIDERS[provider].label}`}
-          title={PROVIDERS[provider].label}
-        >
-          <Layers size={18} />
-        </button>
         <button className="map-tool" onClick={locateMe} aria-label="מרכז על המיקום שלי"><Locate size={18} /></button>
         <button className="map-tool" aria-label="הוסף עצירה"><Plus size={18} /></button>
         <button
