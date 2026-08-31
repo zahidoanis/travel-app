@@ -1,6 +1,7 @@
 import TopBar from '../components/TopBar'
 import { Printer, Plane, Bed, Users } from '../components/Icons'
 import { useTrip } from '../TripProvider'
+import { memberAge } from '../data'
 import { dateForDay } from './Days'
 
 /**
@@ -45,12 +46,16 @@ export default function Summary() {
       <div className="pad summary-section">
         <span className="label"><Users size={13} /> נוסעים</span>
         <div className="col" style={{ gap: 6 }}>
-          {families.map((f) => (
-            <p key={f.id} className="tiny" style={{ margin: 0 }}>
-              <strong>{f.name}:</strong>{' '}
-              {f.members.map((m) => (m.age ? `${m.name} (${m.age})` : m.name)).join(', ')}
-            </p>
-          ))}
+          {families.map((f) => {
+            const ages = f.members.map(memberAge).filter(Boolean)
+            return (
+              <p key={f.id} className="tiny" style={{ margin: 0 }}>
+                <strong>{f.name}:</strong>{' '}
+                {f.members.length} נוסעים
+                {ages.length > 0 ? ` · ילדים בני ${ages.join(', ')}` : ''}
+              </p>
+            )
+          })}
         </div>
       </div>
 

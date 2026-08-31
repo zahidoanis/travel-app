@@ -1497,32 +1497,6 @@ input, select, textarea { font: inherit; color: inherit; }
   background: var(--card); border: 1px solid var(--border);
   box-shadow: var(--shadow-sm);
 }
-.member-list {
-  display: flex; flex-direction: column; gap: 6px;
-  margin: 11px 0 9px;
-  padding-inline-start: 22px;          /* aligns under the family name */
-  border-inline-start: 1px solid var(--border);
-  margin-inline-start: 5px;
-}
-.member-row {
-  display: flex; align-items: center; gap: 8px;
-  padding: 7px 10px; border-radius: var(--r-sm);
-  background: var(--sunken);
-}
-.member-row .field-bare { font-size: 13.5px; }
-.member-age { flex: none; width: 42px; text-align: center; }
-.member-index {
-  width: 18px; height: 18px; border-radius: 6px; flex: none;
-  display: grid; place-items: center;
-  font-size: 10px; font-weight: 700;
-  background: var(--tint-2); color: var(--muted);
-}
-.add-member {
-  display: inline-flex; align-items: center; gap: 6px;
-  font-size: 12.5px; font-weight: 600; color: var(--accent);
-  padding: 4px 2px;
-}
-.add-member:hover { text-decoration: underline; }
 
 .chat-empty {
   display: flex; flex-direction: column; align-items: center;

@@ -118,9 +118,11 @@ function toFamilies(raw) {
   const { from: effectiveFrom } = effectiveRange(raw)
 
   return raw.parties.map((p, i) => {
+    // Not filtered by name any more — a headcount with no name at all is
+    // the normal case now, and dropping nameless members here would make
+    // every "X נוסעים" figure across the app undercount (or read zero).
     const named = (p.members ?? [])
       .map((m) => ({ name: memberName(m).trim(), age: memberAge(m) }))
-      .filter((m) => m.name)
     const arriveDay = dayNumberFromDate(effectiveFrom, p.arriveAt) ?? 1
     const rawDepartDay = dayNumberFromDate(effectiveFrom, p.departAt)
     return {

@@ -3,7 +3,7 @@ import {
   ArrowLeft, ArrowRight, Check, Mic, Bot, Plus, X, Users, MapPin, Calendar,
   Bed, Sparkles, Info, Navigation,
 } from '../components/Icons'
-import { TRAVEL_STYLES, DESTINATIONS, PARTY_COLORS, CUISINES, memberName, memberAge, TIME_OPTIONS } from '../data'
+import { TRAVEL_STYLES, DESTINATIONS, PARTY_COLORS, CUISINES, memberAge, TIME_OPTIONS } from '../data'
 import { hasAI, complete, parseRows } from '../lib/gemini'
 import { search, geocode } from '../lib/geocode'
 import { CITIES, searchCities } from '../cities'
@@ -42,15 +42,15 @@ const STEPS = [
   {
     id: 'who',
     title: 'מי מטייל?',
-    sub: 'שם המשפחה ושמות המשתתפים. כך אפשר לסנן את הלו"ז ולחלק הוצאות לפי משפחה.',
+    sub: 'שם המשפחה וכמות הנוסעים. כך אפשר לחלק את הלו"ז והוצאות לפי משפחה.',
     valid: (a) =>
       a.parties.length > 0 &&
-      a.parties.every((p) => p.name.trim() && p.members.some((m) => memberName(m).trim())),
+      a.parties.every((p) => p.name.trim() && p.members.length > 0),
     blocker: (a) => {
       const i = a.parties.findIndex((p) => !p.name.trim())
       if (i >= 0) return `למשפחה ${i + 1} חסר שם.`
-      const j = a.parties.findIndex((p) => !p.members.some((m) => memberName(m).trim()))
-      if (j >= 0) return `למשפחת ${a.parties[j].name} חסר לפחות משתתף אחד.`
+      const j = a.parties.findIndex((p) => p.members.length === 0)
+      if (j >= 0) return `למשפחת ${a.parties[j].name} חסר לפחות נוסע אחד.`
       return 'מלא את פרטי המשפחות.'
     },
   },
@@ -204,15 +204,6 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
   // field upgrades it to { name, age } without disturbing the other one.
   const asMember = (m) => (typeof m === 'string' ? { name: m, age: '' } : m)
 
-  const setMember = (id, index, value) =>
-    set({
-      parties: answers.parties.map((p) =>
-        p.id === id
-          ? { ...p, members: p.members.map((m, i) => (i === index ? { ...asMember(m), name: value } : m)) }
-          : p
-      ),
-    })
-
   const setMemberAge = (id, index, value) =>
     set({
       parties: answers.parties.map((p) =>
@@ -222,17 +213,27 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
       ),
     })
 
-  const addMember = (id) =>
+  // Nobody's name changes how a route gets built — only a headcount, and
+  // (when the trip is for kids) how many of them are children, do. Growing
+  // the count pads with blank travellers; shrinking trims from the end and
+  // pulls kidsCount down with it so it can never exceed the new total.
+  const setTravellerCount = (id, n) =>
     set({
-      parties: answers.parties.map((p) =>
-        p.id === id && p.members.length < 12 ? { ...p, members: [...p.members, { name: '', age: '' }] } : p
-      ),
+      parties: answers.parties.map((p) => {
+        if (p.id !== id) return p
+        const clamped = Math.max(1, Math.min(20, n))
+        const members =
+          clamped > p.members.length
+            ? [...p.members, ...Array.from({ length: clamped - p.members.length }, () => ({ name: '', age: '' }))]
+            : p.members.slice(0, clamped)
+        return { ...p, members, kidsCount: Math.min(p.kidsCount ?? 0, clamped) }
+      }),
     })
 
-  const removeMember = (id, index) =>
+  const setKidsCount = (id, n) =>
     set({
       parties: answers.parties.map((p) =>
-        p.id === id ? { ...p, members: p.members.filter((_, i) => i !== index) } : p
+        p.id === id ? { ...p, kidsCount: Math.max(0, Math.min(p.members.length, n)) } : p
       ),
     })
 
@@ -257,7 +258,7 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
     return Math.max(0, Math.round(ms / 86400000))
   }, [answers.from, answers.to])
 
-  const travellers = answers.parties.reduce((n, p) => n + p.members.filter((m) => memberName(m).trim()).length, 0)
+  const travellers = answers.parties.reduce((n, p) => n + p.members.length, 0)
 
   /**
    * Asks the agent for hotels, using everything gathered so far rather than
@@ -667,46 +668,66 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                       </div>
                     )}
 
-                    <div className="member-list">
-                      {p.members.map((m, mi) => (
-                        <div key={mi} className="member-row">
-                          <span className="member-index num">{mi + 1}</span>
-                          <input
-                            className="field-bare grow"
-                            value={memberName(m)}
-                            onChange={(e) => setMember(p.id, mi, e.target.value)}
-                            placeholder={mi === 0 ? "שם המבוגר האחראי" : "שם המשתתף"}
-                            aria-label={`משתתף ${mi + 1} ב${p.name}`}
-                          />
-                          {/* Only asked for a trip with kids — an adult-only
-                              trip has no use for this field. */}
-                          {answers.styles.includes('kids') && (
-                            <input
-                              className="field-bare member-age"
-                              type="number"
-                              min="0"
-                              max="120"
-                              inputMode="numeric"
-                              value={memberAge(m)}
-                              onChange={(e) => setMemberAge(p.id, mi, e.target.value)}
-                              placeholder="גיל"
-                              aria-label={`גיל משתתף ${mi + 1} ב${p.name}`}
-                            />
-                          )}
-                          {p.members.length > 1 && (
-                            <button
-                              className="icon-btn" style={{ width: 26, height: 26 }}
-                              onClick={() => removeMember(p.id, mi)}
-                              aria-label="הסר משתתף"
-                            ><X size={12} /></button>
-                          )}
-                        </div>
-                      ))}
+                    <div className="row" style={{ marginTop: 12, gap: 10 }}>
+                      <span className="grow" style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--text-2)' }}>
+                        כמה נוסעים במשפחה
+                      </span>
+                      <span className="stepper">
+                        <button
+                          type="button"
+                          onClick={() => setTravellerCount(p.id, p.members.length - 1)}
+                          aria-label={`פחות נוסעים ב${p.name}`}
+                        >−</button>
+                        <span className="num">{p.members.length}</span>
+                        <button
+                          type="button"
+                          onClick={() => setTravellerCount(p.id, p.members.length + 1)}
+                          aria-label={`עוד נוסעים ב${p.name}`}
+                        >+</button>
+                      </span>
                     </div>
 
-                    <button className="add-member" onClick={() => addMember(p.id)}>
-                      <Plus size={13} /> הוסף משתתף
-                    </button>
+                    {/* Only asked for a trip with kids — an adult-only trip
+                        has no use for a child headcount, let alone ages. */}
+                    {answers.styles.includes('kids') && (
+                      <>
+                        <div className="row" style={{ marginTop: 10, gap: 10 }}>
+                          <span className="grow" style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--text-2)' }}>
+                            כמה מהם ילדים
+                          </span>
+                          <span className="stepper">
+                            <button
+                              type="button"
+                              onClick={() => setKidsCount(p.id, (p.kidsCount ?? 0) - 1)}
+                              aria-label={`פחות ילדים ב${p.name}`}
+                            >−</button>
+                            <span className="num">{p.kidsCount ?? 0}</span>
+                            <button
+                              type="button"
+                              onClick={() => setKidsCount(p.id, (p.kidsCount ?? 0) + 1)}
+                              aria-label={`עוד ילדים ב${p.name}`}
+                            >+</button>
+                          </span>
+                        </div>
+
+                        {(p.kidsCount ?? 0) > 0 && (
+                          <div className="row" style={{ gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                            {Array.from({ length: p.kidsCount ?? 0 }).map((_, ki) => (
+                              <label key={ki} className="col" style={{ gap: 3 }}>
+                                <span className="tiny">גיל ילד/ה {ki + 1}</span>
+                                <input
+                                  className="field" style={{ width: 64, padding: '8px 10px' }}
+                                  type="number" min="0" max="17" inputMode="numeric"
+                                  value={memberAge(p.members[ki])}
+                                  onChange={(e) => setMemberAge(p.id, ki, e.target.value)}
+                                  aria-label={`גיל ילד ${ki + 1} ב${p.name}`}
+                                />
+                              </label>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                 ))}
               </div>

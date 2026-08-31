@@ -17,11 +17,15 @@ export default function Finance() {
   } = useTrip()
   // Every traveller is a member of exactly one party.
   // "You" are the first member of the first party.
-  // Members carry the names entered during onboarding.
+  // Onboarding no longer collects individual names — a member is just a
+  // headcount now — so the payer picker needs something to show besides a
+  // blank pill. Numbered within the family ("כהן 2") stays distinguishable
+  // without asking anyone to type a name; a real one (an older trip, or
+  // someone who typed one anyway) still wins over the fallback.
   const MEMBERS = FAMILIES.flatMap((f) =>
-    f.members.map((m) => ({
+    f.members.map((m, i) => ({
       id: m.id,
-      name: m.name,
+      name: m.name.trim() || `${f.name} ${i + 1}`,
       short: m.name.trim().charAt(0) || f.short,
       color: f.color,
       family: f.id,

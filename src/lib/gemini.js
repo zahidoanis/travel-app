@@ -32,11 +32,12 @@ export function systemPrompt({ trip, stops, families, prefs }) {
 
   // Ages are optional and only ever entered for a "kids" trip — worth
   // telling the agent when they exist, so it can actually pace and pick
-  // activities by age instead of just knowing headcount.
+  // activities by age instead of just knowing headcount. No names to go
+  // with them — onboarding only ever collects a headcount now.
   const parties = families
     .map((f) => {
-      const ages = f.members.filter((m) => m.age).map((m) => `${m.name} (${m.age})`).join(', ')
-      return `- ${f.name}: ${f.members.length} נוסעים${ages ? ` — גילאים: ${ages}` : ''}${f.joined ? '' : ' (טרם הצטרפו)'}`
+      const ages = f.members.map((m) => m.age).filter(Boolean).join(', ')
+      return `- ${f.name}: ${f.members.length} נוסעים${ages ? ` — גילאי ילדים: ${ages}` : ''}${f.joined ? '' : ' (טרם הצטרפו)'}`
     })
     .join('\n')
 
