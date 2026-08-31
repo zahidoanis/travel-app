@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import TopBar from '../components/TopBar'
 import MapCanvas from '../components/MapCanvas'
 import Sheet from '../components/Sheet'
-import { Star, Info, Navigation, Clock, Locate, Plus, MapPin } from '../components/Icons'
+import { Star, Info, Navigation, Clock, Locate, Plus, MapPin, Bed } from '../components/Icons'
 import { CATEGORIES } from '../data'
 import { useTrip } from '../TripProvider'
 import { navigateUrl } from '../lib/staticMap'
@@ -230,6 +230,30 @@ export default function MapScreen() {
               </div>
             )
           })}
+
+          {/* The hotel is not one of today's stops — it doesn't belong to
+              any one day — so it rides along at the end of every day's deck
+              instead, reachable regardless of which stop you scrolled to. */}
+          {locatedStays.map((h) => (
+            <div key={h.label} className="stop-card glass">
+              <div className="between" style={{ marginBottom: 9 }}>
+                <span className="tiny row" style={{ gap: 5 }}>
+                  <Bed size={13} /> המלון שלכם
+                </span>
+              </div>
+              <h3 className="h3" style={{ fontSize: 16, marginBottom: 6 }}>{h.name}</h3>
+              <p className="tiny" style={{ margin: '0 0 13px', minHeight: 34 }}>{h.label}</p>
+              <a
+                className="btn btn-primary btn-sm btn-block"
+                href={navigateUrl(h.lat, h.lng, h.name)}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <Navigation size={15} />
+                ניווט למלון
+              </a>
+            </div>
+          ))}
         </div>
       </div>
 
