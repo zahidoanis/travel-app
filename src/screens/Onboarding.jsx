@@ -8,6 +8,7 @@ import { hasAI, complete, parseRows } from '../lib/gemini'
 import { search, geocode } from '../lib/geocode'
 import { CITIES, searchCities } from '../cities'
 import { breadcrumb, watchdog } from '../lib/telemetry'
+import DateRangeCalendar from '../components/DateRangeCalendar'
 
 /**
  * One question per screen. Each step declares its own validity, so the CTA
@@ -442,50 +443,33 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
 
           {current.id === 'when' && (
             <>
-              <div className="date-grid">
+              <DateRangeCalendar
+                from={answers.from}
+                to={answers.to}
+                min={today}
+                onChange={({ from, to }) => set({ from, to })}
+              />
+
+              <div className="date-grid" style={{ marginTop: 14 }}>
                 <label className="date-cell">
-                  <span className="label">יציאה</span>
-                  <input
-                    type="date"
-                    className="field"
-                    min={today}
-                    value={answers.from}
-                    onChange={(e) => {
-                      const from = e.target.value
-                      // Keep the range coherent if the new start passes the end.
-                      set({ from, to: answers.to && answers.to <= from ? '' : answers.to })
-                    }}
-                  />
-                </label>
-                <label className="date-cell">
-                  <span className="label">חזרה</span>
-                  <input
-                    type="date"
-                    className="field"
-                    min={answers.from || today}
-                    value={answers.to}
-                    onChange={(e) => set({ to: e.target.value })}
-                  />
-                </label>
-                <label className="date-cell">
-                  <span className="label">שעת יציאה</span>
+                  <span className="label">שעת המראה</span>
                   <select
                     className="field"
                     value={answers.departTime}
                     onChange={(e) => set({ departTime: e.target.value })}
-                    aria-label="שעת יציאה"
+                    aria-label="שעת המראה ביציאה"
                   >
                     <option value="">בחר שעה</option>
                     {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </label>
                 <label className="date-cell">
-                  <span className="label">שעת חזרה</span>
+                  <span className="label">שעת המראה בחזרה</span>
                   <select
                     className="field"
                     value={answers.returnTime}
                     onChange={(e) => set({ returnTime: e.target.value })}
-                    aria-label="שעת חזרה"
+                    aria-label="שעת המראה בחזרה"
                   >
                     <option value="">בחר שעה</option>
                     {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
