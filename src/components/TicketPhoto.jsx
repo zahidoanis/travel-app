@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import Sheet from './Sheet'
 import { Ticket, X } from './Icons'
 import { loadTicketPhoto, saveTicketPhoto, deleteTicketPhoto } from '../lib/db'
@@ -52,7 +52,6 @@ export default function TicketPhoto({ tripId, ticketId }) {
   const [photo, setPhoto] = useState(null)
   const [busy, setBusy] = useState(false)
   const [viewing, setViewing] = useState(false)
-  const inputRef = useRef(null)
 
   useEffect(() => {
     let cancelled = false
@@ -86,13 +85,15 @@ export default function TicketPhoto({ tripId, ticketId }) {
     setPhoto(null)
   }
 
+  // The file input is nested inside its own <label> rather than triggered
+  // via a JS .click() on a hidden ref — that's a known-flaky pattern on
+  // mobile Safari especially, and did nothing at all right after a Sheet
+  // had just closed underneath it. A native label click opens the picker
+  // reliably. No `capture` attribute either: that forces the camera straight
+  // open and skips the OS's own chooser, which is exactly where "photo
+  // library" lives.
   return (
     <>
-      <input
-        ref={inputRef} type="file" accept="image/*" capture="environment"
-        style={{ display: 'none' }} onChange={onFile}
-      />
-
       {photo ? (
         <button
           className="icon-btn" style={{ width: 30, height: 30, padding: 0, overflow: 'hidden' }}
@@ -102,14 +103,20 @@ export default function TicketPhoto({ tripId, ticketId }) {
           <img src={photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         </button>
       ) : (
-        <button
-          className="icon-btn" style={{ width: 30, height: 30 }}
-          onClick={() => inputRef.current?.click()}
-          disabled={busy}
+        <label
+          className="icon-btn"
+          style={{ width: 30, height: 30, position: 'relative', cursor: busy ? 'default' : 'pointer' }}
           aria-label="צרף תמונה של הכרטיס"
         >
           {busy ? <span className="typing"><i /><i /><i /></span> : <Ticket size={14} />}
-        </button>
+          <input
+            type="file" accept="image/*" onChange={onFile} disabled={busy}
+            style={{
+              position: 'absolute', width: 1, height: 1, padding: 0, margin: -1,
+              overflow: 'hidden', clip: 'rect(0,0,0,0)', border: 0,
+            }}
+          />
+        </label>
       )}
 
       <Sheet open={viewing} title="הכרטיס שלך" onClose={() => setViewing(false)}>
