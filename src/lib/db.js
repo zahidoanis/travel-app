@@ -433,6 +433,65 @@ export function watchRoutes(tripId, familyId, onChange) {
 }
 
 /* ------------------------------------------------------------------ *
+ * ticket photos — a picture of the real boarding pass, attraction voucher
+ * or confirmation, one per reservation. Kept as its own small document
+ * under the trip rather than a field on the trip document itself — a
+ * handful of photos inline there would push toward Firestore's 1MB-per-
+ * document cap fast, and every other field on the trip would pay for it
+ * on every read. No Firebase Storage involved (that now requires the
+ * Blaze billing plan for a project's first bucket, a real card on file
+ * even at zero usage) — the image is downscaled and compressed client-side
+ * into a data URL and stored as a plain string field, well inside this
+ * document's own 1MB limit. Covered by the existing generic
+ * trips/{tripId}/{sub}/** membership rule, so no rules change either.
+ * ------------------------------------------------------------------ */
+
+export function loadTicketPhoto(tripId, ticketId) {
+  if (!tripId || !ticketId) return Promise.resolve(null)
+  return guarded(
+    'loadTicketPhoto',
+    async ({ db, FS }) => {
+      const snap = await FS.getDoc(FS.doc(db, 'trips', tripId, 'tickets', ticketId))
+      return snap.exists() ? (snap.data().dataUrl ?? null) : null
+    },
+    () => localGet(`ticket.${tripId}.${ticketId}`, null)
+  )
+}
+
+export function saveTicketPhoto(tripId, ticketId, dataUrl) {
+  if (!tripId || !ticketId) return Promise.resolve(false)
+  return guarded(
+    'saveTicketPhoto',
+    async ({ db, FS }) => {
+      await FS.setDoc(FS.doc(db, 'trips', tripId, 'tickets', ticketId), {
+        dataUrl,
+        updatedAt: FS.serverTimestamp(),
+      })
+      return true
+    },
+    () => {
+      localSet(`ticket.${tripId}.${ticketId}`, dataUrl)
+      return false
+    }
+  )
+}
+
+export function deleteTicketPhoto(tripId, ticketId) {
+  if (!tripId || !ticketId) return Promise.resolve(false)
+  return guarded(
+    'deleteTicketPhoto',
+    async ({ db, FS }) => {
+      await FS.deleteDoc(FS.doc(db, 'trips', tripId, 'tickets', ticketId))
+      return true
+    },
+    () => {
+      localRemove(`ticket.${tripId}.${ticketId}`)
+      return false
+    }
+  )
+}
+
+/* ------------------------------------------------------------------ *
  * activity — what the bell shows. Not a general log; only things another
  * member of the trip would actually want to know happened.
  * ------------------------------------------------------------------ */

@@ -5,6 +5,7 @@ import {
 } from '../components/Icons'
 import { CATEGORIES } from '../data'
 import BookingSheet from '../components/BookingSheet'
+import TicketPhoto from '../components/TicketPhoto'
 import { useTrip } from '../TripProvider'
 import { hasAI, complete, parseRows } from '../lib/gemini'
 import { geocode, search } from '../lib/geocode'
@@ -527,6 +528,7 @@ export default function Days() {
                       aria-label={`התקשר ל${r.place}`}
                     ><Phone size={14} /></a>
                   )}
+                  <TicketPhoto tripId={trip.id} ticketId={r.id} />
                   <button
                     className="icon-btn" style={{ width: 30, height: 30 }}
                     onClick={() => removeReservation(r.id)}

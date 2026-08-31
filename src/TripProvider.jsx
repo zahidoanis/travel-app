@@ -4,7 +4,7 @@ import { buildItinerary } from './lib/itinerary'
 import {
   loadProfile, saveProfile, createTrip, loadTrip, saveTrip, listTrips, joinTrip,
   listRoutes, saveRoute, watchRoutes, deleteTrip, logActivity, watchActivity,
-  updatePresence, watchPresence,
+  updatePresence, watchPresence, deleteTicketPhoto,
 } from './lib/db'
 import { onUser, hasFirebase } from './lib/firebase'
 import { invitedTripId } from './lib/share'
@@ -90,6 +90,7 @@ function toTrip(raw) {
     flight: raw.flight ?? {},
     notes: raw.notes ?? [],
     expenses: raw.expenses ?? [],
+    reservations: raw.reservations ?? [],
     memberIds: raw.memberIds ?? [],
   }
 }
@@ -676,19 +677,27 @@ export function TripProvider({ children }) {
     persist(toDay, target)
   }
 
-  /* ---- reservations ---- */
+  /* ---- reservations ----
+   * Used to live only in this component's own useState — a real booking
+   * (and, once one exists, a photo of the actual ticket attached to it)
+   * that vanished the moment the tab closed, same class of bug notes and
+   * expenses already had fixed by living on the trip document instead. */
 
-  const [reservations, setReservations] = useState([])
+  const reservations = trip?.reservations ?? []
 
   const addReservation = (r) => {
+    if (!trip) return null
     const entry = { ...r, id: `r${Date.now()}`, createdAt: Date.now() }
-    setReservations((list) => [entry, ...list])
+    updateTrip({ reservations: [entry, ...reservations] })
     breadcrumb('action', `reservation noted: ${r.place}`)
     return entry
   }
 
-  const removeReservation = (id) =>
-    setReservations((list) => list.filter((r) => r.id !== id))
+  const removeReservation = (id) => {
+    if (!trip) return
+    deleteTicketPhoto(trip.id, id) // best-effort — an orphaned file costs nothing to leave, but no reason to
+    return updateTrip({ reservations: reservations.filter((r) => r.id !== id) })
+  }
 
   /* ---- trip lifecycle ---- */
 
