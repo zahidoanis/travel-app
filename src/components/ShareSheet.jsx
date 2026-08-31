@@ -76,7 +76,7 @@ export default function ShareSheet({ open, stops, onClose }) {
               {f.short}
             </span>
             <span className="grow col" style={{ gap: 2 }}>
-              <strong style={{ fontSize: 13.5, fontWeight: 600 }}>{f.name}</strong>
+              <strong style={{ fontSize: 13.5, fontWeight: 600 }}>{f.name || 'הנוסעים שלנו'}</strong>
               <span className="tiny">
                 <span className="num">{f.members.length}</span> נוסעים
               </span>

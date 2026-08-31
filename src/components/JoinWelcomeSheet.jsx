@@ -80,7 +80,7 @@ export default function JoinWelcomeSheet() {
               <span className="row" style={{ gap: 10 }}>
                 <i className="dot" style={{ background: f.color }} />
                 <span className="grow" style={{ textAlign: 'start' }}>
-                  <span className="choice-title" style={{ marginTop: 0 }}>{f.name}</span>
+                  <span className="choice-title" style={{ marginTop: 0 }}>{f.name || 'הנוסעים שלהם'}</span>
                   <span className="choice-sub tiny">
                     <span className="num">{f.members.length}</span> נוסעים
                   </span>

@@ -45,12 +45,15 @@ const STEPS = [
     sub: 'שם המשפחה וכמות הנוסעים. כך אפשר לחלק את הלו"ז והוצאות לפי משפחה.',
     valid: (a) =>
       a.parties.length > 0 &&
-      a.parties.every((p) => p.name.trim() && p.members.length > 0),
+      a.parties.every((p) => (a.parties.length === 1 || p.name.trim()) && p.members.length > 0),
     blocker: (a) => {
-      const i = a.parties.findIndex((p) => !p.name.trim())
-      if (i >= 0) return `למשפחה ${i + 1} חסר שם.`
+      // A name only matters once there is more than one family to tell apart.
+      if (a.parties.length > 1) {
+        const i = a.parties.findIndex((p) => !p.name.trim())
+        if (i >= 0) return `למשפחה ${i + 1} חסר שם.`
+      }
       const j = a.parties.findIndex((p) => p.members.length === 0)
-      if (j >= 0) return `למשפחת ${a.parties[j].name} חסר לפחות נוסע אחד.`
+      if (j >= 0) return 'חסר לפחות נוסע אחד.'
       return 'מלא את פרטי המשפחות.'
     },
   },
@@ -572,24 +575,29 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
 
               <div className="col" style={{ gap: 12 }}>
                 {answers.parties.map((p, pi) => (
-                  <div key={p.id} className={`party-card ${p.name.trim() ? "" : "needs"}`}>
-                    <div className="row" style={{ gap: 10 }}>
-                      <span className="party-dot" style={{ background: p.color }} />
-                      <input
-                        className="field-bare grow"
-                        value={p.name}
-                        onChange={(e) => patchParty(p.id, { name: e.target.value })}
-                        placeholder="שם המשפחה"
-                        aria-label={`שם משפחה ${pi + 1}`}
-                      />
-                      {answers.parties.length > 1 && (
-                        <button
-                          className="icon-btn" style={{ width: 28, height: 28 }}
-                          onClick={() => set({ parties: answers.parties.filter((x) => x.id !== p.id) })}
-                          aria-label={`הסר את ${p.name}`}
-                        ><X size={14} /></button>
-                      )}
-                    </div>
+                  <div key={p.id} className={`party-card ${multiFamily && !p.name.trim() ? "needs" : ""}`}>
+                    {/* A name only matters once there is more than one family
+                        to tell apart — traveling solo, it would just be
+                        typing for its own sake with nothing to distinguish. */}
+                    {multiFamily && (
+                      <div className="row" style={{ gap: 10 }}>
+                        <span className="party-dot" style={{ background: p.color }} />
+                        <input
+                          className="field-bare grow"
+                          value={p.name}
+                          onChange={(e) => patchParty(p.id, { name: e.target.value })}
+                          placeholder="שם המשפחה"
+                          aria-label={`שם משפחה ${pi + 1}`}
+                        />
+                        {answers.parties.length > 1 && (
+                          <button
+                            className="icon-btn" style={{ width: 28, height: 28 }}
+                            onClick={() => set({ parties: answers.parties.filter((x) => x.id !== p.id) })}
+                            aria-label={`הסר את ${p.name}`}
+                          ><X size={14} /></button>
+                        )}
+                      </div>
+                    )}
 
                     {/* Only matters for a shared trip — a solo family's own
                         trip dates already say when they're there. Blank

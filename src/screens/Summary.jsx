@@ -50,7 +50,7 @@ export default function Summary() {
             const ages = f.members.map(memberAge).filter(Boolean)
             return (
               <p key={f.id} className="tiny" style={{ margin: 0 }}>
-                <strong>{f.name}:</strong>{' '}
+                <strong>{f.name || 'הנוסעים'}:</strong>{' '}
                 {f.members.length} נוסעים
                 {ages.length > 0 ? ` · ילדים בני ${ages.join(', ')}` : ''}
               </p>

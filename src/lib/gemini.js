@@ -37,7 +37,7 @@ export function systemPrompt({ trip, stops, families, prefs }) {
   const parties = families
     .map((f) => {
       const ages = f.members.map((m) => m.age).filter(Boolean).join(', ')
-      return `- ${f.name}: ${f.members.length} נוסעים${ages ? ` — גילאי ילדים: ${ages}` : ''}${f.joined ? '' : ' (טרם הצטרפו)'}`
+      return `- ${f.name || 'הנוסעים'}: ${f.members.length} נוסעים${ages ? ` — גילאי ילדים: ${ages}` : ''}${f.joined ? '' : ' (טרם הצטרפו)'}`
     })
     .join('\n')
 
