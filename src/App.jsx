@@ -9,6 +9,7 @@ import MapScreen from './screens/MapScreen'
 import Chat from './screens/Chat'
 import Finance from './screens/Finance'
 import Days from './screens/Days'
+import Reservations from './screens/Reservations'
 import Restaurants from './screens/Restaurants'
 import Arrival from './screens/Arrival'
 import Hotels from './screens/Hotels'
@@ -231,6 +232,7 @@ function Shell() {
                 {tab === 'chat' && <Chat />}
                 {tab === 'finance' && <Finance />}
                 {tab === 'days' && <Days />}
+                {tab === 'reservations' && <Reservations />}
                 {tab === 'food' && <Restaurants />}
                 {tab === 'arrival' && <Arrival />}
                 {tab === 'hotels' && <Hotels />}

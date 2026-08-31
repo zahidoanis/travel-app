@@ -1,4 +1,4 @@
-import { Calendar, MapIcon, Bot, Wallet, Route, Utensils, Plane, Bed, Layers, Printer } from './Icons'
+import { Calendar, MapIcon, Bot, Wallet, Route, Utensils, Plane, Bed, Layers, Printer, Ticket } from './Icons'
 
 /** The desktop rail shows everything; the bottom bar keeps a subset.
  *  `trips` isn't a routed screen — it opens the account sheet's trip
@@ -17,6 +17,7 @@ export const TABS = [
   { id: 'map', label: 'מפה', Icon: MapIcon },
   { id: 'chat', label: "צ'אט AI", Icon: Bot },
   { id: 'days', label: 'מסלול', Icon: Route },
+  { id: 'reservations', label: 'הזמנות', Icon: Ticket },
   { id: 'finance', label: 'פיננסים', Icon: Wallet },
 ]
 
