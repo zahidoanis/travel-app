@@ -746,7 +746,8 @@ export function TripProvider({ children }) {
     breadcrumb('lifecycle', 'starting a new trip')
     setSkipWelcome(true)
     setRaw(null)
-    setDays({})
+    setOwnDays({})
+    setSharedRoutes({})
   }
 
   const switchTrip = async (tripId) => {
