@@ -98,6 +98,8 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
     country: '',
     from: '',
     to: '',
+    departTime: '',
+    returnTime: '',
     styles: [],
     parties: [{ id: 'p1', name: '', members: [{ name: '', age: '' }], color: PARTY_COLORS[0] }],
     cuisines: ['local'],
@@ -464,6 +466,30 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                     value={answers.to}
                     onChange={(e) => set({ to: e.target.value })}
                   />
+                </label>
+                <label className="date-cell">
+                  <span className="label">שעת יציאה</span>
+                  <select
+                    className="field"
+                    value={answers.departTime}
+                    onChange={(e) => set({ departTime: e.target.value })}
+                    aria-label="שעת יציאה"
+                  >
+                    <option value="">בחר שעה</option>
+                    {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </label>
+                <label className="date-cell">
+                  <span className="label">שעת חזרה</span>
+                  <select
+                    className="field"
+                    value={answers.returnTime}
+                    onChange={(e) => set({ returnTime: e.target.value })}
+                    aria-label="שעת חזרה"
+                  >
+                    <option value="">בחר שעה</option>
+                    {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+                  </select>
                 </label>
               </div>
 

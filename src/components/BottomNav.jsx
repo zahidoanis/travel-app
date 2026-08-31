@@ -20,15 +20,7 @@ export const TABS = [
   { id: 'finance', label: 'פיננסים', Icon: Wallet },
 ]
 
-export default function BottomNav({ tab, onChange, onDebug }) {
-  // Long-pressing the active tab opens the diagnostics log — no visible
-  // affordance, so it stays out of the way of real users.
-  let timer = null
-  const holdStart = () => {
-    timer = setTimeout(() => onDebug?.(), 900)
-  }
-  const holdEnd = () => clearTimeout(timer)
-
+export default function BottomNav({ tab, onChange }) {
   return (
     <nav className="nav" role="tablist" aria-label="ניווט ראשי">
       {TABS.map(({ id, label, Icon }) => (
@@ -38,9 +30,6 @@ export default function BottomNav({ tab, onChange, onDebug }) {
           aria-selected={tab === id}
           className={`nav-item ${tab === id ? 'active' : ''}`}
           onClick={() => onChange(id)}
-          onPointerDown={tab === id ? holdStart : undefined}
-          onPointerUp={holdEnd}
-          onPointerLeave={holdEnd}
         >
           <span className="nav-glyph">
             <Icon size={20} />

@@ -31,7 +31,6 @@ const startedAt = Date.now()
 
 let breadcrumbs = []
 let entries = []
-let listeners = new Set()
 let installed = false
 let flushed = 0
 let sink = null // set by attachSink() once Firestore is ready
@@ -54,16 +53,6 @@ function persist() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(entries.slice(-MAX_ENTRIES)))
   } catch {
     // Quota exceeded, private mode, whatever — keep the in-memory copy.
-  }
-}
-
-const notify = () => {
-  for (const fn of listeners) {
-    try {
-      fn(entries)
-    } catch {
-      /* a broken listener must not break recording */
-    }
   }
 }
 
@@ -108,7 +97,6 @@ export function record(input) {
     }
 
     persist()
-    notify()
     scheduleFlush()
   } catch {
     /* never throw from the recorder */
@@ -162,66 +150,10 @@ async function flush() {
     flushed += pending.length
     for (const e of pending) e.sent = true
     persist()
-    notify()
   } catch {
     // Offline or rules rejected the write — entries stay unsent and are
     // retried on the next error. Never surface this to the user.
   }
-}
-
-/* ------------------------------------------------------------------ *
- * reading
- * ------------------------------------------------------------------ */
-
-export const getEntries = () => [...entries].reverse()
-
-export function subscribe(fn) {
-  listeners.add(fn)
-  return () => listeners.delete(fn)
-}
-
-export function clearEntries() {
-  entries = []
-  persist()
-  notify()
-}
-
-export const diagnosticsSummary = () => ({
-  session: sessionId,
-  total: entries.length,
-  errors: entries.filter((e) => e.level === 'error').length,
-  warnings: entries.filter((e) => e.level === 'warn').length,
-  unsent: entries.filter((e) => !e.sent).length,
-})
-
-/** A plain-text dump, for pasting into a bug report. */
-export function exportText() {
-  const head = [
-    `TripAI diagnostics`,
-    `session: ${sessionId}`,
-    `generated: ${new Date().toISOString()}`,
-    `userAgent: ${navigator.userAgent}`,
-    `viewport: ${window.innerWidth}x${window.innerHeight}`,
-    `entries: ${entries.length}`,
-    '',
-  ].join('\n')
-
-  const body = getEntries()
-    .map((e) => {
-      const crumbs = e.breadcrumbs.map((b) => `      ${b.type}: ${b.label}`).join('\n')
-      return [
-        `[${new Date(e.at).toISOString()}] ${e.level.toUpperCase()} ${e.kind}${e.count > 1 ? ` (x${e.count})` : ''}`,
-        `  ${e.message}`,
-        e.context ? `  context: ${JSON.stringify(e.context)}` : null,
-        e.stack ? `  stack:\n${e.stack.split('\n').map((l) => `    ${l}`).join('\n')}` : null,
-        crumbs ? `  breadcrumbs:\n${crumbs}` : null,
-      ]
-        .filter(Boolean)
-        .join('\n')
-    })
-    .join('\n\n')
-
-  return head + body
 }
 
 /* ------------------------------------------------------------------ *

@@ -13,7 +13,6 @@ import Restaurants from './screens/Restaurants'
 import Arrival from './screens/Arrival'
 import Hotels from './screens/Hotels'
 import Summary from './screens/Summary'
-import Diagnostics from './screens/Diagnostics'
 import { TripProvider, useTrip } from './TripProvider'
 import { PARTY_COLORS } from './data'
 import AccountSheet from './components/AccountSheet'
@@ -45,9 +44,6 @@ function Shell() {
   } = useTrip()
   const [tab, setTab] = useState('home')
   const [started, setStarted] = useState(false)
-  const [debug, setDebug] = useState(
-    () => new URLSearchParams(location.search).get('debug') === '1'
-  )
   const [saveError, setSaveError] = useState(null)
   useEffect(() => {
     if (!saveError) return
@@ -73,16 +69,6 @@ function Shell() {
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
   }, [])
-
-  if (debug) {
-    return (
-      <div className="shell">
-        <div className="app" dir="rtl">
-          <Diagnostics onClose={() => setDebug(false)} />
-        </div>
-      </div>
-    )
-  }
 
   // `profile === null` means the load is still in flight. Rendering the tabs
   // then handed every screen a null trip and they crashed on trip.city — which
@@ -128,6 +114,8 @@ function Shell() {
       lng: profile.lng ?? null,
       from: profile.from ?? '',
       to: profile.to ?? '',
+      departTime: profile.departTime ?? '',
+      returnTime: profile.returnTime ?? '',
       styles: profile.styles ?? [],
       parties: profile.parties?.length ? profile.parties : [
         { id: 'p1', name: '', members: [{ name: '', age: '' }], color: PARTY_COLORS[0] },
@@ -224,11 +212,6 @@ function Shell() {
                 </span>
                 <span>{user && !user.anonymous ? (user.name?.split(' ')[0] || 'החשבון') : 'שמור טיול'}</span>
               </button>
-
-              <button className="rail-item rail-debug" onClick={() => setDebug(true)}>
-                <span className="rail-glyph">🩺</span>
-                <span>אבחון</span>
-              </button>
             </aside>
 
             <div className="stage">
@@ -255,7 +238,7 @@ function Shell() {
               </ErrorBoundary>
             </div>
 
-            <BottomNav tab={tab} onChange={go} onDebug={() => setDebug(true)} />
+            <BottomNav tab={tab} onChange={go} />
           </>
         )}
         {/* Mounted regardless of which branch above is showing — sign-in
