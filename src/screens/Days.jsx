@@ -6,6 +6,7 @@ import {
 import { CATEGORIES } from '../data'
 import BookingSheet from '../components/BookingSheet'
 import TicketPhoto from '../components/TicketPhoto'
+import Sheet from '../components/Sheet'
 import { useTrip } from '../TripProvider'
 import { hasAI, complete, parseRows } from '../lib/gemini'
 import { geocode, search } from '../lib/geocode'
@@ -41,7 +42,7 @@ export default function Days() {
     trip, days, activeDay, setActiveDay, stops,
     families, activeFamily, switchFamily, toggleSharedDay,
     planning, planWarning, plan, moveStop, addStop, removeStop,
-    reservations, removeReservation, moveStopToDay,
+    reservations, addReservation, removeReservation, moveStopToDay,
   } = useTrip()
 
   const [suggestions, setSuggestions] = useState([])
@@ -49,6 +50,17 @@ export default function Days() {
   const [error, setError] = useState(null)
   const [adding, setAdding] = useState(null)
   const [booking, setBooking] = useState(null)
+
+  /* ---- a ticket saved without going through a real booking ---- */
+  const [addingTicket, setAddingTicket] = useState(false)
+  const [ticketName, setTicketName] = useState('')
+  const saveTicket = () => {
+    const name = ticketName.trim()
+    if (!name) return
+    addReservation({ place: name, kind: 'ticket', date: trip.from, time: '', party: 1 })
+    setTicketName('')
+    setAddingTicket(false)
+  }
 
   /* ---- manual stop entry ---- */
   const [manualName, setManualName] = useState('')
@@ -499,47 +511,82 @@ export default function Days() {
           </div>
         )}
 
-        {/* Reservations kept for this trip */}
+        {/* Reservations kept for this trip, plus tickets saved without a
+            real booking behind them — a flight, an already-bought ticket,
+            anything that just needs its photo kept somewhere findable. */}
+        <div className="section-head" style={{ marginBottom: 12 }}>
+          <h2 className="h2" style={{ fontSize: 15 }}>
+            ההזמנות שלך{reservations.length > 0 ? ` (${reservations.length})` : ''}
+          </h2>
+          <button
+            className="icon-btn" style={{ width: 30, height: 30 }}
+            onClick={() => setAddingTicket(true)}
+            aria-label="הוסף כרטיס"
+          ><Plus size={16} /></button>
+        </div>
+
+        {reservations.length === 0 && (
+          <p className="tiny" style={{ marginBottom: 20 }}>
+            אין עדיין כלום כאן. אפשר לשמור הזמנה דרך "הזמן" בעצירה, או ללחוץ
+            על + כדי לצרף כרטיס שכבר יש לכם — טיסה, כניסה לאתר, כל דבר.
+          </p>
+        )}
+
         {reservations.length > 0 && (
-          <>
-            <div className="section-head" style={{ marginBottom: 12 }}>
-              <h2 className="h2" style={{ fontSize: 15 }}>
-                ההזמנות שלך (<span className="num">{reservations.length}</span>)
-              </h2>
-            </div>
-            <div className="col" style={{ gap: 9 }}>
-              {reservations.map((r) => (
-                <div key={r.id} className="reservation">
+          <div className="col" style={{ gap: 9 }}>
+            {reservations.map((r) => (
+              <div key={r.id} className="reservation">
+                {r.time ? (
                   <span className="reservation-when">
                     <strong className="num">{r.time}</strong>
                     <span className="tiny num">{r.date?.slice(5)}</span>
                   </span>
-                  <span className="grow col" style={{ gap: 2, minWidth: 0 }}>
-                    <strong style={{ fontSize: 13.5, fontWeight: 600 }}>{r.place}</strong>
+                ) : (
+                  <span className="reservation-when"><Ticket size={16} /></span>
+                )}
+                <span className="grow col" style={{ gap: 2, minWidth: 0 }}>
+                  <strong style={{ fontSize: 13.5, fontWeight: 600 }}>{r.place}</strong>
+                  {r.kind !== 'ticket' && (
                     <span className="tiny">
                       <span className="num">{r.party}</span> {r.kind === 'food' ? 'סועדים' : 'משתתפים'}
                       {r.phone ? ' · יש טלפון' : ''}
                     </span>
-                  </span>
-                  {r.phone && (
-                    <a
-                      className="icon-btn" style={{ width: 30, height: 30 }}
-                      href={`tel:${r.phone.replace(/\s/g, '')}`}
-                      aria-label={`התקשר ל${r.place}`}
-                    ><Phone size={14} /></a>
                   )}
-                  <TicketPhoto tripId={trip.id} ticketId={r.id} />
-                  <button
+                </span>
+                {r.phone && (
+                  <a
                     className="icon-btn" style={{ width: 30, height: 30 }}
-                    onClick={() => removeReservation(r.id)}
-                    aria-label={`בטל את ההזמנה ב${r.place}`}
-                  ><X size={13} /></button>
-                </div>
-              ))}
-            </div>
-          </>
+                    href={`tel:${r.phone.replace(/\s/g, '')}`}
+                    aria-label={`התקשר ל${r.place}`}
+                  ><Phone size={14} /></a>
+                )}
+                <TicketPhoto tripId={trip.id} ticketId={r.id} />
+                <button
+                  className="icon-btn" style={{ width: 30, height: 30 }}
+                  onClick={() => removeReservation(r.id)}
+                  aria-label={`בטל את ${r.place}`}
+                ><X size={13} /></button>
+              </div>
+            ))}
+          </div>
         )}
       </div>
+
+      <Sheet open={addingTicket} title="הוסף כרטיס" onClose={() => setAddingTicket(false)}>
+        <span className="label">מה זה?</span>
+        <input
+          className="field" style={{ marginBottom: 16 }}
+          value={ticketName}
+          onChange={(e) => setTicketName(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && saveTicket()}
+          placeholder="לדוגמה: טיסת חזרה, כניסה לטירה"
+          aria-label="מה זה"
+          autoFocus
+        />
+        <button className="btn btn-primary btn-block" onClick={saveTicket} disabled={!ticketName.trim()}>
+          <Plus size={16} /> המשך לצירוף תמונה
+        </button>
+      </Sheet>
 
       <BookingSheet
         open={Boolean(booking)}
