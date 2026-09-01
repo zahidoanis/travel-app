@@ -14,6 +14,11 @@
 import { record } from './telemetry'
 
 const API = 'https://api.open-meteo.com/v1/forecast'
+const ARCHIVE_API = 'https://archive-api.open-meteo.com/v1/archive'
+
+// Rain-shaped WMO codes — everything from drizzle through thunderstorms —
+// used to turn a pile of past daily codes into one "chance of rain" figure.
+const RAINY_CODES = new Set([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99])
 
 /** WMO weather codes, condensed to one glyph each. */
 const ICON = {
@@ -113,6 +118,103 @@ export async function fetchForecast(lat, lng) {
       kind: 'network',
       level: 'warn',
       message: `מזג אוויר לא נטען: ${err?.message ?? err}`,
+      context: { lat, lng },
+    })
+    return null
+  }
+}
+
+/**
+ * "Typically, around these dates" — not a forecast. Open-Meteo's forecast
+ * only reaches a week or two out; a trip planned months ahead has nothing
+ * real to show yet, and showing today's actual weather at the destination
+ * in its place used to just be quietly wrong (a sunny reading for a trip
+ * that's actually in the rainy season). Instead this averages the same
+ * ±3-day window around the target date across each of the last 3 complete
+ * years — three small requests to Open-Meteo's free historical archive,
+ * run in parallel — and returns a range plus a rough rain likelihood.
+ * Callers must label this as an estimate, never as today's weather.
+ *
+ * @returns {Promise<{tempMax:number, tempMin:number, icon:string, rainChance:number, years:number}|null>}
+ */
+export async function fetchClimateAverage(lat, lng, month, day) {
+  if (lat == null || lng == null) return null
+
+  const pad = (n) => String(n).padStart(2, '0')
+  const isoLocal = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+  const thisYear = new Date().getFullYear()
+  // The three most recently *complete* years — this year's own date for the
+  // target month/day may not have happened yet, which would ask the archive
+  // for a window partly in the future.
+  const years = [1, 2, 3].map((back) => thisYear - back)
+
+  try {
+    const windows = years.map((year) => {
+      const center = new Date(year, month - 1, day)
+      const start = new Date(center)
+      start.setDate(start.getDate() - 3)
+      const end = new Date(center)
+      end.setDate(end.getDate() + 3)
+      return { start: isoLocal(start), end: isoLocal(end) }
+    })
+
+    const results = await Promise.all(
+      windows.map(({ start, end }) => {
+        const params = new URLSearchParams({
+          latitude: lat,
+          longitude: lng,
+          start_date: start,
+          end_date: end,
+          daily: 'temperature_2m_max,temperature_2m_min,weather_code',
+          timezone: 'auto',
+        })
+        return fetch(`${ARCHIVE_API}?${params}`)
+          .then((res) => (res.ok ? res.json() : null))
+          .catch(() => null)
+      })
+    )
+
+    const maxes = []
+    const mins = []
+    const codes = []
+    for (const data of results) {
+      const d = data?.daily
+      if (!d?.time) continue
+      for (let i = 0; i < d.time.length; i++) {
+        if (typeof d.temperature_2m_max?.[i] === 'number') maxes.push(d.temperature_2m_max[i])
+        if (typeof d.temperature_2m_min?.[i] === 'number') mins.push(d.temperature_2m_min[i])
+        if (d.weather_code?.[i] != null) codes.push(d.weather_code[i])
+      }
+    }
+    if (maxes.length === 0) return null
+
+    const avg = (arr) => arr.reduce((a, b) => a + b, 0) / arr.length
+
+    // The most frequent icon, not a literal average of the codes — averaging
+    // "clear" (0) with "thunderstorm" (95) lands on a meaningless code in
+    // between that maps to neither.
+    const counts = new Map()
+    for (const c of codes) {
+      const icon = ICON[c] ?? '🌤️'
+      counts.set(icon, (counts.get(icon) ?? 0) + 1)
+    }
+    const icon = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? '🌤️'
+    const rainChance = codes.length
+      ? Math.round((codes.filter((c) => RAINY_CODES.has(c)).length / codes.length) * 100)
+      : 0
+
+    return {
+      tempMax: Math.round(avg(maxes)),
+      tempMin: Math.round(avg(mins)),
+      icon,
+      rainChance,
+      years: years.length,
+    }
+  } catch (err) {
+    record({
+      kind: 'network',
+      level: 'warn',
+      message: `ממוצע אקלים לא נטען: ${err?.message ?? err}`,
       context: { lat, lng },
     })
     return null

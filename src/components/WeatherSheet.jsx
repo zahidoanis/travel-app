@@ -23,9 +23,42 @@ const hourLabel = (iso) => iso.slice(11, 16)
  * Today by the hour, and the coming week — opened from the temperature line
  * on Home rather than living as its own tab, since it is a detail view on
  * data Home already fetched, not a destination of its own.
+ *
+ * `climate` — a historical average rather than a forecast — takes over the
+ * whole sheet when the trip is too far out for Open-Meteo's real forecast to
+ * reach: the today/week tabs would just be showing the wrong dates.
  */
-export default function WeatherSheet({ open, onClose, forecast, city }) {
+export default function WeatherSheet({ open, onClose, forecast, climate, city }) {
   const [tab, setTab] = useState('today')
+
+  if (climate) {
+    return (
+      <Sheet open={open} title={`מזג האוויר ב${city}`} onClose={onClose}>
+        <div className="row" style={{ alignItems: 'flex-start', gap: 9, marginBottom: 18 }}>
+          <span style={{ color: 'var(--cyan)' }}><Info size={15} /></span>
+          <p className="tiny" style={{ margin: 0 }}>
+            הטיול רחוק מכדי שתהיה תחזית אמיתית — זה ממוצע של מזג האוויר סביב
+            התאריכים האלה ב-{climate.years} השנים האחרונות, לא תחזית.
+          </p>
+        </div>
+
+        <div className="card" style={{ textAlign: 'center', padding: '22px 16px' }}>
+          <div style={{ fontSize: 44 }} aria-hidden="true">{climate.icon}</div>
+          <div className="row" style={{ gap: 8, justifyContent: 'center', marginTop: 10 }}>
+            <strong className="num" style={{ fontSize: 28 }}>{climate.tempMax}°</strong>
+            <span className="tiny num" style={{ fontSize: 18, alignSelf: 'flex-end', marginBottom: 4 }}>
+              {climate.tempMin}°
+            </span>
+          </div>
+          <p className="tiny" style={{ marginTop: 10 }}>
+            <span className="num">{climate.rainChance}%</span> מהימים סביב התאריכים האלה היה גשם
+          </p>
+        </div>
+
+        <p className="tiny" style={{ marginTop: 14 }}>נתוני מזג אוויר: Open-Meteo.</p>
+      </Sheet>
+    )
+  }
 
   return (
     <Sheet open={open} title={`מזג האוויר ב${city}`} onClose={onClose}>

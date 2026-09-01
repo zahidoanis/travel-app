@@ -7,7 +7,7 @@ import {
 import { useTrip } from '../TripProvider'
 import PlacePhoto from '../components/PlacePhoto'
 import { heroPhoto as fetchHeroPhoto } from '../lib/photos'
-import { fetchForecast, GREETING } from '../lib/weather'
+import { fetchForecast, fetchClimateAverage, GREETING } from '../lib/weather'
 import { geocode } from '../lib/geocode'
 import { CITIES } from '../cities'
 import WeatherSheet from '../components/WeatherSheet'
@@ -23,6 +23,19 @@ function arrivalTitle(f) {
     return `${label} ב-${d}.${m}${time ? ` בשעה ${time}` : ''}`
   }
   return [part('מגיעים', f.arriveAt), part('עוזבים', f.departAt)].filter(Boolean).join(' · ') || undefined
+}
+
+/** Calendar days from today to a "YYYY-MM-DD" date — built from local parts
+ *  rather than a UTC-midnight Date diff, same reasoning as every other date
+ *  math in this app: a viewer west of Greenwich would otherwise see the
+ *  count off by a day near midnight. */
+function daysUntil(dateStr) {
+  if (!dateStr) return 0
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const target = new Date(y, m - 1, d)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return Math.round((target - today) / 86400000)
 }
 
 /** Color wash over the hero photo, matched to the same period the
@@ -43,6 +56,7 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
   } = useTrip()
   const [shareOpen, setShareOpen] = useState(false)
   const [forecast, setForecast] = useState(null)
+  const [climate, setClimate] = useState(null)
   const [forecastOpen, setForecastOpen] = useState(false)
   const [noteEditing, setNoteEditing] = useState(null)
   const [heroPhoto, setHeroPhoto] = useState(null)
@@ -92,10 +106,22 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
       }
       const f = await fetchForecast(lat, lng)
       if (!cancelled) setForecast(f)
+
+      // Open-Meteo's forecast only reaches about a week out — beyond that,
+      // "today's actual weather" at the destination is not the trip's
+      // weather at all, just a number that happens to be on screen. A trip
+      // that far ahead gets a climate estimate for its own dates instead.
+      if (daysUntil(TRIP.from) > 7 && TRIP.from) {
+        const [, month, day] = TRIP.from.split('-').map(Number)
+        const c = await fetchClimateAverage(lat, lng, month, day)
+        if (!cancelled) setClimate(c)
+      } else if (!cancelled) {
+        setClimate(null)
+      }
     })()
 
     return () => { cancelled = true }
-  }, [TRIP?.id, TRIP?.lat, TRIP?.lng])
+  }, [TRIP?.id, TRIP?.lat, TRIP?.lng, TRIP?.from])
 
   // After every hook: an early return above them changes the hook count
   // between renders, which React rejects outright.
@@ -103,6 +129,11 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
 
   // The "next" stop is the first one still ahead of us today.
   const nextId = STOPS[1]?.id ?? STOPS[0]?.id
+
+  // Beyond Open-Meteo's forecast horizon, "today's weather at the
+  // destination" is a real number that has nothing to do with the trip.
+  const farOut = daysUntil(TRIP.from) > 7
+  const heroWeatherIcon = farOut && climate ? climate.icon : (forecast?.now.icon ?? '☀️')
 
   return (
     <div className="screen">
@@ -132,7 +163,7 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
               with the title would strand them together at the bottom with
               an awkward gap of empty photo above. */}
           <div className="hero-top-row between" style={{ alignItems: 'flex-start' }}>
-            <div className="hero-icon" aria-hidden="true">{forecast?.now.icon ?? '☀️'}</div>
+            <div className="hero-icon" aria-hidden="true">{heroWeatherIcon}</div>
             <button
               className="icon-btn boxed"
               onClick={() => setShareOpen(true)}
@@ -149,15 +180,37 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
             <h1 className="hero-title">
               {forecast ? `${GREETING[forecast.now.period]}!` : 'שלום!'}
             </h1>
-            {forecast && (
-              <button
-                className="tiny row"
-                style={{ gap: 5, marginTop: 2, textDecoration: 'underline', textUnderlineOffset: 3 }}
-                onClick={() => setForecastOpen(true)}
-              >
-                <span aria-hidden="true">{forecast.now.icon}</span>
-                <span className="num">{forecast.now.tempC}°</span> ב{TRIP.city} עכשיו · תחזית
-              </button>
+            {farOut ? (
+              climate && (
+                <button
+                  className="tiny row"
+                  style={{ gap: 6, marginTop: 2, flexWrap: 'wrap' }}
+                  onClick={() => setForecastOpen(true)}
+                >
+                  <span
+                    className="badge"
+                    style={{ background: 'rgba(13,154,150,0.16)', color: 'var(--cyan)', padding: '2px 8px', fontSize: 10.5 }}
+                  >
+                    ממוצע היסטורי
+                  </span>
+                  <span aria-hidden="true">{climate.icon}</span>
+                  <span style={{ textDecoration: 'underline', textUnderlineOffset: 3 }}>
+                    <span className="num" dir="ltr">{climate.tempMax}°/{climate.tempMin}°</span>
+                    {' '}בתאריכי הטיול · <span className="num">{climate.rainChance}%</span> סיכוי לגשם
+                  </span>
+                </button>
+              )
+            ) : (
+              forecast && (
+                <button
+                  className="tiny row"
+                  style={{ gap: 5, marginTop: 2, textDecoration: 'underline', textUnderlineOffset: 3 }}
+                  onClick={() => setForecastOpen(true)}
+                >
+                  <span aria-hidden="true">{forecast.now.icon}</span>
+                  <span className="num">{forecast.now.tempC}°</span> ב{TRIP.city} עכשיו · תחזית
+                </button>
+              )
             )}
             <p className="sub" style={{ maxWidth: '92%', marginTop: forecast ? 8 : undefined }}>
               {planning
@@ -450,6 +503,7 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
         open={forecastOpen}
         onClose={() => setForecastOpen(false)}
         forecast={forecast}
+        climate={farOut ? climate : null}
         city={TRIP.city}
       />
       <NoteSheet
