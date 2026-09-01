@@ -13,6 +13,13 @@
  *
  * Then point the app at it:
  *   VITE_AI_PROXY_URL=https://<name>.<subdomain>.workers.dev
+ *
+ * Optional — raise the effective free-tier ceiling by rotating across more
+ * than one key (each Google account can mint its own free one):
+ *   wrangler secret put GEMINI_API_KEY_2
+ *   wrangler secret put GEMINI_API_KEY_3
+ * Any of the three can be set alone or together; a request tries a random
+ * one first and falls through the rest only on a 429.
  */
 
 const API = 'https://generativelanguage.googleapis.com/v1beta'
@@ -120,7 +127,7 @@ export default {
       })
     }
 
-    // Liveness probe. Reveals nothing secret — only whether the key is
+    // Liveness probe. Reveals nothing secret — only how many keys are
     // present — so deployment can be verified without spending Gemini quota.
     if (request.method === 'GET') {
       return json(
@@ -128,7 +135,7 @@ export default {
           ok: true,
           service: 'tripai-ai',
           model: DEFAULT_MODEL,
-          keyConfigured: Boolean(env.GEMINI_API_KEY),
+          keysConfigured: [env.GEMINI_API_KEY, env.GEMINI_API_KEY_2, env.GEMINI_API_KEY_3].filter(Boolean).length,
           allowedOrigins: (env.ALLOWED_ORIGINS ?? '').split(',').filter(Boolean).length,
         },
         200,
@@ -139,7 +146,11 @@ export default {
     if (request.method !== 'POST') {
       return new Response('Method Not Allowed', { status: 405, headers: cors })
     }
-    if (!env.GEMINI_API_KEY) {
+    // GEMINI_API_KEY_2 / _3 are optional extra free-tier keys — each Google
+    // account can mint its own, so this is how the effective request ceiling
+    // gets multiplied without ever needing a paid one.
+    const keys = [env.GEMINI_API_KEY, env.GEMINI_API_KEY_2, env.GEMINI_API_KEY_3].filter(Boolean)
+    if (keys.length === 0) {
       return json({ error: { message: 'GEMINI_API_KEY is not configured' } }, 500, cors)
     }
 
@@ -173,19 +184,29 @@ export default {
       return json({ error: { message: 'No contents supplied' } }, 400, cors)
     }
 
-    const upstream = await fetch(
-      // Trim and encode: piping a secret in from a shell easily leaves a
-      // trailing newline, which produces an opaque "API key not valid" from
-      // Google rather than anything pointing at the real cause.
-      `${API}/models/${model}:streamGenerateContent?alt=sse&key=${encodeURIComponent(
-        env.GEMINI_API_KEY.trim()
-      )}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(forwarded),
-      }
-    )
+    // Spread load across every configured key rather than hammering the
+    // first one until it alone hits quota — a random starting point each
+    // request, falling through the rest in order only when that pick comes
+    // back 429. A non-429 failure (bad request, model error) is returned
+    // straight away instead of burning through every key on a retry that
+    // would just fail the same way each time.
+    const start = Math.floor(Math.random() * keys.length)
+    let upstream
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[(start + i) % keys.length]
+      upstream = await fetch(
+        // Trim and encode: piping a secret in from a shell easily leaves a
+        // trailing newline, which produces an opaque "API key not valid" from
+        // Google rather than anything pointing at the real cause.
+        `${API}/models/${model}:streamGenerateContent?alt=sse&key=${encodeURIComponent(key.trim())}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(forwarded),
+        }
+      )
+      if (upstream.status !== 429) break
+    }
 
     if (!upstream.ok) {
       const text = await upstream.text()

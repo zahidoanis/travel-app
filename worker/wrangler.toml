@@ -7,5 +7,8 @@ compatibility_date = "2025-01-01"
 [vars]
 ALLOWED_ORIGINS = "http://localhost:5173,http://localhost:4173,https://travel-ai-6de47.web.app,https://travel-ai-6de47.firebaseapp.com"
 
-# GEMINI_API_KEY is a secret, never a var:
+# GEMINI_API_KEY (and the optional GEMINI_API_KEY_2 / _3, for rotating
+# across more than one free-tier key) are secrets, never vars:
 #   wrangler secret put GEMINI_API_KEY
+#   wrangler secret put GEMINI_API_KEY_2
+#   wrangler secret put GEMINI_API_KEY_3
