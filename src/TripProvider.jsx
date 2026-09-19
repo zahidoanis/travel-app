@@ -659,6 +659,12 @@ export function TripProvider({ children }) {
     }
   }
 
+  /** Patches one stop in place — used to give a stop added without a map
+   *  position its coordinates once a retry finds the place. */
+  const updateStop = (day, id, patch) => {
+    setDayStops(day, (days[day] ?? []).map((s) => (s.id === id ? { ...s, ...patch } : s)))
+  }
+
   /** Moves one stop to another day, keeping both days in time order. */
   const moveStopToDay = (fromDay, id, toDay) => {
     if (fromDay === toDay) return
@@ -885,7 +891,7 @@ export function TripProvider({ children }) {
     stops, days, activeDay, setActiveDay, activeFamily, switchFamily,
     sharedDaySet, toggleSharedDay, setMyFamily, addFamily,
     families, isReal, planning, planWarning,
-    plan, moveStop, addStop, removeStop, moveStopToDay,
+    plan, moveStop, addStop, removeStop, updateStop, moveStopToDay,
     reservations, addReservation, removeReservation,
     profile: raw, completeOnboarding, switchTrip, updateTrip, startNewTrip, removeTrip,
     addNote, updateNote, removeNote,

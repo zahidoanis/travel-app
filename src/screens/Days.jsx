@@ -39,9 +39,55 @@ export default function Days() {
   const {
     trip, days, activeDay, setActiveDay, stops,
     families, activeFamily, switchFamily, toggleSharedDay,
-    planning, planWarning, plan, moveStop, addStop, removeStop,
+    planning, planWarning, plan, moveStop, addStop, removeStop, updateStop,
     moveStopToDay,
   } = useTrip()
+
+  /**
+   * Finds a place from what someone typed. The geocoder barely understands
+   * Hebrew, and "טירת קרלשטיין, פראג" (a Hebrew name plus a Hebrew city, for
+   * a castle that isn't even in Prague) matched nothing — the stop went in
+   * with no position and never reached the map. So: the English city name
+   * first, then the bare name, then — for a Hebrew name — ask the model only
+   * for the place's local name (never coordinates; those still come from the
+   * geocoder) and search that.
+   */
+  const findPlaces = async (name, { ai = false } = {}) => {
+    const cityEn = trip.cityEn ?? trip.city
+    for (const q of [`${name}, ${cityEn}`, `${name}, ${trip.country}`, name]) {
+      const hits = await search(q, 5)
+      if (hits.length > 0) return hits
+    }
+    if (ai && hasAI && /[֐-׿]/.test(name)) {
+      try {
+        const local = (await complete({
+          system:
+            'החזר אך ורק את שם המקום בשפה המקומית או באנגלית כפי שהוא מופיע ב-OpenStreetMap. ' +
+            'שורה אחת, בלי הסברים, בלי מירכאות.',
+          prompt: `${name} — ליד ${trip.city}, ${trip.country}`,
+        })).split('\n')[0].trim()
+        if (local) {
+          for (const q of [`${local}, ${trip.country}`, local]) {
+            const hits = await search(q, 5)
+            if (hits.length > 0) return hits
+          }
+        }
+      } catch { /* falls through to "not found" */ }
+    }
+    return []
+  }
+
+  const [locatingId, setLocatingId] = useState(null)
+  const locateStop = async (s) => {
+    setLocatingId(s.id)
+    const [hit] = await findPlaces(s.he ?? s.name, { ai: true })
+    setLocatingId(null)
+    if (hit) {
+      updateStop(activeDay, s.id, { lat: hit.lat, lng: hit.lng, desc: s.desc || hit.label })
+    } else {
+      setError(`עדיין לא הצלחתי לאתר את "${s.he ?? s.name}". אפשר לכתוב את שמו באנגלית או בשפת המקום.`)
+    }
+  }
 
   const [suggestions, setSuggestions] = useState([])
   const [asking, setAsking] = useState(false)
@@ -114,7 +160,7 @@ export default function Days() {
 
     setPlaceLoading(true)
     placeTimer.current = setTimeout(async () => {
-      const hits = await search(`${text}, ${trip.city}`, 5)
+      const hits = await findPlaces(text)
       setPlaceHits(hits)
       setPlaceLoading(false)
     }, 500)
@@ -133,7 +179,7 @@ export default function Days() {
     let hit = picked
     if (!hit) {
       setLocating(true)
-      hit = await search(`${name}, ${trip.city}`, 1).then((r) => r[0] ?? null)
+      hit = (await findPlaces(name, { ai: true }))[0] ?? null
       setLocating(false)
     }
 
@@ -340,7 +386,14 @@ export default function Days() {
 
                 <div className="row" style={{ gap: 8 }}>
                   {s.lat == null && (
-                    <span className="tiny" style={{ color: 'var(--amber)' }}>לא על המפה</span>
+                    <button
+                      className="tiny"
+                      style={{ color: 'var(--amber)', textDecoration: 'underline', textUnderlineOffset: 3 }}
+                      onClick={() => locateStop(s)}
+                      disabled={locatingId === s.id}
+                    >
+                      {locatingId === s.id ? 'מאתר…' : 'לא על המפה — אתר'}
+                    </button>
                   )}
                   {trip.totalDays > 1 && (
                     <label className="row" style={{ gap: 6, marginInlineStart: 'auto' }}>
