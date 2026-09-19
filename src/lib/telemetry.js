@@ -268,7 +268,12 @@ function patchFetch() {
       const res = await original(input, init)
       const took = Math.round(performance.now() - started)
 
-      if (!internal && !res.ok) {
+      // A place with no Wikipedia article is the normal answer for most
+      // restaurants and side streets, not a failure — those 404s were the
+      // bulk of the log and buried the entries that matter.
+      const expected404 = res.status === 404 && url.includes('wikipedia.org')
+
+      if (!internal && !res.ok && !expected404) {
         record({
           kind: 'network',
           level: res.status >= 500 ? 'error' : 'warn',

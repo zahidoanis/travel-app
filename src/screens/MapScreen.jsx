@@ -14,10 +14,17 @@ const PRESENCE_STALE_MS = 10 * 60 * 1000
 
 export default function MapScreen() {
   const {
-    stops: STOPS, days, activeDay, setActiveDay, planning, trip,
+    stops: ALL_STOPS, days, activeDay, setActiveDay, planning, trip,
     families, activeFamily, switchFamily,
     presence, sharingLocation, toggleLocationSharing,
   } = useTrip()
+  // A stop added by hand whose place couldn't be geocoded goes into the day
+  // with lat/lng null (Days.jsx says so on purpose — still useful with just a
+  // time and a name). It has no position to draw, navigate to or show
+  // coordinates for: it used to reach the info sheet's `lat.toFixed(4)` and
+  // crash the whole map screen on tap, and MapCanvas projected null as 0,0.
+  const STOPS = ALL_STOPS.filter((s) => s.lat != null && s.lng != null)
+  const unlocated = ALL_STOPS.length - STOPS.length
   const livePeople = presence.filter(
     (p) => p.active && p.lat != null && Date.now() - (p.updatedAt?.seconds ?? 0) * 1000 < PRESENCE_STALE_MS
   )
@@ -137,7 +144,11 @@ export default function MapScreen() {
               <p className="sub" style={{ marginTop: 12 }}>הסוכן בונה את המסלול...</p>
             </>
           ) : (
-            <p className="sub">אין עדיין עצירות במסלול. חזור למסך הבית ובנה מסלול.</p>
+            <p className="sub">
+              {unlocated > 0
+                ? 'העצירות ביום הזה עדיין בלי מיקום על המפה — אפשר לערוך אותן ולבחור מקום מהרשימה.'
+                : 'אין עדיין עצירות במסלול. חזור למסך הבית ובנה מסלול.'}
+            </p>
           )}
         </div>
       </div>

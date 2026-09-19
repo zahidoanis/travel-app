@@ -26,7 +26,10 @@ async function toCompressedDataUrl(file, maxDimension = 1400, targetBytes = 6500
     const img = await new Promise((resolve, reject) => {
       const el = new Image()
       el.onload = () => resolve(el)
-      el.onerror = reject
+      // A bare Event is what onerror hands over — it logged as "[object
+      // Event]" and told nobody anything. Usually a format the browser can't
+      // decode (HEIC straight off some phones).
+      el.onerror = () => reject(new Error('image could not be decoded'))
       el.src = objectUrl
     })
 
@@ -74,6 +77,7 @@ export default function TicketPhoto({ tripId, ticketId }) {
       setPhoto(dataUrl)
     } catch (err) {
       record({ kind: 'db', message: `ticket photo: ${err?.message ?? err}`, stack: err?.stack })
+      window.alert('לא הצלחתי לקרוא את התמונה. נסו צילום מסך של הכרטיס, או תמונה בפורמט JPG/PNG.')
     } finally {
       setBusy(false)
     }
