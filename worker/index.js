@@ -27,6 +27,16 @@ const API = 'https://generativelanguage.googleapis.com/v1beta'
 // new API keys; Google's own error points here instead.
 const DEFAULT_MODEL = 'gemini-3.6-flash'
 
+// Other free-tier models that answered on 2026-09-19, tried in this order
+// once the requested model's daily quota is spent. Each has its own quota.
+const FALLBACK_MODELS = [
+  'gemini-3.8-flash',
+  'gemini-3.5-flash',
+  'gemini-3-flash-preview',
+  'gemini-3.5-flash-lite',
+  'gemini-3.1-flash-lite',
+]
+
 /** Only these origins may call the proxy. Set ALLOWED_ORIGINS in wrangler.toml. */
 function corsHeaders(request, env) {
   const origin = request.headers.get('Origin') ?? ''
@@ -184,28 +194,37 @@ export default {
       return json({ error: { message: 'No contents supplied' } }, 400, cors)
     }
 
-    // Spread load across every configured key rather than hammering the
-    // first one until it alone hits quota — a random starting point each
-    // request, falling through the rest in order only when that pick comes
-    // back 429. A non-429 failure (bad request, model error) is returned
-    // straight away instead of burning through every key on a retry that
-    // would just fail the same way each time.
+    // The free quota is 20 requests per DAY, per project, per MODEL
+    // (GenerateRequestsPerDayPerProjectPerModel-FreeTier) — so adding keys
+    // only helps if they're in separate projects, while every *model* has its
+    // own independent 20. Try the requested model across all keys first, then
+    // fall through the other models still on the free tier. Retried on 429
+    // (quota), 503 (model overloaded) and 404 (model retired); any other
+    // failure — a bad request — would fail the same way everywhere, so it is
+    // returned straight away.
+    const RETRY = new Set([429, 503, 404])
+    const models = [model, ...FALLBACK_MODELS.filter((m) => m !== model)]
     const start = Math.floor(Math.random() * keys.length)
     let upstream
-    for (let i = 0; i < keys.length; i++) {
-      const key = keys[(start + i) % keys.length]
-      upstream = await fetch(
-        // Trim and encode: piping a secret in from a shell easily leaves a
-        // trailing newline, which produces an opaque "API key not valid" from
-        // Google rather than anything pointing at the real cause.
-        `${API}/models/${model}:streamGenerateContent?alt=sse&key=${encodeURIComponent(key.trim())}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(forwarded),
-        }
-      )
-      if (upstream.status !== 429) break
+    outer: for (const m of models) {
+      for (let i = 0; i < keys.length; i++) {
+        const key = keys[(start + i) % keys.length]
+        upstream = await fetch(
+          // Trim and encode: piping a secret in from a shell easily leaves a
+          // trailing newline, which produces an opaque "API key not valid"
+          // from Google rather than anything pointing at the real cause.
+          `${API}/models/${m}:streamGenerateContent?alt=sse&key=${encodeURIComponent(key.trim())}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(forwarded),
+          }
+        )
+        if (!RETRY.has(upstream.status)) break outer
+        // 404/503 are about the model, not the key — no point trying the
+        // same model on the next key.
+        if (upstream.status !== 429) break
+      }
     }
 
     if (!upstream.ok) {
