@@ -12,3 +12,7 @@ ALLOWED_ORIGINS = "http://localhost:5173,http://localhost:4173,https://travel-ai
 #   wrangler secret put GEMINI_API_KEY
 #   wrangler secret put GEMINI_API_KEY_2
 #   wrangler secret put GEMINI_API_KEY_3
+
+# Last-resort fallback when every Gemini key/model is out of quota.
+[ai]
+binding = "AI"

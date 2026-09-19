@@ -227,6 +227,23 @@ export default {
       }
     }
 
+    // Every Gemini model and key is out of quota (or down): last resort is
+    // Cloudflare's own Workers AI on this same account — free daily
+    // allowance, no extra key. Weaker Hebrew than Gemini, hence last.
+    if (!upstream.ok && RETRY.has(upstream.status)) {
+      const fallback = await viaWorkersAI(env, forwarded)
+      if (fallback) {
+        return new Response(fallback, {
+          headers: {
+            ...cors,
+            'Content-Type': 'text/event-stream; charset=utf-8',
+            'Cache-Control': 'no-cache',
+            Connection: 'keep-alive',
+          },
+        })
+      }
+    }
+
     if (!upstream.ok) {
       const text = await upstream.text()
       return new Response(text, {
@@ -244,6 +261,75 @@ export default {
       },
     })
   },
+}
+
+const CF_MODELS = ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/mistralai/mistral-small-3.1-24b-instruct']
+
+/**
+ * Runs the same request on Workers AI and re-frames its stream as Gemini's
+ * SSE shape, so the app's existing parser needs to know nothing about it.
+ * Returns a ReadableStream, or null when the binding is missing / every
+ * model errors (out of the daily free allowance included).
+ */
+async function viaWorkersAI(env, forwarded) {
+  if (!env.AI) return null
+
+  const messages = []
+  const system = (forwarded.systemInstruction?.parts ?? []).map((p) => p.text ?? '').join('\n')
+  if (system) messages.push({ role: 'system', content: system })
+  for (const c of forwarded.contents) {
+    messages.push({
+      role: c.role === 'model' ? 'assistant' : 'user',
+      content: (c.parts ?? []).map((p) => p.text ?? '').join(''),
+    })
+  }
+
+  for (const model of CF_MODELS) {
+    try {
+      const stream = await env.AI.run(model, {
+        messages,
+        stream: true,
+        max_tokens: forwarded.generationConfig?.maxOutputTokens ?? 2048,
+        temperature: forwarded.generationConfig?.temperature ?? 0.7,
+      })
+      return stream.pipeThrough(toGeminiFrames())
+    } catch {
+      /* out of allowance or model unavailable — try the next one */
+    }
+  }
+  return null
+}
+
+/** Workers AI `data: {"response":"tok"}` frames -> Gemini `candidates` frames. */
+function toGeminiFrames() {
+  const enc = new TextEncoder()
+  const dec = new TextDecoder()
+  let buffer = ''
+  const frame = (text, done) =>
+    enc.encode(
+      `data: ${JSON.stringify({
+        candidates: [{ content: { role: 'model', parts: [{ text }] }, index: 0, ...(done ? { finishReason: 'STOP' } : {}) }],
+      })}\n\n`
+    )
+  return new TransformStream({
+    transform(chunk, controller) {
+      buffer += dec.decode(chunk, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() ?? ''
+      for (const line of lines) {
+        if (!line.startsWith('data:')) continue
+        const payload = line.slice(5).trim()
+        if (!payload || payload === '[DONE]') continue
+        try {
+          const t = JSON.parse(payload).response
+          if (typeof t === 'string' && t) controller.enqueue(frame(t, false))
+        } catch { /* partial frame */ }
+      }
+    },
+    flush(controller) {
+      controller.enqueue(frame('', true))
+    },
+  })
 }
 
 const json = (data, status, cors) =>
