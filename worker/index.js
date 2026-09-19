@@ -14,7 +14,8 @@
  * Then point the app at it:
  *   VITE_AI_PROXY_URL=https://<name>.<subdomain>.workers.dev
  *
- * Optional — raise the effective free-tier ceiling by rotating across more
+ * Optional — extra keys, each from a SEPARATE Google project (the quota is per
+ * project, so same-project keys add nothing): GEMINI_API_KEY_2 … GEMINI_API_KEY_8.
  * than one key (each Google account can mint its own free one):
  *   wrangler secret put GEMINI_API_KEY_2
  *   wrangler secret put GEMINI_API_KEY_3
@@ -145,7 +146,7 @@ export default {
           ok: true,
           service: 'tripai-ai',
           model: DEFAULT_MODEL,
-          keysConfigured: [env.GEMINI_API_KEY, env.GEMINI_API_KEY_2, env.GEMINI_API_KEY_3].filter(Boolean).length,
+          keysConfigured: geminiKeys(env).length,
           allowedOrigins: (env.ALLOWED_ORIGINS ?? '').split(',').filter(Boolean).length,
         },
         200,
@@ -159,7 +160,7 @@ export default {
     // GEMINI_API_KEY_2 / _3 are optional extra free-tier keys — each Google
     // account can mint its own, so this is how the effective request ceiling
     // gets multiplied without ever needing a paid one.
-    const keys = [env.GEMINI_API_KEY, env.GEMINI_API_KEY_2, env.GEMINI_API_KEY_3].filter(Boolean)
+    const keys = geminiKeys(env)
     if (keys.length === 0) {
       return json({ error: { message: 'GEMINI_API_KEY is not configured' } }, 500, cors)
     }
@@ -205,10 +206,15 @@ export default {
     const RETRY = new Set([429, 503, 404])
     const models = [model, ...FALLBACK_MODELS.filter((m) => m !== model)]
     const start = Math.floor(Math.random() * keys.length)
-    let upstream
+    let upstream = null
+    let calls = 0
     outer: for (const m of models) {
       for (let i = 0; i < keys.length; i++) {
-        const key = keys[(start + i) % keys.length]
+        const idx = (start + i) % keys.length
+        const key = keys[idx]
+        const tag = idx + '|' + m
+        if ((spent.get(tag) ?? 0) > Date.now()) continue
+        if (++calls > 40) break outer
         upstream = await fetch(
           // Trim and encode: piping a secret in from a shell easily leaves a
           // trailing newline, which produces an opaque "API key not valid"
@@ -220,6 +226,7 @@ export default {
             body: JSON.stringify(forwarded),
           }
         )
+        if (upstream.status === 429) spent.set(tag, Date.now() + SPENT_MS)
         if (!RETRY.has(upstream.status)) break outer
         // 404/503 are about the model, not the key — no point trying the
         // same model on the next key.
@@ -230,7 +237,7 @@ export default {
     // Every Gemini model and key is out of quota (or down): last resort is
     // Cloudflare's own Workers AI on this same account — free daily
     // allowance, no extra key. Weaker Hebrew than Gemini, hence last.
-    if (!upstream.ok && RETRY.has(upstream.status)) {
+    if (!upstream || (!upstream.ok && RETRY.has(upstream.status))) {
       const fallback = await viaWorkersAI(env, forwarded)
       if (fallback) {
         return new Response(fallback, {
@@ -242,6 +249,12 @@ export default {
           },
         })
       }
+    }
+
+    // Every combination was already known to be spent and Workers AI had
+    // nothing either: same answer Google would have given.
+    if (!upstream) {
+      return json({ error: { code: 429, message: 'quota exceeded on every key and model' } }, 429, cors)
     }
 
     if (!upstream.ok) {
@@ -262,6 +275,17 @@ export default {
     })
   },
 }
+
+/** GEMINI_API_KEY, then GEMINI_API_KEY_2 … _8 — whichever are set. */
+const geminiKeys = (env) =>
+  ['', '_2', '_3', '_4', '_5', '_6', '_7', '_8'].map((n) => env['GEMINI_API_KEY' + n]).filter(Boolean)
+
+// key+model combos that just answered 429, remembered per isolate (best
+// effort — a cold isolate simply forgets). Skipping them keeps a request
+// under Workers' ~50 outbound-call limit now that there are 8 keys x 6
+// models, and stops it re-asking a quota that is known to be spent.
+const spent = new Map()
+const SPENT_MS = 30 * 60 * 1000
 
 const CF_MODELS = ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/mistralai/mistral-small-3.1-24b-instruct']
 
