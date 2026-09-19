@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { PARTY_COLORS, memberName, memberAge } from './data'
-import { buildItinerary } from './lib/itinerary'
+import { buildItinerary, normaliseCategory } from './lib/itinerary'
 import {
   loadProfile, saveProfile, createTrip, loadTrip, saveTrip, listTrips, joinTrip,
   listRoutes, saveRoute, watchRoutes, deleteTrip, logActivity, watchActivity,
@@ -434,12 +434,91 @@ export function TripProvider({ children }) {
 
   useEffect(() => () => chatAbort.current?.abort(), [])
 
-  // The model puts this as the literal first line of its reply when the
-  // user asked it to actually plan/build/replace one or more full days —
-  // see the "יכולת מיוחדת" block in systemPrompt(). Caught here rather than
-  // shown to the user, then acted on for real via the same plan() every
-  // other "בנה מסלול מחדש" button already calls.
-  const PLAN_DAYS_MARKER = /^\s*PLAN_DAYS:\s*([\d,\s]+)/i
+  // Lines the model writes, each on its own, when it wants the itinerary
+  // actually changed — see the action list in systemPrompt(). Caught here
+  // rather than shown, then executed for real, and the user is told what
+  // really happened: the model used to write its own "I've updated it!"
+  // whether or not anything ran (or worked), so the chat claimed changes the
+  // itinerary never got.
+  const ACTION_LINE = /^\s*(PLAN_DAYS|ADD_STOP|REMOVE_STOP)\s*:\s*(.*)$/i
+  const CLAIM = /(הוספתי|עדכנתי|בניתי|שיניתי|הסרתי|תכננתי מחדש|הכנסתי|מחקתי)/
+
+  const runChatActions = async (actions) => {
+    const report = []
+    // A working copy per day — several actions on the same day in one reply
+    // would otherwise each start from the same stale list and overwrite one
+    // another.
+    const work = {}
+    const listFor = (day) => (work[day] ??= [...(days[day] ?? [])])
+    const inRange = (d) => Number.isInteger(d) && d >= 1 && d <= trip.totalDays
+
+    for (const { kind, args } of actions) {
+      const parts = args.split('|').map((p) => p.trim())
+
+      if (kind === 'PLAN_DAYS') {
+        const wanted = [...new Set(parts[0].split(',').map((n) => parseInt(n, 10)).filter(inRange))]
+        for (const day of wanted) {
+          const r = await plan(day, { instructions: parts[1] ?? '' })
+          const why = r.warning === 'busy' ? ' — עדיין באמצע תכנון, נסו שוב עוד רגע' : r.warning ? ` — ${r.warning}` : ''
+          report.push(r.ok
+            ? `✓ בניתי מחדש את יום ${day} (${r.count} עצירות)`
+            : `✗ לא הצלחתי לבנות את יום ${day}${why}`)
+          // The day was replaced wholesale — a stale working copy would undo it.
+          delete work[day]
+        }
+      }
+
+      if (kind === 'ADD_STOP') {
+        const [dayStr, time, query, he, category, desc] = parts
+        const day = parseInt(dayStr, 10)
+        if (!inRange(day) || !query || !he) {
+          report.push('✗ לא הבנתי איזו עצירה להוסיף')
+          continue
+        }
+        const list = listFor(day)
+        if (list.some((s) => (s.he ?? s.name) === he)) {
+          report.push(`• ${he} כבר ביום ${day}`)
+          continue
+        }
+        const hit = (await geocode(query)) ?? (await geocode(he, trip.cityEn ?? trip.city))
+        if (!hit) {
+          report.push(`✗ לא הצלחתי לאתר את "${he}" על המפה — לא הוספתי`)
+          continue
+        }
+        const next = [...list, {
+          id: `c${Date.now()}-${list.length}`,
+          name: (hit.name || query.split(',')[0]).trim(),
+          he,
+          desc: desc ?? '',
+          time: /^\d{1,2}:\d{2}$/.test(time ?? '') ? time.padStart(5, '0') : '12:00',
+          cat: normaliseCategory(category),
+          rating: null,
+          lat: hit.lat,
+          lng: hit.lng,
+        }].sort((a, b) => String(a.time).localeCompare(String(b.time)))
+        work[day] = next
+        setDayStops(day, next)
+        report.push(`✓ הוספתי את ${he} ליום ${day}`)
+      }
+
+      if (kind === 'REMOVE_STOP') {
+        const [dayStr, name] = parts
+        const day = parseInt(dayStr, 10)
+        const list = inRange(day) ? listFor(day) : []
+        const at = list.findIndex(
+          (s) => name && ((s.he ?? '').includes(name) || (s.name ?? '').includes(name) || (s.he && name.includes(s.he)))
+        )
+        if (at < 0) {
+          report.push(`✗ לא מצאתי "${name}" ביום ${dayStr}`)
+          continue
+        }
+        const [gone] = list.splice(at, 1)
+        setDayStops(day, [...list])
+        report.push(`✓ הסרתי את ${gone.he ?? gone.name} מיום ${day}`)
+      }
+    }
+    return report
+  }
 
   const askAgent = async (history) => {
     const controller = new AbortController()
@@ -447,14 +526,11 @@ export function TripProvider({ children }) {
     setChatError(null)
     setChatTyping(true)
 
-    const system = systemPrompt({ trip, stops, families })
+    const system = systemPrompt({ trip, stops, days, families })
 
     try {
-      // Buffered rather than shown chunk-by-chunk like before: the marker
-      // has to be caught before anything renders, which means knowing the
-      // whole reply first. The cost is losing the live-typing animation for
-      // chat replies; the alternative was risking "PLAN_DAYS: 1,2,3" flashing
-      // on screen as if it were the agent talking to the user directly.
+      // Buffered rather than shown chunk-by-chunk: action lines have to be
+      // caught before anything renders, which means knowing the whole reply.
       let full = ''
       await streamReply({
         messages: history,
@@ -463,26 +539,34 @@ export function TripProvider({ children }) {
         onChunk: (delta) => { full += delta },
       })
 
-      const match = full.match(PLAN_DAYS_MARKER)
-      const wantsDays = match && trip
-        ? [...new Set(
-            match[1].split(',').map((n) => parseInt(n.trim(), 10)).filter((n) => n >= 1 && n <= trip.totalDays)
-          )]
-        : []
-      const rest = match ? full.slice(match[0].length).trim() : full
+      const actions = []
+      const text = []
+      for (const l of full.split('\n')) {
+        const m = l.match(ACTION_LINE)
+        if (m && trip) actions.push({ kind: m[1].toUpperCase(), args: m[2] })
+        else text.push(l)
+      }
+      // Markdown asterisks showed up literally in the bubble.
+      const say = text.join('\n').replace(/\*\*/g, '').trim()
 
-      if (wantsDays.length > 0) {
-        breadcrumb('action', `chat planned days ${wantsDays.join(',')}`)
-        for (const day of wantsDays) await plan(day)
-        const confirm = rest || (wantsDays.length === 1
-          ? `בניתי מסלול חדש ליום ${wantsDays[0]}.`
-          : `בניתי מסלול חדש לימים ${wantsDays.join(', ')}.`)
+      if (actions.length > 0) {
+        breadcrumb('action', `chat actions: ${actions.map((a) => a.kind).join(',')}`)
+        const report = await runChatActions(actions)
+        const done = report.some((r) => r.startsWith('✓'))
         setChatMessages((m) => [...m, {
           id: `a${Date.now()}`, role: 'ai',
-          text: `${confirm}\n\nאפשר לראות את זה במסך "מסלול הטיול".`,
+          // The app's own account of what happened — never the model's.
+          text: report.join('\n') + (done ? '\n\nאפשר לראות את זה במסך "מסלול הטיול".' : ''),
         }])
       } else {
-        setChatMessages((m) => [...m, { id: `a${Date.now()}`, role: 'ai', text: rest }])
+        // A claim of having changed the itinerary with no action behind it is
+        // the model talking as if it had done something — say so.
+        setChatMessages((m) => [...m, {
+          id: `a${Date.now()}`, role: 'ai',
+          text: CLAIM.test(say)
+            ? `${say}\n\n⚠ לא שיניתי כלום בלו"ז. כדי שאשנה, כתבו למשל "הוסף את זה ליום 1".`
+            : say,
+        }])
       }
     } catch (err) {
       if (err?.name !== 'AbortError') setChatError(err.message)
@@ -575,8 +659,8 @@ export function TripProvider({ children }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trip?.id, activeFamily, loading])
 
-  const plan = async (day = activeDay) => {
-    if (planning || !trip || !activeFamily) return
+  const plan = async (day = activeDay, { instructions = '' } = {}) => {
+    if (planning || !trip || !activeFamily) return { ok: false, count: 0, warning: 'busy' }
     setPlanning(true)
     setPlanWarning(null)
 
@@ -593,6 +677,7 @@ export function TripProvider({ children }) {
       trip: { ...trip, day },
       families: planningFamily ? [planningFamily] : families,
       already,
+      instructions,
     })
 
     if (fresh.length > 0) {
@@ -601,6 +686,7 @@ export function TripProvider({ children }) {
     }
     setPlanWarning(warning ?? null)
     setPlanning(false)
+    return { ok: fresh.length > 0, count: fresh.length, warning: warning ?? null }
   }
 
   const persist = async (day, next) => {

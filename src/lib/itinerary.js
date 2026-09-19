@@ -18,7 +18,7 @@ import { CATEGORIES, TRAVEL_STYLES } from '../data'
 const CATEGORY_IDS = Object.keys(CATEGORIES)
 
 /** Maps the model's Hebrew category word onto one of our four pin types. */
-function normaliseCategory(word = '') {
+export function normaliseCategory(word = '') {
   const w = word.trim()
   if (/מוזיאון|גלריה|תערוכה/.test(w)) return 'museum'
   if (/מסעד|אוכל|קפה|בר|שוק/.test(w)) return 'food'
@@ -30,7 +30,7 @@ function normaliseCategory(word = '') {
 /**
  * @returns {Promise<{stops: Array, source: 'ai'|'fallback', warning?: string}>}
  */
-export async function buildItinerary({ trip, families, already = [], signal }) {
+export async function buildItinerary({ trip, families, already = [], instructions = '', signal }) {
   if (!hasAI) {
     return { stops: [], source: 'fallback', warning: 'סוכן ה-AI אינו מחובר' }
   }
@@ -60,6 +60,7 @@ export async function buildItinerary({ trip, families, already = [], signal }) {
         (already.length > 0
           ? `כבר מתוכננים בימים אחרים של אותו טיול — אל תציע אותם שוב: ${already.join(', ')}\n`
           : '') +
+        (instructions ? `הנחיות מפורשות מהמשתמש — חובה לכבד אותן: ${instructions}\n` : '') +
         '\nתכנן יום אחד, מ-09:00 עד הערב, עם מרחקי הליכה סבירים בין העצירות.',
     })
 
