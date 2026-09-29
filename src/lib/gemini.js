@@ -24,8 +24,39 @@ export const hasAI = Boolean(PROXY || KEY)
 export const aiMode = PROXY ? 'proxy' : KEY ? 'direct' : 'off'
 export const aiModel = MODEL
 
+/**
+ * Formats the real reading `fetchTripWeather` (TripProvider.jsx) pulled for
+ * this trip — a live Open-Meteo forecast, or a historical climate average
+ * when the trip is too far out for one — as grounded context the model can
+ * quote instead of guessing from training data. Undefined/null when no
+ * weather question triggered a fetch, or the fetch found nothing.
+ */
+function weatherBlock(weather) {
+  if (!weather) return ''
+
+  if (weather.kind === 'forecast') {
+    const days = (weather.days ?? [])
+      .slice(0, 7)
+      .map((d) => `${d.date}: ${d.tempMax}°/${d.tempMin}°`)
+      .join(' · ')
+    return `
+
+מזג אוויר אמיתי ב${weather.city} (תחזית חיה, Open-Meteo) — עכשיו: ${weather.now.tempC}°C. השבוע הקרוב: ${days}.
+זה מידע אמיתי ועדכני, לא ניחוש — מותר ורצוי להשתמש בו כשעונים על שאלות מזג אוויר על הטיול הזה, ואסור לומר שאין לך גישה למזג האוויר.`
+  }
+
+  if (weather.kind === 'climate') {
+    return `
+
+מזג אוויר: הטיול רחוק מדי לתחזית חיה, אז הנה ממוצע אקלים אמיתי (Open-Meteo, ממוצע ${weather.years} השנים האחרונות באותם תאריכים בערך) ב${weather.city}: ${weather.tempMax}°/${weather.tempMin}°C, כ-${weather.rainChance}% סיכוי לגשם.
+זה מידע אמיתי, לא ניחוש — אפשר ורצוי להשתמש בו, אבל ציין בקצרה שזה ממוצע היסטורי ולא תחזית מדויקת לתאריך הספציפי, ושכדאי לבדוק תחזית עדכנית קרוב למועד.`
+  }
+
+  return ''
+}
+
 /** Builds the agent's standing instructions, grounded in the actual trip. */
-export function systemPrompt({ trip, stops, days = {}, families, prefs }) {
+export function systemPrompt({ trip, stops, days = {}, families, prefs, weather }) {
   const line = (s, i) => `${i + 1}. ${s.time} — ${s.he}${s.desc ? ` (${s.desc})` : ''}`
   const itinerary = stops.map(line).join('\n') || 'ריק'
 
@@ -63,6 +94,7 @@ ${allDays}
 ${parties}
 
 ${prefs ? `העדפות שהקבוצה הגדירה: ${prefs}` : ''}
+${weatherBlock(weather)}
 
 כללי עבודה:
 - ענה תמיד בעברית, בגוף שני, בטון ידידותי ותכליתי. טקסט רגיל בלבד — בלי כוכביות, בלי markdown, בלי כותרות.

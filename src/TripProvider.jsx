@@ -10,6 +10,7 @@ import { onUser, hasFirebase } from './lib/firebase'
 import { invitedTripId } from './lib/share'
 import { geocode } from './lib/geocode'
 import { hasAI, systemPrompt, streamReply } from './lib/gemini'
+import { fetchForecast, fetchClimateAverage } from './lib/weather'
 import { CITIES } from './cities'
 import { breadcrumb, record } from './lib/telemetry'
 
@@ -148,6 +149,74 @@ function toFamilies(raw) {
       sharedDays: p.sharedDays ?? [],
     }
   })
+}
+
+// A weather question used to get whatever Gemini's training data happened to
+// hold — plausible-sounding, ungrounded, and not the same number Home shows
+// for the very same trip. Home already fetches the real thing (a live
+// forecast, or a historical average for a trip too far out for one); the chat
+// agent gets no tools at all, by design (see systemPrompt's "no live access"
+// rule), so this catches a weather question before the request goes out and
+// hands the model that same real reading as grounded context instead. A
+// missed match just falls back to the honest "no live access" line the
+// system prompt already gives — same imprecise-on-purpose trade the server's
+// NEEDS_SEARCH trigger makes, and no `\b` around the Hebrew tokens because JS
+// regex word boundaries are Latin-only and silently no-op on Hebrew text.
+const WEATHER_TRIGGER = new RegExp(
+  [
+    'מזג( ה)?אוויר', 'טמפרטורה', 'מעלות', 'גשם', 'שלג', 'קריר', 'תחזית',
+    'כמה חם', 'כמה קר',
+    '\\bweather\\b', '\\btemperature\\b', '\\bforecast\\b', '\\bclimate\\b',
+    '\\brain(y|ing)?\\b', '\\bsnow(y|ing)?\\b', '\\bdegrees?\\b', '\\bcelsius\\b',
+    '\\bhot\\b', '\\bcold\\b', '\\bsunny\\b',
+  ].join('|'),
+  'i'
+)
+
+/**
+ * The same real reading Home's hero card shows for this trip — a live
+ * forecast within Open-Meteo's ~week horizon, a historical climate average
+ * beyond it — shaped for the system prompt rather than the UI. Null when
+ * there's no way to place the trip on a map at all; the chat then falls back
+ * to the model's own honest "I don't have live access" line, same as before
+ * this existed.
+ */
+async function fetchTripWeather(trip) {
+  if (!trip) return null
+
+  let { lat, lng } = trip
+  if (lat == null || lng == null) {
+    const known = CITIES.find((c) => c.he === trip.city || c.en === trip.cityEn)
+    if (known) {
+      lat = known.lat
+      lng = known.lng
+    } else {
+      const hit = await geocode(trip.cityEn ?? trip.city, trip.country)
+      lat = hit?.lat ?? null
+      lng = hit?.lng ?? null
+    }
+  }
+  if (lat == null || lng == null) return null
+
+  const daysUntil = (() => {
+    if (!trip.from) return 0
+    const [y, m, d] = trip.from.split('-').map(Number)
+    const target = new Date(y, m - 1, d)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    return Math.round((target - today) / 86400000)
+  })()
+
+  // Beyond about a week out, "today's weather there" has nothing to do with
+  // the trip's actual dates — same cutoff and reasoning as Home's hero card.
+  if (trip.from && daysUntil > 7) {
+    const [, month, day] = trip.from.split('-').map(Number)
+    const c = await fetchClimateAverage(lat, lng, month, day)
+    return c ? { kind: 'climate', city: trip.city, ...c } : null
+  }
+
+  const f = await fetchForecast(lat, lng)
+  return f ? { kind: 'forecast', city: trip.city, ...f } : null
 }
 
 export function TripProvider({ children }) {
@@ -526,7 +595,12 @@ export function TripProvider({ children }) {
     setChatError(null)
     setChatTyping(true)
 
-    const system = systemPrompt({ trip, stops, days, families })
+    const lastMine = [...history].reverse().find((m) => m.role === 'me')
+    const weather = WEATHER_TRIGGER.test(lastMine?.text ?? '')
+      ? await fetchTripWeather(trip).catch(() => null)
+      : null
+
+    const system = systemPrompt({ trip, stops, days, families, weather })
 
     try {
       // Buffered rather than shown chunk-by-chunk: action lines have to be
