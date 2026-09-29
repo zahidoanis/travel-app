@@ -27,7 +27,10 @@ export default function ShareSheet({ open, stops, onClose }) {
         כל מי שיצטרף רואה את אותו מסלול, ועדכונים מופיעים אצל כולם.
       </p>
 
-      {/* Message preview */}
+      {/* Message preview — text and url ship as separate fields (see
+          shareTrip), but shown together here since that's what the
+          recipient actually ends up seeing once WhatsApp stitches them back
+          into one message. */}
       <div
         className="card"
         style={{ background: '#16141F', marginBottom: 16, maxHeight: 150, overflowY: 'auto' }}
@@ -39,13 +42,15 @@ export default function ShareSheet({ open, stops, onClose }) {
           }}
         >
           {text}
+          {'\n\n'}
+          {url}
         </pre>
       </div>
 
       <button
         className="btn btn-block"
         style={{ background: '#25D366', color: '#06281A', marginBottom: 10 }}
-        onClick={() => shareTrip(text)}
+        onClick={() => shareTrip(text, url)}
       >
         <WhatsApp size={19} />
         שלח בוואטסאפ

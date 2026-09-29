@@ -97,7 +97,10 @@ export default function AccountSheet({ open, onClose }) {
   // list isn't. Just the destination and the join link, which is already
   // everything a recipient needs to get in.
   const shareTripRow = (t) => {
-    shareTrip(`הצטרפו אליי לטיול ל${t.destination}! 🗺️\n\n${inviteUrl(t.id)}`)
+    // Link rides as its own `url` field, not inline in `text` — see
+    // share.js's inviteText comment for why: that's what gets WhatsApp to
+    // unfurl it into a real preview card instead of a bare line of text.
+    shareTrip(`הצטרפו אליי לטיול ל${t.destination}! 🗺️`, inviteUrl(t.id))
   }
 
   const confirmDelete = async () => {

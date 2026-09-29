@@ -22,7 +22,22 @@ export function invitedTripId() {
   return new URLSearchParams(window.location.search).get('trip')
 }
 
-/** The message body — itinerary preview plus the join link. */
+/**
+ * The message body — itinerary preview plus the join code, deliberately
+ * *without* the link itself. shareTrip() attaches the link separately, via
+ * Web Share API's own `url` field, so WhatsApp unfurls it into a real
+ * preview card (title, description, the branded image) instead of a bare
+ * line of text.
+ *
+ * This used to include the link inline here too, alongside also passing it
+ * as `url` — which put the same link in the shared message twice: once as
+ * a plain line inside `text` (no preview), once again as `url`'s own entry
+ * (real preview card). It read as two different links rather than one
+ * showing up twice, which is why `url` was dropped entirely for a while —
+ * but that traded away the preview card altogether, on every share, to fix
+ * a cosmetic issue on some. Leaving the link out of `text` gets both: shown
+ * once, and unfurled.
+ */
 export function inviteText(trip, stops, tripId) {
   const lines = stops.map((s) => `${s.time} · ${s.he}`)
   return [
@@ -31,10 +46,7 @@ export function inviteText(trip, stops, tripId) {
     `יום ${trip.day} מתוך ${trip.totalDays}:`,
     ...lines,
     '',
-    'המסלול מתעדכן אצל כולם בזמן אמת:',
-    inviteUrl(tripId),
-    '',
-    `קוד הצטרפות: ${tripId}`,
+    `המסלול מתעדכן אצל כולם בזמן אמת — קוד הצטרפות: ${tripId}`,
   ].join('\n')
 }
 
@@ -42,29 +54,25 @@ export const whatsappUrl = (text) => `https://wa.me/?text=${encodeURIComponent(t
 
 /**
  * Prefer the OS share sheet where it exists (it lists WhatsApp alongside
- * everything else), and fall back to opening WhatsApp directly.
- * Returns how it was shared, so the UI can report accurately.
+ * everything else), and fall back to opening WhatsApp directly. Returns how
+ * it was shared, so the UI can report accurately.
  *
- * `text` is expected to already contain the link — every caller builds it
- * that way, since the plain wa.me fallback below has no separate `url` slot
- * at all. The native Web Share API's own `url` field used to also be filled
- * in here alongside it, which put the exact same link in the shared message
- * twice: once as a plain line inside `text`, once again as its own entry —
- * the second one gets a real link-preview card (title fetched, thumbnail),
- * the first doesn't, so it read as two different links rather than one
- * appearing twice.
+ * `url` rides separately from `text` here on purpose — see inviteText's
+ * comment. The `wa.me` fallback has no such second slot at all, though: a
+ * message with no link anywhere in its one text field would be useless, so
+ * that path alone stitches them back into one string.
  */
-export async function shareTrip(text) {
+export async function shareTrip(text, url) {
   if (typeof navigator !== 'undefined' && navigator.share) {
     try {
-      await navigator.share({ title: 'TripAI', text })
+      await navigator.share({ title: 'TripAI', text, url })
       return 'native'
     } catch (err) {
       // AbortError just means the user dismissed the sheet — not a failure.
       if (err?.name === 'AbortError') return 'cancelled'
     }
   }
-  window.open(whatsappUrl(text), '_blank', 'noopener')
+  window.open(whatsappUrl(`${text}\n\n${url}`), '_blank', 'noopener')
   return 'whatsapp'
 }
 
