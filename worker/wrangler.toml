@@ -7,11 +7,14 @@ compatibility_date = "2025-01-01"
 [vars]
 ALLOWED_ORIGINS = "http://localhost:5173,http://localhost:4173,https://travel-ai-6de47.web.app,https://travel-ai-6de47.firebaseapp.com"
 
-# GEMINI_API_KEY (and the optional GEMINI_API_KEY_2 / _3, for rotating
-# across more than one free-tier key) are secrets, never vars:
+# GEMINI_API_KEY (and the optional GEMINI_API_KEY_2 … _8, for rotating
+# across more than one free-tier key/project) are secrets, never vars:
 #   wrangler secret put GEMINI_API_KEY
 #   wrangler secret put GEMINI_API_KEY_2
-#   wrangler secret put GEMINI_API_KEY_3
+#
+# Optional — live web search for "what's the price/is it open now" questions,
+# via Tavily's free tier (1,000 searches/month, no card):
+#   wrangler secret put TAVILY_API_KEY
 
 # Last-resort fallback when every Gemini key/model is out of quota.
 [ai]

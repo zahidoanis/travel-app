@@ -14,13 +14,19 @@
  * Then point the app at it:
  *   VITE_AI_PROXY_URL=https://<name>.<subdomain>.workers.dev
  *
- * Optional — extra keys, each from a SEPARATE Google project (the quota is per
- * project, so same-project keys add nothing): GEMINI_API_KEY_2 … GEMINI_API_KEY_8.
- * than one key (each Google account can mint its own free one):
+ * Optional — extra Gemini keys, each from a SEPARATE Google project (the
+ * quota is per project, so same-project keys add nothing): GEMINI_API_KEY_2
+ * … GEMINI_API_KEY_8. Any subset can be set; a request tries a random one
+ * first per model and falls through the rest only on a 429.
  *   wrangler secret put GEMINI_API_KEY_2
- *   wrangler secret put GEMINI_API_KEY_3
- * Any of the three can be set alone or together; a request tries a random
- * one first and falls through the rest only on a 429.
+ *
+ * Optional — live web search for questions that need current info (a price,
+ * whether something is open now), via Tavily's free tier (1,000 searches/mo,
+ * no card): wrangler secret put TAVILY_API_KEY
+ * Gemini has no browsing tool of its own — without this it correctly (and
+ * only) says so. With it, a heuristic match on the user's last message
+ * fetches real results first and folds them into this same request as
+ * context, rather than a second model call.
  */
 
 const API = 'https://generativelanguage.googleapis.com/v1beta'
@@ -195,6 +201,34 @@ export default {
       return json({ error: { message: 'No contents supplied' } }, 400, cors)
     }
 
+    // A question that genuinely needs live info ("what's the price tonight",
+    // "is it open now") used to get an honest "I can't browse the internet" —
+    // correct, since the model has no such tool, but not useful. A cheap
+    // keyword match on the last thing the user actually typed decides
+    // whether to spend one Tavily call getting real results first, folded
+    // into this same request as extra context — not a second Gemini call,
+    // which would double the very quota this file exists to stretch.
+    const lastUserText = [...forwarded.contents].reverse().find((c) => c.role === 'user')
+      ?.parts?.map((p) => p.text ?? '').join(' ') ?? ''
+    if (env.TAVILY_API_KEY && NEEDS_SEARCH.test(lastUserText)) {
+      const found = await tavilySearch(env, lastUserText, body.searchContext)
+      if (found) {
+        forwarded.systemInstruction = {
+          parts: [
+            ...(forwarded.systemInstruction?.parts ?? []),
+            {
+              text:
+                'תוצאות חיפוש אינטרנט חיות (Tavily), רלוונטיות לשאלה האחרונה של המשתמש:\n' +
+                found +
+                '\n\nיש לך עכשיו גישה למידע הזה — אל תגיד שאין לך גישה לאינטרנט. ' +
+                'ענה על סמך התוצאות, וציין בקצרה שזה מבוסס על חיפוש עדכני. ' +
+                'אם התוצאות לא עונות על השאלה, אמור זאת בכנות במקום לנחש.',
+            },
+          ],
+        }
+      }
+    }
+
     // The free quota is 20 requests per DAY, per project, per MODEL
     // (GenerateRequestsPerDayPerProjectPerModel-FreeTier) — so adding keys
     // only helps if they're in separate projects, while every *model* has its
@@ -295,6 +329,57 @@ const CF_MODELS = ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/mistralai/mi
  * Returns a ReadableStream, or null when the binding is missing / every
  * model errors (out of the daily free allowance included).
  */
+// Hebrew and English phrasing for "needs an answer that only exists right
+// now, out on the live web" — a price, hours, whether something is open,
+// availability, a rating, being asked to actually go look something up.
+// Imprecise on purpose: a missed match just gets the honest "no live
+// access" answer as before, a wrong match spends one harmless Tavily call.
+const NEEDS_SEARCH = new RegExp(
+  [
+    'מחיר', 'עולה', 'עלות', 'זול', 'יקר',
+    'שעות פתיחה', 'פתוח', 'סגור', 'זמין', 'זמינות',
+    'עכשיו', 'היום', 'כרגע', 'עדכני',
+    'תבדוק', 'תחפש', 'חפש', 'תסתכל', 'באתר', 'קישור', 'לינק',
+    'דירוג', 'ביקורות', 'חוות דעת',
+    'price', 'cost', 'open now', 'is it open', 'available', 'website', 'link',
+    'rating', 'review', 'search', 'look up', 'check (the|if)',
+  ].join('|'),
+  'i'
+)
+
+/** One Tavily call, condensed to a short block of plain text the model can
+ *  read as context — never returned raw to the client. */
+async function tavilySearch(env, userText, extraContext) {
+  try {
+    const query = `${userText.slice(0, 300)}${extraContext ? ` (${extraContext})` : ''}`
+    const res = await fetch('https://api.tavily.com/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        api_key: env.TAVILY_API_KEY,
+        query,
+        search_depth: 'basic',
+        max_results: 5,
+        include_answer: true,
+      }),
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+
+    const lines = []
+    if (data.answer) lines.push(`תקציר: ${data.answer}`)
+    for (const r of data.results ?? []) {
+      if (!r.title && !r.content) continue
+      lines.push(`- ${r.title ?? ''}: ${(r.content ?? '').slice(0, 300)} (${r.url ?? ''})`)
+    }
+    return lines.length > 0 ? lines.join('\n') : null
+  } catch {
+    // Offline, rate-limited, or the free monthly credits ran out — the
+    // request still goes through to Gemini, just without live context.
+    return null
+  }
+}
+
 async function viaWorkersAI(env, forwarded) {
   if (!env.AI) return null
 

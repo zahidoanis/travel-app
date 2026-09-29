@@ -97,7 +97,7 @@ const toContents = (messages) =>
  * Streams a reply. Calls `onChunk(text)` for each delta and resolves with the
  * full text. Throws with a Hebrew message the UI can show as-is.
  */
-export async function streamReply({ messages, system, signal, onChunk }) {
+export async function streamReply({ messages, system, searchContext, signal, onChunk }) {
   const body = {
     contents: toContents(messages),
     systemInstruction: { parts: [{ text: system }] },
@@ -115,7 +115,12 @@ export async function streamReply({ messages, system, signal, onChunk }) {
     res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(PROXY ? { ...body, model: MODEL } : body),
+      // `model` and `searchContext` are proxy-only extensions — Google's own
+      // API validates the request shape strictly and would 400 on either in
+      // direct mode.
+      body: JSON.stringify(
+        PROXY ? { ...body, model: MODEL, ...(searchContext ? { searchContext } : {}) } : body
+      ),
       signal,
     })
   } catch (err) {
