@@ -16,6 +16,12 @@ ALLOWED_ORIGINS = "http://localhost:5173,http://localhost:4173,https://travel-ai
 # via Tavily's free tier (1,000 searches/month PER ACCOUNT, no card). More
 # accounts each add their own 1,000: TAVILY_API_KEY_2 … TAVILY_API_KEY_5.
 #   wrangler secret put TAVILY_API_KEY
+#
+# Optional — real bookable attractions/tours for "what is there to do"
+# questions, via Viator's Affiliate API (Basic Access tier: free, self-serve,
+# no approval wait — sign up at partners.viator.com). Real prices, real
+# ratings, a real booking link with your own affiliate id already in it.
+#   wrangler secret put VIATOR_API_KEY
 
 # Last-resort fallback when every Gemini key/model is out of quota.
 [ai]

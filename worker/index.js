@@ -28,6 +28,13 @@
  * fetches real results first and folds them into this same request as
  * context, rather than a second model call. Extra Tavily accounts each add
  * their own 1,000/month, same idea as the Gemini keys: TAVILY_API_KEY_2 … _5.
+ *
+ * Optional — real bookable attractions/tours for "what is there to do"
+ * questions, via Viator's Affiliate API (Basic Access: free, self-serve, no
+ * approval wait): wrangler secret put VIATOR_API_KEY
+ * Same idea as the Tavily block, but a dedicated booking API beats a web
+ * search here — a real product, price, rating and booking link instead of
+ * an article that merely mentions one.
  */
 
 const API = 'https://generativelanguage.googleapis.com/v1beta'
@@ -155,6 +162,7 @@ export default {
           model: DEFAULT_MODEL,
           keysConfigured: geminiKeys(env).length,
           tavilyKeysConfigured: tavilyKeys(env).length,
+          viatorConfigured: Boolean(env.VIATOR_API_KEY),
           allowedOrigins: (env.ALLOWED_ORIGINS ?? '').split(',').filter(Boolean).length,
         },
         200,
@@ -234,6 +242,30 @@ export default {
                 '\n\nיש לך עכשיו גישה למידע הזה — אל תגיד שאין לך גישה לאינטרנט. ' +
                 'ענה על סמך התוצאות, וציין בקצרה שזה מבוסס על חיפוש עדכני. ' +
                 'אם התוצאות לא עונות על השאלה, אמור זאת בכנות במקום לנחש.',
+            },
+          ],
+        }
+      }
+    }
+
+    // Same idea as the Tavily block above, but for "what's there to do" —
+    // Viator's Basic Access affiliate API (free, self-serve) instead of a
+    // generic web search: real bookable tours/attractions, real prices, real
+    // ratings, and a real productUrl that already carries the account's own
+    // affiliate id (pid), so a click-through is attributed automatically.
+    if (env.VIATOR_API_KEY && NEEDS_ATTRACTIONS.test(lastUserText)) {
+      const found = await viatorSearch(env, lastUserText, body.searchContext)
+      if (found) {
+        forwarded.systemInstruction = {
+          parts: [
+            ...(forwarded.systemInstruction?.parts ?? []),
+            {
+              text:
+                'תוצאות אמיתיות מ-Viator (אטרקציות/סיורים אמיתיים שאפשר להזמין), רלוונטיות לשאלה האחרונה:\n' +
+                found +
+                '\n\nיש לך עכשיו גישה למידע הזה — אלה מקומות אמיתיים עם מחיר ודירוג אמיתיים, לא הצעות כלליות. ' +
+                'כשאתה מציע אחד מהם, כלול את הקישור (productUrl) בדיוק כפי שהוא, בלי לשנות אותו — זה קישור הזמנה אמיתי. ' +
+                'אם שום תוצאה לא מתאימה לשאלה, אמור זאת בכנות במקום להתעלם ולהמציא משהו אחר.',
             },
           ],
         }
@@ -417,6 +449,73 @@ async function tavilySearch(env, userText, extraContext) {
     }
   }
   return null
+}
+
+// Hebrew and English phrasing for "what is there to do/see/book here" — the
+// one case where a dedicated, free, real booking API (Viator) beats a
+// generic Tavily web search: it returns an actual bookable product with a
+// real price and a real link, not an article that merely mentions one.
+// Same imprecise-on-purpose trade as NEEDS_SEARCH.
+const NEEDS_ATTRACTIONS = new RegExp(
+  [
+    'אטרקציה', 'אטרקציות', 'סיור', 'סיורים', 'טיול מאורגן', 'כרטיסים',
+    'מה לעשות', 'מה כדאי לעשות', 'דברים לעשות', 'מומלץ לבקר', 'פעילות', 'פעילויות',
+    'attraction', 'tour', 'things to do', 'activity', 'activities', 'ticket', 'excursion',
+  ].join('|'),
+  'i'
+)
+
+/**
+ * One call to Viator's `/search/freetext` (Basic Access — free, self-serve,
+ * verified 2026-09-29 against the live API rather than guessed from docs:
+ * base `https://api.viator.com/partner`, auth via the `exp-api-key` header,
+ * `Accept: application/json;version=2.0`). Condensed to the same
+ * short-plain-text-block shape tavilySearch returns, so it slots into the
+ * system instruction the same way.
+ */
+async function viatorSearch(env, userText, cityContext) {
+  const key = env.VIATOR_API_KEY
+  if (!key) return null
+
+  const searchTerm = `${userText.slice(-200)}${cityContext ? ` in ${cityContext}` : ''}`.trim()
+  if (!searchTerm) return null
+
+  try {
+    const res = await fetch('https://api.viator.com/partner/search/freetext', {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json;version=2.0',
+        'Accept-Language': 'en-US',
+        'Content-Type': 'application/json',
+        'exp-api-key': key,
+      },
+      body: JSON.stringify({
+        searchTerm,
+        currency: 'USD',
+        searchTypes: [{ searchType: 'PRODUCTS', pagination: { start: 1, count: 5 } }],
+      }),
+    })
+    if (!res.ok) return null
+
+    const results = (await res.json())?.products?.results ?? []
+    const lines = results
+      .filter((p) => p.title && p.productUrl)
+      .map((p) => {
+        const price = p.pricing?.summary?.fromPrice
+        const rating = p.reviews?.combinedAverageRating
+        const reviewCount = p.reviews?.totalReviews
+        const bits = [
+          price != null ? `החל מ-$${price}` : null,
+          rating ? `דירוג ${rating.toFixed(1)}${reviewCount ? ` (${reviewCount} ביקורות)` : ''}` : null,
+        ].filter(Boolean).join(' · ')
+        return `- ${p.title}${bits ? `: ${bits}` : ''} — ${p.productUrl}`
+      })
+    return lines.length > 0 ? lines.join('\n') : null
+  } catch {
+    // Offline or Viator itself unreachable — the request still goes through
+    // to Gemini, just without this context.
+    return null
+  }
 }
 
 /**
