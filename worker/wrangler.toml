@@ -13,7 +13,8 @@ ALLOWED_ORIGINS = "http://localhost:5173,http://localhost:4173,https://travel-ai
 #   wrangler secret put GEMINI_API_KEY_2
 #
 # Optional — live web search for "what's the price/is it open now" questions,
-# via Tavily's free tier (1,000 searches/month, no card):
+# via Tavily's free tier (1,000 searches/month PER ACCOUNT, no card). More
+# accounts each add their own 1,000: TAVILY_API_KEY_2 … TAVILY_API_KEY_5.
 #   wrangler secret put TAVILY_API_KEY
 
 # Last-resort fallback when every Gemini key/model is out of quota.

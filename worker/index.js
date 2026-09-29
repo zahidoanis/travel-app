@@ -21,12 +21,13 @@
  *   wrangler secret put GEMINI_API_KEY_2
  *
  * Optional — live web search for questions that need current info (a price,
- * whether something is open now), via Tavily's free tier (1,000 searches/mo,
- * no card): wrangler secret put TAVILY_API_KEY
+ * whether something is open now), via Tavily's free tier (1,000 searches/mo
+ * PER ACCOUNT, no card): wrangler secret put TAVILY_API_KEY
  * Gemini has no browsing tool of its own — without this it correctly (and
  * only) says so. With it, a heuristic match on the user's last message
  * fetches real results first and folds them into this same request as
- * context, rather than a second model call.
+ * context, rather than a second model call. Extra Tavily accounts each add
+ * their own 1,000/month, same idea as the Gemini keys: TAVILY_API_KEY_2 … _5.
  */
 
 const API = 'https://generativelanguage.googleapis.com/v1beta'
@@ -153,6 +154,7 @@ export default {
           service: 'tripai-ai',
           model: DEFAULT_MODEL,
           keysConfigured: geminiKeys(env).length,
+          tavilyKeysConfigured: tavilyKeys(env).length,
           allowedOrigins: (env.ALLOWED_ORIGINS ?? '').split(',').filter(Boolean).length,
         },
         200,
@@ -210,7 +212,7 @@ export default {
     // which would double the very quota this file exists to stretch.
     const lastUserText = [...forwarded.contents].reverse().find((c) => c.role === 'user')
       ?.parts?.map((p) => p.text ?? '').join(' ') ?? ''
-    if (env.TAVILY_API_KEY && NEEDS_SEARCH.test(lastUserText)) {
+    if (tavilyKeys(env).length > 0 && NEEDS_SEARCH.test(lastUserText)) {
       const found = await tavilySearch(env, lastUserText, body.searchContext)
       if (found) {
         forwarded.systemInstruction = {
@@ -323,12 +325,6 @@ const SPENT_MS = 30 * 60 * 1000
 
 const CF_MODELS = ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/mistralai/mistral-small-3.1-24b-instruct']
 
-/**
- * Runs the same request on Workers AI and re-frames its stream as Gemini's
- * SSE shape, so the app's existing parser needs to know nothing about it.
- * Returns a ReadableStream, or null when the binding is missing / every
- * model errors (out of the daily free allowance included).
- */
 // Hebrew and English phrasing for "needs an answer that only exists right
 // now, out on the live web" — a price, hours, whether something is open,
 // availability, a rating, being asked to actually go look something up.
@@ -347,39 +343,66 @@ const NEEDS_SEARCH = new RegExp(
   'i'
 )
 
-/** One Tavily call, condensed to a short block of plain text the model can
- *  read as context — never returned raw to the client. */
-async function tavilySearch(env, userText, extraContext) {
-  try {
-    const query = `${userText.slice(0, 300)}${extraContext ? ` (${extraContext})` : ''}`
-    const res = await fetch('https://api.tavily.com/search', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        api_key: env.TAVILY_API_KEY,
-        query,
-        search_depth: 'basic',
-        max_results: 5,
-        include_answer: true,
-      }),
-    })
-    if (!res.ok) return null
-    const data = await res.json()
+/** TAVILY_API_KEY, then TAVILY_API_KEY_2 … _5 — whichever are set. Each is
+ *  its own free account (1,000 searches/month each), so more keys is a real
+ *  multiplier here, the same way it is for Gemini. */
+const tavilyKeys = (env) =>
+  ['', '_2', '_3', '_4', '_5'].map((n) => env['TAVILY_API_KEY' + n]).filter(Boolean)
 
-    const lines = []
-    if (data.answer) lines.push(`תקציר: ${data.answer}`)
-    for (const r of data.results ?? []) {
-      if (!r.title && !r.content) continue
-      lines.push(`- ${r.title ?? ''}: ${(r.content ?? '').slice(0, 300)} (${r.url ?? ''})`)
+/**
+ * One Tavily call, condensed to a short block of plain text the model can
+ * read as context — never returned raw to the client. Tries each configured
+ * key in turn: 432/433 is that key's monthly credits spent, 401 is a bad
+ * key, either way the next one gets a turn. Any other failure (network,
+ * Tavily itself down) stops trying rather than burning through every key on
+ * an error that would repeat.
+ */
+async function tavilySearch(env, userText, extraContext) {
+  const keys = tavilyKeys(env)
+  const query = `${userText.slice(0, 300)}${extraContext ? ` (${extraContext})` : ''}`
+
+  for (const key of keys) {
+    try {
+      const res = await fetch('https://api.tavily.com/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          api_key: key,
+          query,
+          search_depth: 'basic',
+          max_results: 5,
+          include_answer: true,
+        }),
+      })
+      if (!res.ok) {
+        if ([401, 432, 433].includes(res.status)) continue
+        return null
+      }
+      const data = await res.json()
+
+      const lines = []
+      if (data.answer) lines.push(`תקציר: ${data.answer}`)
+      for (const r of data.results ?? []) {
+        if (!r.title && !r.content) continue
+        lines.push(`- ${r.title ?? ''}: ${(r.content ?? '').slice(0, 300)} (${r.url ?? ''})`)
+      }
+      return lines.length > 0 ? lines.join('\n') : null
+    } catch {
+      // Offline or Tavily itself unreachable — another key would fail the
+      // same way. The request still goes through to Gemini, just without
+      // live context.
+      return null
     }
-    return lines.length > 0 ? lines.join('\n') : null
-  } catch {
-    // Offline, rate-limited, or the free monthly credits ran out — the
-    // request still goes through to Gemini, just without live context.
-    return null
   }
+  return null
 }
 
+/**
+ * Runs the same request on Workers AI and re-frames its stream as Gemini's
+ * SSE shape, so the app's existing parser needs to know nothing about it.
+ * Returns a ReadableStream, or null when the binding is missing / every
+ * model errors (out of the daily free allowance included).
+ */
 async function viaWorkersAI(env, forwarded) {
   if (!env.AI) return null
 
