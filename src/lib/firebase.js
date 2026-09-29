@@ -46,7 +46,26 @@ async function connect() {
 
     const app = initializeApp(cfg)
     const auth = AUTH.getAuth(app)
-    const db = FS.getFirestore(app)
+
+    // A cached copy of whatever was last read — the trip, its routes,
+    // expenses — kept in IndexedDB so it is still there to read when the
+    // network is not. Without this, losing connection mid-use meant every
+    // screen that reads live (every one of them) either hung or came back
+    // empty, even for a trip already fully loaded a minute earlier. Reads
+    // still prefer the network whenever it is there; this only changes what
+    // happens when it is not. Falls back to the plain (in-memory-only)
+    // client if persistence cannot start — Safari private browsing, or a
+    // second Firestore instance from a dev hot-reload — since the rest of
+    // the app must keep working online either way.
+    let db
+    try {
+      db = FS.initializeFirestore(app, {
+        localCache: FS.persistentLocalCache({ tabManager: FS.persistentMultipleTabManager() }),
+      })
+    } catch (err) {
+      console.error('[firebase] offline persistence unavailable, using in-memory cache:', err?.message ?? err)
+      db = FS.getFirestore(app)
+    }
 
     // Wait for the first auth state before deciding anything. A session
     // restored from storage — anonymous or Google — is the answer; only a

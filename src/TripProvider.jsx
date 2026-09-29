@@ -535,6 +535,7 @@ export function TripProvider({ children }) {
       await streamReply({
         messages: history,
         system,
+        searchContext: `${trip.city}, ${trip.country}`,
         signal: controller.signal,
         onChunk: (delta) => { full += delta },
       })
