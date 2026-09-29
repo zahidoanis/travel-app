@@ -509,7 +509,7 @@ export function TripProvider({ children }) {
   // really happened: the model used to write its own "I've updated it!"
   // whether or not anything ran (or worked), so the chat claimed changes the
   // itinerary never got.
-  const ACTION_LINE = /^\s*(PLAN_DAYS|ADD_STOP|REMOVE_STOP)\s*:\s*(.*)$/i
+  const ACTION_LINE = /^\s*(PLAN_DAYS|ADD_STOP|REMOVE_STOP|BOOKING_LINK)\s*:\s*(.*)$/i
   const CLAIM = /(הוספתי|עדכנתי|בניתי|שיניתי|הסרתי|תכננתי מחדש|הכנסתי|מחקתי)/
 
   const runChatActions = async (actions) => {
@@ -584,6 +584,24 @@ export function TripProvider({ children }) {
         const [gone] = list.splice(at, 1)
         setDayStops(day, [...list])
         report.push(`✓ הסרתי את ${gone.he ?? gone.name} מיום ${day}`)
+      }
+
+      // A real, working link — not a claim of having booked anything. Google
+      // Maps' documented URL scheme (no key, no API call, never wrong the way
+      // a guessed OpenTable/Resy deep link could be) takes the place name
+      // straight to its map listing, which itself surfaces a reservation
+      // button when the place actually has one. Doesn't start with "✓" on
+      // purpose — nothing in the itinerary changed, so the "see it in the
+      // itinerary" line below must not fire for this alone.
+      if (kind === 'BOOKING_LINK') {
+        const [query, he, category] = parts
+        if (!query || !he) {
+          report.push('✗ לא הבנתי איזה מקום לחפש')
+          continue
+        }
+        const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
+        const verb = category?.trim() === 'מסעדה' ? 'להזמנת שולחן' : 'להזמנה'
+        report.push(`🔗 ${he} — קישור ${verb} (Google Maps): ${url}`)
       }
     }
     return report

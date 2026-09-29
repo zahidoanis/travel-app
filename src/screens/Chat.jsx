@@ -5,6 +5,21 @@ import { useTrip } from '../TripProvider'
 import { hasAI, aiMode, aiModel } from '../lib/gemini'
 import { useSpeech } from '../lib/speech'
 
+// Turns a bare https:// URL inside message text into a real link — currently
+// only ever produced by BOOKING_LINK's report line (TripProvider.jsx), never
+// by the model itself (it has no tool access and is told never to emit
+// URLs), so there's nothing here to sanitize beyond what React already
+// escapes by default.
+const URL_RE = /(https?:\/\/[^\s]+)/g
+
+function linkify(text) {
+  return text.split(URL_RE).map((part, i) =>
+    i % 2 === 1
+      ? <a key={i} href={part} target="_blank" rel="noopener noreferrer">{part}</a>
+      : part
+  )
+}
+
 /** Openers, so an empty thread still shows what the agent is for. */
 const STARTERS = [
   'מה כדאי לעשות היום אם יורד גשם?',
@@ -76,7 +91,7 @@ export default function Chat() {
           )}
 
           {messages.map((m) => (
-            <div key={m.id} className={`bubble ${m.role} msg-in`}>{m.text}</div>
+            <div key={m.id} className={`bubble ${m.role} msg-in`}>{linkify(m.text)}</div>
           ))}
 
           {typing && (
