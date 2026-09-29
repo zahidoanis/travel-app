@@ -9,6 +9,25 @@
     <meta name="theme-color" content="#FAFAFB" />
     <title>TripAI — עוזר הנסיעות שלך</title>
 
+    <!-- The card WhatsApp/iMessage/etc. show when a trip link gets shared —
+         the app's own "share the trip" feature depends on this not looking
+         like a broken link. og-image.png is generated, not hand-drawn: see
+         scripts/build-og-image.mjs. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="TripAI" />
+    <meta property="og:locale" content="he_IL" />
+    <meta property="og:url" content="https://travel-ai-6de47.web.app" />
+    <meta property="og:title" content="TripAI — עוזר הנסיעות שלך" />
+    <meta property="og:description" content="תכנון טיולים חכם, בעברית. ספר לנו לאן, מתי ועם מי — והסוכן יבנה מסלול יומי מלא, ימקם אותו על המפה, וידאג שכולם מסונכרנים לאורך כל הדרך." />
+    <meta property="og:image" content="https://travel-ai-6de47.web.app/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="TripAI — עוזר הנסיעות שלך" />
+    <meta name="twitter:description" content="תכנון טיולים חכם, בעברית" />
+    <meta name="twitter:image" content="https://travel-ai-6de47.web.app/og-image.png" />
+
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <!-- iOS ignores the manifest entirely for "הוסף למסך הבית" — this is the
