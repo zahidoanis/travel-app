@@ -213,7 +213,16 @@ export default {
     const lastUserText = [...forwarded.contents].reverse().find((c) => c.role === 'user')
       ?.parts?.map((p) => p.text ?? '').join(' ') ?? ''
     if (tavilyKeys(env).length > 0 && NEEDS_SEARCH.test(lastUserText)) {
-      const found = await tavilySearch(env, lastUserText, body.searchContext)
+      // The trigger word only needs to be in the last message, but a
+      // follow-up like "check their website" names no "their" on its own —
+      // the last few turns give the search query the actual subject (the
+      // hotel/place named a turn or two earlier) instead of a bare pronoun.
+      const recentContext = forwarded.contents
+        .slice(-4)
+        .map((c) => (c.parts ?? []).map((p) => p.text ?? '').join(' '))
+        .filter(Boolean)
+        .join(' | ')
+      const found = await tavilySearch(env, recentContext || lastUserText, body.searchContext)
       if (found) {
         forwarded.systemInstruction = {
           parts: [
@@ -237,12 +246,13 @@ export default {
     // own independent 20. Try the requested model across all keys first, then
     // fall through the other models still on the free tier. Retried on 429
     // (quota), 503 (model overloaded) and 404 (model retired); any other
-    // failure — a bad request — would fail the same way everywhere, so it is
-    // returned straight away.
+    // HTTP failure — a bad request — would fail the same way everywhere, so
+    // it is returned straight away.
     const RETRY = new Set([429, 503, 404])
     const models = [model, ...FALLBACK_MODELS.filter((m) => m !== model)]
     const start = Math.floor(Math.random() * keys.length)
-    let upstream = null
+    let goodText = null // a validated, usable SSE response body, once found
+    let lastBadUpstream = null
     let calls = 0
     outer: for (const m of models) {
       for (let i = 0; i < keys.length; i++) {
@@ -251,7 +261,7 @@ export default {
         const tag = idx + '|' + m
         if ((spent.get(tag) ?? 0) > Date.now()) continue
         if (++calls > 40) break outer
-        upstream = await fetch(
+        const upstream = await fetch(
           // Trim and encode: piping a secret in from a shell easily leaves a
           // trailing newline, which produces an opaque "API key not valid"
           // from Google rather than anything pointing at the real cause.
@@ -262,53 +272,65 @@ export default {
             body: JSON.stringify(forwarded),
           }
         )
-        if (upstream.status === 429) spent.set(tag, Date.now() + SPENT_MS)
-        if (!RETRY.has(upstream.status)) break outer
-        // 404/503 are about the model, not the key — no point trying the
-        // same model on the next key.
-        if (upstream.status !== 429) break
+
+        if (upstream.status === 429) { spent.set(tag, Date.now() + SPENT_MS); continue }
+        if (RETRY.has(upstream.status)) { lastBadUpstream = upstream; break } // next model
+        if (!upstream.ok) { lastBadUpstream = upstream; break outer } // a real bad request
+
+        // HTTP 200 — but Gemini 3.x occasionally tries to call an internal
+        // tool that was never declared here (a trained bias toward
+        // well-known agentic tool names, seen even with zero tools
+        // registered on this request) and ends the turn with
+        // MALFORMED_FUNCTION_CALL and no usable text — which still reports
+        // 200, so none of the status checks above ever catch it. Buffered
+        // rather than streamed straight through so this can be caught
+        // before an empty reply ever reaches the client — the chat already
+        // buffers the whole reply client-side before showing anything, so
+        // nothing is lost by buffering here too.
+        const raw = await upstream.text()
+        if (hasUsableText(raw)) { goodText = raw; break outer }
+        // 200 but nothing usable — try the next key/model instead.
       }
     }
 
-    // Every Gemini model and key is out of quota (or down): last resort is
-    // Cloudflare's own Workers AI on this same account — free daily
-    // allowance, no extra key. Weaker Hebrew than Gemini, hence last.
-    if (!upstream || (!upstream.ok && RETRY.has(upstream.status))) {
-      const fallback = await viaWorkersAI(env, forwarded)
-      if (fallback) {
-        return new Response(fallback, {
-          headers: {
-            ...cors,
-            'Content-Type': 'text/event-stream; charset=utf-8',
-            'Cache-Control': 'no-cache',
-            Connection: 'keep-alive',
-          },
-        })
-      }
+    if (goodText) {
+      return new Response(goodText, {
+        headers: {
+          ...cors,
+          'Content-Type': 'text/event-stream; charset=utf-8',
+          'Cache-Control': 'no-cache',
+          Connection: 'keep-alive',
+        },
+      })
     }
 
-    // Every combination was already known to be spent and Workers AI had
-    // nothing either: same answer Google would have given.
-    if (!upstream) {
-      return json({ error: { code: 429, message: 'quota exceeded on every key and model' } }, 429, cors)
+    // Every Gemini model and key was either out of quota/down, or kept
+    // coming back with no usable text: last resort is Cloudflare's own
+    // Workers AI on this same account — free daily allowance, no extra key.
+    // Weaker Hebrew than Gemini, hence last.
+    const fallback = await viaWorkersAI(env, forwarded)
+    if (fallback) {
+      return new Response(fallback, {
+        headers: {
+          ...cors,
+          'Content-Type': 'text/event-stream; charset=utf-8',
+          'Cache-Control': 'no-cache',
+          Connection: 'keep-alive',
+        },
+      })
     }
 
-    if (!upstream.ok) {
-      const text = await upstream.text()
+    if (lastBadUpstream) {
+      const text = await lastBadUpstream.text()
       return new Response(text, {
-        status: upstream.status,
+        status: lastBadUpstream.status,
         headers: { ...cors, 'Content-Type': 'application/json' },
       })
     }
 
-    return new Response(upstream.body, {
-      headers: {
-        ...cors,
-        'Content-Type': 'text/event-stream; charset=utf-8',
-        'Cache-Control': 'no-cache',
-        Connection: 'keep-alive',
-      },
-    })
+    // Every combination was spent, or a valid-looking 200 with nothing
+    // usable in it, and Workers AI had nothing either.
+    return json({ error: { code: 502, message: 'no usable reply from any key, model, or fallback' } }, 502, cors)
   },
 }
 
@@ -359,7 +381,7 @@ const tavilyKeys = (env) =>
  */
 async function tavilySearch(env, userText, extraContext) {
   const keys = tavilyKeys(env)
-  const query = `${userText.slice(0, 300)}${extraContext ? ` (${extraContext})` : ''}`
+  const query = `${userText.slice(-400)}${extraContext ? ` (${extraContext})` : ''}`
 
   for (const key of keys) {
     try {
@@ -462,6 +484,25 @@ function toGeminiFrames() {
       controller.enqueue(frame('', true))
     },
   })
+}
+
+/** Whether a Gemini SSE body actually contains any answer text — the check
+ *  that catches MALFORMED_FUNCTION_CALL and any other finish reason that
+ *  leaves nothing to show, all of which still arrive as HTTP 200. */
+function hasUsableText(sse) {
+  for (const block of sse.split('\n\n')) {
+    const line = block.split('\n').find((l) => l.startsWith('data:'))
+    if (!line) continue
+    try {
+      const j = JSON.parse(line.slice(5))
+      for (const p of j.candidates?.[0]?.content?.parts ?? []) {
+        if (typeof p.text === 'string' && p.text.trim()) return true
+      }
+    } catch {
+      /* a partial or malformed chunk — not itself proof of a bad reply */
+    }
+  }
+  return false
 }
 
 const json = (data, status, cors) =>
