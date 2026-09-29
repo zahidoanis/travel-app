@@ -5,19 +5,31 @@ import { useTrip } from '../TripProvider'
 import { hasAI, aiMode, aiModel } from '../lib/gemini'
 import { useSpeech } from '../lib/speech'
 
-// Turns a bare https:// URL inside message text into a real link — currently
-// only ever produced by BOOKING_LINK's report line (TripProvider.jsx), never
-// by the model itself (it has no tool access and is told never to emit
-// URLs), so there's nothing here to sanitize beyond what React already
-// escapes by default.
-const URL_RE = /(https?:\/\/[^\s]+)/g
+// Turns a URL inside message text into a real, clickable link. Two shapes
+// show up in practice: a bare https://… (BOOKING_LINK's report line, built
+// deterministically in TripProvider.jsx — never the model) and a Markdown
+// [label](https://…) link (the model itself, when a Viator/Tavily result got
+// folded into its context — verified live: asked despite the "no markdown"
+// rule in systemPrompt, Gemini still wrapped a real Viator link that way).
+// Rather than fight that instruction-following gap, both shapes are just
+// handled here — whichever one shows up, it renders as a real link either
+// way, no sanitizing needed beyond what React already escapes by default.
+const LINK_RE = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s]+)/g
 
 function linkify(text) {
-  return text.split(URL_RE).map((part, i) =>
-    i % 2 === 1
-      ? <a key={i} href={part} target="_blank" rel="noopener noreferrer">{part}</a>
-      : part
-  )
+  const nodes = []
+  let last = 0
+  let key = 0
+  LINK_RE.lastIndex = 0
+  for (let m = LINK_RE.exec(text); m; m = LINK_RE.exec(text)) {
+    if (m.index > last) nodes.push(text.slice(last, m.index))
+    const [, label, mdUrl, bareUrl] = m
+    const url = mdUrl ?? bareUrl
+    nodes.push(<a key={key++} href={url} target="_blank" rel="noopener noreferrer">{label ?? url}</a>)
+    last = LINK_RE.lastIndex
+  }
+  if (last < text.length) nodes.push(text.slice(last))
+  return nodes
 }
 
 /** Openers, so an empty thread still shows what the agent is for. */
