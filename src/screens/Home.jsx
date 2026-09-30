@@ -210,6 +210,9 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
                 visitor's own clock) is not. */}
             <h1 className="hero-title">
               {forecast ? `${GREETING[forecast.now.period]}!` : t('שלום!')}
+              {/* Only the gold theme shows this — its greeting sits on the
+                  photo as "Good evening, / Baku." */}
+              <span className="hero-city">{TRIP.city}.</span>
             </h1>
             {farOut ? (
               climate && (

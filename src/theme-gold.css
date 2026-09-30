@@ -1,0 +1,268 @@
+/* ============================================================
+   Golden Hour — "שעת זהב", the warm mockup from the design canvas,
+   tried 2026-09-30 after Electric Night.
+
+   Same mechanism as theme-night.css: every rule is scoped to
+   [data-theme="gold"] (set in theme.js) and layered over styles.css, so
+   switching THEME between 'gold', 'night' and 'classic' is lossless.
+
+   Palette: plum-black ground, sunset orange for the one primary action,
+   warm amber for the agent and selection, cream text. Display type is
+   Frank Ruhl Libre (a Hebrew serif) at 900; body stays Rubik.
+   ============================================================ */
+
+:root[data-theme="gold"] {
+  color-scheme: dark;
+
+  --bg:            #140A10;
+  --bg-2:          #140A10;
+  --card:          #1F1117;
+  --card-2:        #291820;
+  --card-glass:    rgba(30, 16, 22, 0.86);
+  --sunken:        #190D13;
+
+  --border:        rgba(247, 234, 224, 0.09);
+  --border-strong: rgba(247, 234, 224, 0.16);
+  --tint:          rgba(247, 234, 224, 0.05);
+  --tint-2:        rgba(247, 234, 224, 0.09);
+
+  /* Dark labels on the orange — white on #FF7A45 is ~2.6:1. */
+  --ink:           #FF7A45;
+  --ink-2:         #FF8A5C;
+  --on-ink:        #1A0C12;
+
+  --accent:        #F2A541;
+  --accent-2:      #F6B864;
+  --accent-soft:   rgba(242, 165, 65, 0.15);
+  --lav:           #FFD2BD;
+  --cyan:          #5FD3C4;
+  --amber:         #F2A541;
+  --rose:          #FF6B7A;
+  --emerald:       #7FD89A;
+  --gold:          #F2C27A;
+  --gold-soft:     rgba(242, 194, 122, 0.12);
+
+  --text:          #F7EAE0;
+  --text-2:        #E7CFC2;
+  --muted:         #B8988A;
+  --muted-2:       #8A6E62;
+
+  --shadow-sm:     0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow:        0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 28px rgba(0, 0, 0, 0.45);
+  --shadow-lg:     0 2px 6px rgba(0, 0, 0, 0.5), 0 22px 60px rgba(0, 0, 0, 0.6);
+}
+
+/* ---------- Canvas ---------- */
+
+[data-theme="gold"] body { background: var(--bg); color: var(--text); }
+[data-theme="gold"] .shell {
+  background:
+    radial-gradient(900px 520px at 85% -10%, rgba(255, 122, 69, 0.10), transparent 60%),
+    radial-gradient(700px 480px at 5% 105%, rgba(242, 165, 65, 0.07), transparent 58%),
+    #0D060A;
+}
+[data-theme="gold"] .app { background: var(--bg); }
+
+/* ---------- Type ---------- */
+
+[data-theme="gold"] .h1,
+[data-theme="gold"] .h2,
+[data-theme="gold"] .hero-title,
+[data-theme="gold"] .wordmark {
+  font-family: "Frank Ruhl Libre", "Heebo", serif;
+}
+[data-theme="gold"] .h1 { font-weight: 900; letter-spacing: -0.6px; }
+[data-theme="gold"] .h2 { font-weight: 900; letter-spacing: -0.2px; }
+
+/* ---------- Primary actions: orange with dark labels ---------- */
+
+[data-theme="gold"] .btn-primary,
+[data-theme="gold"] .pill.on,
+[data-theme="gold"] .badge-solid,
+[data-theme="gold"] .segmented button.on,
+[data-theme="gold"] .fab,
+[data-theme="gold"] .send,
+[data-theme="gold"] .swap,
+[data-theme="gold"] .fab-spark,
+[data-theme="gold"] .nav-item.active .nav-glyph,
+[data-theme="gold"] .rail-item.active .rail-glyph {
+  background: var(--ink);
+  color: var(--on-ink);
+  border-color: transparent;
+}
+[data-theme="gold"] .btn-primary { box-shadow: 0 8px 26px rgba(255, 122, 69, 0.3); }
+[data-theme="gold"] .btn-primary:hover { filter: brightness(1.06); }
+[data-theme="gold"] .fab { box-shadow: 0 10px 30px rgba(255, 122, 69, 0.35); }
+[data-theme="gold"] .segmented button.on { box-shadow: 0 4px 14px rgba(255, 122, 69, 0.25); }
+
+/* ---------- Top bar + navigation ---------- */
+
+[data-theme="gold"] .topbar { background: linear-gradient(180deg, var(--bg) 62%, rgba(20, 10, 16, 0)); }
+[data-theme="gold"] .topbar.floating { background: linear-gradient(180deg, rgba(20, 10, 16, 0.92) 30%, rgba(20, 10, 16, 0)); }
+[data-theme="gold"] .topbar-title { color: var(--text); }
+
+[data-theme="gold"] .nav {
+  background: rgba(30, 16, 22, 0.92);
+  border-color: rgba(247, 234, 224, 0.1);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
+}
+[data-theme="gold"] .nav-item.active .nav-glyph { box-shadow: 0 6px 18px rgba(255, 122, 69, 0.35); }
+[data-theme="gold"] .rail { background: #10080C; }
+[data-theme="gold"] .rail-item.active { background: var(--tint-2); color: var(--text); }
+[data-theme="gold"] .rail-brand,
+[data-theme="gold"] .wordmark-ai,
+[data-theme="gold"] .brand { background-image: linear-gradient(120deg, #FFD2BD 10%, #FF7A45 90%); }
+
+/* ---------- Home ---------- */
+
+/* The photo is the screen: a tall, edge-to-edge hero with the greeting and
+   city set large in serif on top of it, like the canvas mockup. */
+[data-theme="gold"] .hero {
+  border-radius: 30px;
+  background: linear-gradient(160deg, #2A1520, #170B11 70%);
+  border: 1px solid var(--border);
+  box-shadow: none;
+}
+[data-theme="gold"] .hero::after { background: radial-gradient(circle, rgba(255, 122, 69, 0.28), transparent 68%); }
+[data-theme="gold"] .hero.has-photo {
+  min-height: 430px;
+  border: none;
+}
+@media (max-width: 699px) {
+  [data-theme="gold"] .hero.has-photo {
+    margin-inline: -18px;
+    border-radius: 0 0 32px 32px;
+    padding-inline: 24px;
+  }
+}
+[data-theme="gold"] .hero-scrim {
+  background: linear-gradient(180deg,
+    rgba(20, 10, 16, 0.55) 0%,
+    rgba(20, 10, 16, 0) 24%,
+    rgba(20, 10, 16, 0.12) 50%,
+    #140A10 100%);
+}
+[data-theme="gold"] .hero-title {
+  background: none; -webkit-background-clip: initial; background-clip: initial;
+  color: var(--text);
+  font-weight: 900; letter-spacing: -0.5px; line-height: 1;
+}
+[data-theme="gold"] .hero.has-photo .hero-title {
+  font-size: clamp(46px, 15vw, 62px);
+  color: #FFF4EC; text-shadow: 0 2px 20px rgba(20, 10, 16, 0.5);
+}
+[data-theme="gold"] .hero.has-photo .hero-city { display: block; }
+[data-theme="gold"] .hero-icon {
+  background: rgba(20, 10, 16, 0.45);
+  border-color: rgba(247, 234, 224, 0.26);
+  color: #FFD2BD;
+}
+[data-theme="gold"] .hero.has-photo .icon-btn.boxed {
+  background: rgba(20, 10, 16, 0.4);
+  border-color: rgba(247, 234, 224, 0.28);
+}
+[data-theme="gold"] .hero .sub { color: var(--text-2); }
+[data-theme="gold"] .hero.has-photo .sub { color: #E7CFC2; }
+
+/* Plan rows: quiet, with the next stop warmed and its time in orange. */
+[data-theme="gold"] .timeline-card {
+  border-radius: 18px;
+  background: rgba(247, 234, 224, 0.04);
+  border-color: rgba(247, 234, 224, 0.08);
+}
+[data-theme="gold"] .timeline-card.next {
+  background: rgba(255, 122, 69, 0.1);
+  border-color: rgba(255, 122, 69, 0.38);
+}
+[data-theme="gold"] .time-chip { font-family: "Frank Ruhl Libre", serif; color: #D9BFB0; font-weight: 700; }
+[data-theme="gold"] .time-chip.next { color: var(--ink); font-weight: 900; }
+[data-theme="gold"] .thumb { border-radius: 14px; }
+[data-theme="gold"] .thumb::after { background: linear-gradient(to top, rgba(20, 10, 16, 0.85), transparent 58%); }
+
+/* ---------- Cards, choices, pills ---------- */
+
+[data-theme="gold"] .choice.on,
+[data-theme="gold"] .dest.on {
+  background: linear-gradient(150deg, rgba(255, 122, 69, 0.2), var(--card));
+  border-color: var(--ink);
+}
+[data-theme="gold"] .choice.on .choice-icon { background: rgba(255, 244, 236, 0.92); }
+[data-theme="gold"] .option { background: var(--sunken); }
+[data-theme="gold"] .option.on { background: var(--accent-soft); border-color: var(--accent); }
+[data-theme="gold"] .propose-card {
+  background: linear-gradient(150deg, rgba(242, 165, 65, 0.14), var(--card));
+  border-color: rgba(242, 165, 65, 0.32);
+}
+[data-theme="gold"] .alert-card { background: rgba(255, 107, 122, 0.08); border-color: rgba(255, 107, 122, 0.3); }
+[data-theme="gold"] .converter { background: var(--card); box-shadow: none; }
+[data-theme="gold"] .party-card.needs { background: rgba(242, 165, 65, 0.07); }
+[data-theme="gold"] .progress > i { background: linear-gradient(90deg, var(--accent), var(--ink)); }
+[data-theme="gold"] .date-cell input[type="date"] { color-scheme: dark; }
+[data-theme="gold"] .field:focus,
+[data-theme="gold"] .field-row:focus-within { border-color: var(--ink); }
+
+/* ---------- Chat ---------- */
+
+/* Burnt orange, not the button orange: white on #A8431F is ~6:1. */
+[data-theme="gold"] .bubble.me { background: #A8431F; color: #fff; border-color: transparent; }
+[data-theme="gold"] .bubble.ai { background: var(--card); border-color: var(--border); box-shadow: none; }
+[data-theme="gold"] .ai-status.live { color: var(--accent); }
+
+/* ---------- Sheets and overlays ---------- */
+
+[data-theme="gold"] .scrim { background: rgba(8, 3, 6, 0.66); }
+[data-theme="gold"] .sheet { background: #1F1117; box-shadow: 0 -20px 60px rgba(0, 0, 0, 0.6); }
+[data-theme="gold"] .suggestions { background: rgba(30, 16, 22, 0.98); box-shadow: var(--shadow-lg); }
+[data-theme="gold"] .play::before { border-color: rgba(247, 234, 224, 0.2); }
+
+/* ---------- Map ---------- */
+
+/* Same darkening as the night theme (see there), plus a little sepia so
+   the map sits in the warm palette instead of reading blue-grey. */
+[data-theme="gold"] .map-tile { filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.88) saturate(0.6) sepia(0.22); }
+[data-theme="gold"] .map-canvas { background: #120A0E; }
+[data-theme="gold"] .map-tool {
+  background: rgba(30, 16, 22, 0.9);
+  border-color: var(--border-strong);
+  color: var(--text-2);
+}
+[data-theme="gold"] .map-tool:hover { background: #2A1820; color: var(--text); }
+[data-theme="gold"] .map-tool.on { background: var(--ink); color: var(--on-ink); }
+[data-theme="gold"] .map-attribution {
+  color: var(--muted);
+  background: rgba(20, 10, 16, 0.7);
+  border-color: var(--border);
+}
+[data-theme="gold"] .stop-card.active { border-color: var(--ink); }
+
+/* ---------- Welcome ---------- */
+
+[data-theme="gold"] .welcome-aura {
+  background:
+    radial-gradient(circle at 40% 40%, rgba(255, 122, 69, 0.3), transparent 58%),
+    radial-gradient(circle at 66% 62%, rgba(242, 165, 65, 0.18), transparent 60%);
+}
+[data-theme="gold"] .welcome-grid {
+  background-image:
+    linear-gradient(rgba(247, 234, 224, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(247, 234, 224, 0.035) 1px, transparent 1px);
+}
+[data-theme="gold"] .welcome-mark {
+  color: var(--ink);
+  background: var(--card);
+  border-color: rgba(255, 122, 69, 0.35);
+  box-shadow: 0 10px 36px rgba(255, 122, 69, 0.22);
+}
+[data-theme="gold"] .wordmark { font-weight: 900; }
+[data-theme="gold"] .wordmark-rule { background: linear-gradient(90deg, transparent, rgba(255, 122, 69, 0.6), transparent); }
+[data-theme="gold"] .welcome-features li { background: var(--card); box-shadow: none; }
+[data-theme="gold"] .welcome-feature-icon { background: var(--accent-soft); border-color: rgba(242, 165, 65, 0.3); color: var(--accent); }
+[data-theme="gold"] .welcome-cta { background: linear-gradient(0deg, var(--bg) 62%, rgba(20, 10, 16, 0)); }
+
+/* ---------- Language toggle ---------- */
+
+[data-theme="gold"] .lang-toggle {
+  background: rgba(247, 234, 224, 0.06);
+  border-color: rgba(247, 234, 224, 0.16);
+  color: var(--text-2);
+}
