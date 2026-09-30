@@ -7,6 +7,7 @@ import './styles.css'
 // they only ever add to the base design, never replace it (see theme.js).
 import './theme-night.css'
 import './theme-gold.css'
+import './theme-cream.css'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

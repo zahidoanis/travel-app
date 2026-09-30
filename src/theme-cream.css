@@ -1,0 +1,224 @@
+/* ============================================================
+   Cream & Gold — "שמנת וזהב", the light sibling of Golden Hour, tried
+   2026-09-30 after the dark versions read as too dark.
+
+   Scoped to [data-theme="cream"] (set in theme.js) and layered over
+   styles.css, whose base is already the light classic design — so this
+   file only has to re-colour it and bring over Golden Hour's layout
+   (serif display type, the edge-to-edge photo on Home).
+
+   Palette: warm cream ground, soft gold for the one primary action (with
+   an espresso label — white on this gold is unreadable), copper for
+   selection, espresso text.
+   ============================================================ */
+
+:root[data-theme="cream"] {
+  --bg:            #FBF6EE;
+  --bg-2:          #FBF6EE;
+  --card:          #FFFDF9;
+  --card-2:        #F4ECDF;
+  --card-glass:    rgba(255, 253, 249, 0.86);
+  --sunken:        #F4ECDF;
+
+  --border:        rgba(60, 40, 20, 0.10);
+  --border-strong: rgba(60, 40, 20, 0.17);
+  --tint:          rgba(60, 40, 20, 0.04);
+  --tint-2:        rgba(60, 40, 20, 0.075);
+
+  /* Espresso on this gold is ~6.7:1. */
+  --ink:           #C9A45C;
+  --ink-2:         #D4B170;
+  --on-ink:        #2B2124;
+
+  --accent:        #A8703F;
+  --accent-2:      #B98150;
+  --accent-soft:   rgba(168, 112, 63, 0.10);
+  --lav:           #8C6A32;
+  --amber:         #9A6B12;
+  --gold:          #8C6A32;
+  --gold-soft:     rgba(201, 164, 92, 0.14);
+
+  --text:          #2B2124;
+  --text-2:        #54474A;
+  --muted:         #86767A;
+  --muted-2:       #B3A6A2;
+
+  --shadow-sm:     0 1px 2px rgba(60, 40, 20, 0.06);
+  --shadow:        0 1px 2px rgba(60, 40, 20, 0.05), 0 8px 24px rgba(60, 40, 20, 0.08);
+  --shadow-lg:     0 2px 6px rgba(60, 40, 20, 0.06), 0 18px 48px rgba(60, 40, 20, 0.12);
+}
+
+/* ---------- Canvas ---------- */
+
+[data-theme="cream"] body { background: var(--bg); color: var(--text); }
+[data-theme="cream"] .shell {
+  background:
+    radial-gradient(900px 520px at 85% -10%, rgba(201, 164, 92, 0.14), transparent 60%),
+    #F3EBDD;
+}
+[data-theme="cream"] .app { background: var(--bg); }
+
+/* ---------- Type ---------- */
+
+[data-theme="cream"] .h1,
+[data-theme="cream"] .h2,
+[data-theme="cream"] .hero-title,
+[data-theme="cream"] .wordmark {
+  font-family: "Frank Ruhl Libre", "Heebo", serif;
+}
+[data-theme="cream"] .h1 { font-weight: 900; letter-spacing: -0.6px; }
+[data-theme="cream"] .h2 { font-weight: 900; letter-spacing: -0.2px; }
+
+/* ---------- Primary actions: gold with espresso labels ---------- */
+
+[data-theme="cream"] .btn-primary,
+[data-theme="cream"] .pill.on,
+[data-theme="cream"] .badge-solid,
+[data-theme="cream"] .segmented button.on,
+[data-theme="cream"] .fab,
+[data-theme="cream"] .send,
+[data-theme="cream"] .swap,
+[data-theme="cream"] .fab-spark,
+[data-theme="cream"] .cal-cell.selected .cal-num,
+[data-theme="cream"] .day-chip.on .day-chip-num,
+[data-theme="cream"] .nav-item.active .nav-glyph,
+[data-theme="cream"] .rail-item.active .rail-glyph {
+  background: linear-gradient(180deg, var(--ink-2), var(--ink));
+  color: var(--on-ink);
+  border-color: transparent;
+}
+[data-theme="cream"] .btn-primary { box-shadow: 0 8px 22px rgba(201, 164, 92, 0.35); }
+[data-theme="cream"] .nav-item.active .nav-glyph { box-shadow: 0 6px 16px rgba(201, 164, 92, 0.4); }
+[data-theme="cream"] .day-chip.on { border-color: var(--ink); }
+
+/* ---------- Top bar + navigation ---------- */
+
+[data-theme="cream"] .topbar { background: linear-gradient(180deg, var(--bg) 62%, rgba(251, 246, 238, 0)); }
+[data-theme="cream"] .topbar.floating { background: linear-gradient(180deg, rgba(251, 246, 238, 0.92) 30%, rgba(251, 246, 238, 0)); }
+[data-theme="cream"] .nav {
+  background: rgba(255, 253, 249, 0.94);
+  border-color: var(--border-strong);
+  box-shadow: 0 14px 36px rgba(60, 40, 20, 0.14);
+}
+[data-theme="cream"] .rail { background: #F6EFE3; }
+[data-theme="cream"] .rail-brand,
+[data-theme="cream"] .wordmark-ai,
+[data-theme="cream"] .brand { background-image: linear-gradient(120deg, #8C6A32 10%, #C9A45C 90%); }
+
+/* ---------- Home ---------- */
+
+[data-theme="cream"] .hero {
+  border-radius: 30px;
+  background: linear-gradient(150deg, #F6EDDC, #FFFDF9 65%);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+[data-theme="cream"] .hero::after { background: radial-gradient(circle, rgba(201, 164, 92, 0.22), transparent 68%); }
+[data-theme="cream"] .hero-title {
+  background: none; -webkit-background-clip: initial; background-clip: initial;
+  color: var(--text);
+  font-weight: 900; letter-spacing: -0.5px; line-height: 1;
+}
+
+/* The photo stays a photo on a light page: a dark espresso scrim at the
+   bottom carries the white serif greeting, and the card's rounded bottom
+   edge sits on the cream instead of fading into it. */
+[data-theme="cream"] .hero.has-photo {
+  min-height: 430px;
+  border: none;
+  box-shadow: 0 16px 40px rgba(60, 40, 20, 0.18);
+}
+@media (max-width: 699px) {
+  [data-theme="cream"] .hero.has-photo {
+    margin-inline: -18px;
+    border-radius: 0 0 32px 32px;
+    padding-inline: 24px;
+  }
+}
+[data-theme="cream"] .hero-scrim {
+  background: linear-gradient(180deg,
+    rgba(43, 33, 36, 0.45) 0%,
+    rgba(43, 33, 36, 0) 24%,
+    rgba(43, 33, 36, 0.15) 48%,
+    rgba(43, 33, 36, 0.86) 100%);
+}
+[data-theme="cream"] .hero.has-photo .hero-title {
+  font-size: clamp(46px, 15vw, 62px);
+  color: #FFF8EE; text-shadow: 0 2px 20px rgba(43, 33, 36, 0.5);
+}
+[data-theme="cream"] .hero.has-photo .hero-city { display: block; }
+[data-theme="cream"] .hero-icon { background: var(--gold-soft); border-color: rgba(140, 106, 50, 0.22); color: var(--gold); }
+[data-theme="cream"] .hero.has-photo .hero-icon,
+[data-theme="cream"] .hero.has-photo .icon-btn.boxed {
+  background: rgba(43, 33, 36, 0.35);
+  border-color: rgba(255, 248, 238, 0.35);
+  color: #FFF8EE;
+}
+[data-theme="cream"] .hero.has-photo .sub { color: #F1E4D6; }
+
+[data-theme="cream"] .timeline-card {
+  border-radius: 18px;
+  background: var(--card);
+  border-color: var(--border);
+}
+[data-theme="cream"] .timeline-card.next {
+  background: linear-gradient(150deg, rgba(201, 164, 92, 0.16), var(--card));
+  border-color: rgba(201, 164, 92, 0.6);
+}
+[data-theme="cream"] .time-chip { font-family: "Frank Ruhl Libre", serif; color: var(--muted); font-weight: 700; }
+[data-theme="cream"] .time-chip.next { color: #8C6A32; font-weight: 900; }
+[data-theme="cream"] .thumb { border-radius: 14px; }
+
+/* ---------- Cards, choices, pills ---------- */
+
+[data-theme="cream"] .choice.on,
+[data-theme="cream"] .dest.on {
+  background: linear-gradient(150deg, rgba(201, 164, 92, 0.18), var(--card));
+  border-color: var(--ink);
+}
+[data-theme="cream"] .option.on { background: var(--accent-soft); border-color: var(--accent); }
+[data-theme="cream"] .propose-card {
+  background: linear-gradient(150deg, #F8EFDF, var(--card));
+  border-color: rgba(201, 164, 92, 0.4);
+}
+[data-theme="cream"] .alert-card { background: #FFF6F2; border-color: rgba(217, 58, 91, 0.22); }
+[data-theme="cream"] .progress > i { background: linear-gradient(90deg, var(--accent), var(--ink)); }
+[data-theme="cream"] .field:focus,
+[data-theme="cream"] .field-row:focus-within { border-color: var(--ink); }
+
+/* ---------- Chat ---------- */
+
+/* Deep bronze, not the button gold: white on #7A5A2E is ~6.3:1. */
+[data-theme="cream"] .bubble.me { background: #7A5A2E; color: #fff; border-color: transparent; }
+[data-theme="cream"] .bubble.ai { background: var(--card); border-color: var(--border); }
+[data-theme="cream"] .ai-status.live { color: var(--accent); }
+
+/* ---------- Sheets and overlays ---------- */
+
+[data-theme="cream"] .scrim { background: rgba(43, 33, 36, 0.4); }
+[data-theme="cream"] .sheet { background: var(--card); }
+
+/* ---------- Map ---------- */
+
+/* Light OSM tiles as they are, just warmed a touch toward the cream. */
+[data-theme="cream"] .map-tile { filter: sepia(0.18) saturate(0.9); }
+[data-theme="cream"] .map-canvas { background: #F1E9DB; }
+[data-theme="cream"] .map-tool.on { background: var(--ink); color: var(--on-ink); }
+[data-theme="cream"] .stop-card.active { border-color: var(--ink); }
+
+/* ---------- Welcome ---------- */
+
+[data-theme="cream"] .welcome-aura {
+  background:
+    radial-gradient(circle at 40% 40%, rgba(201, 164, 92, 0.28), transparent 58%),
+    radial-gradient(circle at 66% 62%, rgba(168, 112, 63, 0.14), transparent 60%);
+}
+[data-theme="cream"] .welcome-mark {
+  color: #8C6A32;
+  border-color: rgba(201, 164, 92, 0.45);
+  box-shadow: 0 10px 30px rgba(201, 164, 92, 0.25);
+}
+[data-theme="cream"] .wordmark { font-weight: 900; }
+[data-theme="cream"] .wordmark-rule { background: linear-gradient(90deg, transparent, rgba(201, 164, 92, 0.7), transparent); }
+[data-theme="cream"] .welcome-feature-icon { background: var(--gold-soft); border-color: rgba(201, 164, 92, 0.35); color: #8C6A32; }
+[data-theme="cream"] .welcome-cta { background: linear-gradient(0deg, var(--bg) 62%, rgba(251, 246, 238, 0)); }
