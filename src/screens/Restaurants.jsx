@@ -8,6 +8,7 @@ import { hasAI, complete, parseRows } from '../lib/gemini'
 import { geocode } from '../lib/geocode'
 import { navigateUrl } from '../lib/staticMap'
 import { breadcrumb, watchdog } from '../lib/telemetry'
+import { t } from '../i18n'
 
 export default function Restaurants() {
   const { trip, profile, activeDay, addStop } = useTrip()
@@ -34,17 +35,17 @@ export default function Restaurants() {
     try {
       const text = await complete({
         system:
-          'אתה סוכן קולינרי. החזר אך ורק שורות בפורמט:\n' +
-          'שם המסעדה באנגלית | אזור | סוג מטבח | טווח מחיר לסועד | משפט אחד למה כדאי\n' +
-          'בלי כותרות, בלי מספור, בלי טקסט נוסף. בדיוק 6 שורות. הכל בעברית פרט לשם המסעדה.',
+          'אתה סוכן קולינרי. החזר אך ורק שורות בפורמט:\n' + // i18n-ignore — AI prompt; see gemini.js language override
+          'שם המסעדה באנגלית | אזור | סוג מטבח | טווח מחיר לסועד | משפט אחד למה כדאי\n' + // i18n-ignore
+          'בלי כותרות, בלי מספור, בלי טקסט נוסף. בדיוק 6 שורות. הכל בעברית פרט לשם המסעדה.', // i18n-ignore
         prompt:
-          `עיר: ${trip.city}${trip.country ? `, ${trip.country}` : ''}\n` +
-          `העדפות: ${names || 'ללא העדפה'}\n\n` +
-          'הצע 6 מסעדות אמיתיות שמתאימות להעדפות.',
+          `עיר: ${trip.city}${trip.country ? `, ${trip.country}` : ''}\n` + // i18n-ignore
+          `העדפות: ${names || 'ללא העדפה'}\n\n` + // i18n-ignore
+          'הצע 6 מסעדות אמיתיות שמתאימות להעדפות.', // i18n-ignore
       })
 
       const rows = parseRows(text, ['name', 'area', 'kind', 'price', 'reason'])
-      if (rows.length === 0) setError('לא הצלחתי לפענח את התשובה. נסה שוב.')
+      if (rows.length === 0) setError(t('לא הצלחתי לפענח את התשובה. נסה שוב.'))
       setList(rows)
     } catch (err) {
       setError(err.message)
@@ -77,7 +78,7 @@ export default function Restaurants() {
     setAdding(null)
 
     if (!hit) {
-      setError(`לא הצלחתי לאתר את "${r.name}" על המפה.`)
+      setError(t('לא הצלחתי לאתר את "{name}" על המפה.', { name: r.name }))
       return
     }
 
@@ -99,14 +100,14 @@ export default function Restaurants() {
       <TopBar />
 
       <div className="pad">
-        <h1 className="h1" style={{ fontSize: 24 }}>איפה אוכלים</h1>
+        <h1 className="h1" style={{ fontSize: 24 }}>{t('איפה אוכלים')}</h1>
         <p className="tiny" style={{ marginTop: 4 }}>
-          המלצות ב{trip.city} לפי ההעדפות שלכם
+          {t('המלצות ב{city} לפי ההעדפות שלכם', { city: trip.city })}
         </p>
       </div>
 
       <div className="pad" style={{ marginTop: 18 }}>
-        <span className="label">סינון לפי מטבח</span>
+        <span className="label">{t('סינון לפי מטבח')}</span>
         <div className="pills">
           {CUISINES.map((c) => (
             <button
@@ -128,15 +129,15 @@ export default function Restaurants() {
           disabled={loading || !hasAI}
         >
           {loading ? (
-            <><span className="typing"><i /><i /><i /></span> מחפש ב{trip.city}...</>
+            <><span className="typing"><i /><i /><i /></span> {t('מחפש ב{city}...', { city: trip.city })}</>
           ) : (
-            <><Sparkles size={16} /> רענן המלצות</>
+            <><Sparkles size={16} /> {t('רענן המלצות')}</>
           )}
         </button>
 
         {!hasAI && (
           <p className="tiny" style={{ marginTop: 12 }}>
-            המלצות מסעדות דורשות חיבור לסוכן ה-AI.
+            {t('המלצות מסעדות דורשות חיבור לסוכן ה-AI.')}
           </p>
         )}
 
@@ -162,7 +163,7 @@ export default function Restaurants() {
                     source for either, and saying so plainly beats a card
                     that looks like Google/TripAdvisor but isn't one. */}
                 <span className="badge" style={{ marginBottom: 9 }}>
-                  <Sparkles size={11} /> המלצת AI, לא ביקורת מאומתת
+                  <Sparkles size={11} /> {t('המלצת AI, לא ביקורת מאומתת')}
                 </span>
 
                 <div className="row" style={{ gap: 8 }}>
@@ -174,14 +175,14 @@ export default function Restaurants() {
                     {adding === r.name ? (
                       <span className="typing"><i /><i /><i /></span>
                     ) : on ? (
-                      <><Check size={14} /> נוסף ליום {activeDay}</>
+                      <><Check size={14} /> {t('נוסף ליום {day}', { day: activeDay })}</>
                     ) : (
-                      <><Plus size={14} /> הוסף ליום {activeDay}</>
+                      <><Plus size={14} /> {t('הוסף ליום {day}', { day: activeDay })}</>
                     )}
                   </button>
                   <button className="btn btn-ghost btn-sm" onClick={() => setBooking(r)}>
                     <Ticket size={14} />
-                    הזמן מקום
+                    {t('הזמן מקום')}
                   </button>
                   <a
                     className="btn btn-ghost btn-sm"
@@ -192,7 +193,7 @@ export default function Restaurants() {
                     rel="noreferrer"
                   >
                     <Navigation size={14} />
-                    במפה
+                    {t('במפה')}
                   </a>
                 </div>
               </div>
@@ -209,7 +210,7 @@ export default function Restaurants() {
 
         {list.length > 0 && (
           <p className="tiny" style={{ marginTop: 14 }}>
-            ההמלצות נוצרו על ידי מודל שפה — ודאו שעות פתיחה וזמינות לפני שמגיעים.
+            {t('ההמלצות נוצרו על ידי מודל שפה — ודאו שעות פתיחה וזמינות לפני שמגיעים.')}
           </p>
         )}
       </div>

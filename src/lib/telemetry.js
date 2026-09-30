@@ -172,7 +172,7 @@ export function watchdog(name, ms = 15000, context) {
     record({
       kind: 'hang',
       level: 'warn',
-      message: `הפעולה "${name}" לא הסתיימה תוך ${ms}ms`,
+      message: `הפעולה "${name}" לא הסתיימה תוך ${ms}ms`, // i18n-ignore — internal log
       context: { ...context, operation: name, timeoutMs: ms },
     })
   }, ms)
@@ -201,7 +201,7 @@ export function initTelemetry() {
       record({
         kind: 'resource',
         level: 'warn',
-        message: `נכשלה טעינת ${event.target.tagName.toLowerCase()}`,
+        message: `נכשלה טעינת ${event.target.tagName.toLowerCase()}`, // i18n-ignore
         context: { src: event.target.src ?? event.target.href ?? null },
       })
       return
@@ -284,7 +284,7 @@ function patchFetch() {
         record({
           kind: 'slow',
           level: 'warn',
-          message: `בקשה איטית (${took}ms) — ${shortUrl(url)}`,
+          message: `בקשה איטית (${took}ms) — ${shortUrl(url)}`, // i18n-ignore
           context: { url: shortUrl(url), ms: took },
         })
       }
@@ -293,7 +293,7 @@ function patchFetch() {
       if (!internal && err?.name !== 'AbortError') {
         record({
           kind: 'network',
-          message: `הבקשה נכשלה — ${shortUrl(url)}`,
+          message: `הבקשה נכשלה — ${shortUrl(url)}`, // i18n-ignore
           stack: err?.stack,
           context: { url: shortUrl(url), error: err?.message },
         })
@@ -334,7 +334,7 @@ function watchForFreezes() {
       record({
         kind: 'freeze',
         level: 'warn',
-        message: `הממשק נתקע ל-${Math.round(gap)}ms`,
+        message: `הממשק נתקע ל-${Math.round(gap)}ms`, // i18n-ignore
         context: { gapMs: Math.round(gap) },
       })
     }

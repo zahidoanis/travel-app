@@ -56,7 +56,7 @@ export function placePhoto(name) {
       record({
         kind: 'network',
         level: 'warn',
-        message: `לא נטענה תמונה עבור "${title}"`,
+        message: `לא נטענה תמונה עבור "${title}"`, // i18n-ignore — internal log
         context: { title, error: err?.message },
       })
       return null
@@ -109,7 +109,7 @@ export function heroPhoto(name, width = 1200) {
       record({
         kind: 'network',
         level: 'warn',
-        message: `לא נטענה תמונת רקע עבור "${title}"`,
+        message: `לא נטענה תמונת רקע עבור "${title}"`, // i18n-ignore — internal log
         context: { title, error: err?.message },
       })
       return null

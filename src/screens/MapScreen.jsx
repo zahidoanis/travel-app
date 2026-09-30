@@ -6,6 +6,7 @@ import { Star, Info, Navigation, Clock, Locate, Plus, MapPin, Bed } from '../com
 import { CATEGORIES } from '../data'
 import { useTrip } from '../TripProvider'
 import { navigateUrl } from '../lib/staticMap'
+import { t, tn } from '../i18n'
 
 // A live dot older than this is more likely someone who closed the app
 // without switching sharing off than someone standing still that long —
@@ -119,9 +120,9 @@ export default function MapScreen() {
             className={`pill ${d === activeDay ? 'on' : ''}`}
             onClick={() => setActiveDay(d)}
           >
-            יום <span className="num">{d}</span>
+            {t('יום')} <span className="num">{d}</span>
             {(days[d]?.length ?? 0) > 0 && (
-              <> · <span className="num">{days[d].length}</span> עצירות</>
+              <> · <span className="num">{days[d].length}</span> {tn(days[d].length, 'עצירה', 'עצירות')}</>
             )}
           </button>
         ))}
@@ -141,13 +142,13 @@ export default function MapScreen() {
           {planning ? (
             <>
               <span className="typing"><i /><i /><i /></span>
-              <p className="sub" style={{ marginTop: 12 }}>הסוכן בונה את המסלול...</p>
+              <p className="sub" style={{ marginTop: 12 }}>{t('הסוכן בונה את המסלול...')}</p>
             </>
           ) : (
             <p className="sub">
               {unlocated > 0
-                ? 'העצירות ביום הזה עדיין בלי מיקום על המפה — אפשר לערוך אותן ולבחור מקום מהרשימה.'
-                : 'אין עדיין עצירות במסלול. חזור למסך הבית ובנה מסלול.'}
+                ? t('העצירות ביום הזה עדיין בלי מיקום על המפה — אפשר לערוך אותן ולבחור מקום מהרשימה.')
+                : t('אין עדיין עצירות במסלול. חזור למסך הבית ובנה מסלול.')}
             </p>
           )}
         </div>
@@ -176,14 +177,14 @@ export default function MapScreen() {
       {daySwitcher}
 
       <div className="map-tools">
-        <button className="map-tool" onClick={locateMe} aria-label="מרכז על המיקום שלי"><Locate size={18} /></button>
-        <button className="map-tool" aria-label="הוסף עצירה"><Plus size={18} /></button>
+        <button className="map-tool" onClick={locateMe} aria-label={t('מרכז על המיקום שלי')}><Locate size={18} /></button>
+        <button className="map-tool" aria-label={t('הוסף עצירה')}><Plus size={18} /></button>
         <button
           className={`map-tool ${sharingLocation ? 'on' : ''}`}
           onClick={toggleLocationSharing}
-          aria-label={sharingLocation ? 'הפסק לשתף מיקום חי' : 'שתף מיקום חי עם הקבוצה'}
+          aria-label={sharingLocation ? t('הפסק לשתף מיקום חי') : t('שתף מיקום חי עם הקבוצה')}
           aria-pressed={sharingLocation}
-          title="מיקום חי"
+          title={t('מיקום חי')}
         >
           <MapPin size={18} />
         </button>
@@ -221,7 +222,7 @@ export default function MapScreen() {
                     onClick={(e) => e.stopPropagation()}
                   >
                     <Navigation size={15} />
-                    ניווט
+                    {t('ניווט')}
                   </a>
                   <span className="row" style={{ gap: 8 }}>
                     <span className="tiny row" style={{ gap: 5 }}>
@@ -232,7 +233,7 @@ export default function MapScreen() {
                       className="icon-btn boxed"
                       style={{ width: 32, height: 32 }}
                       onClick={(e) => { e.stopPropagation(); setDetails(s) }}
-                      aria-label={`פרטים על ${s.he}`}
+                      aria-label={t('פרטים על {place}', { place: s.he })}
                     >
                       <Info size={15} />
                     </button>
@@ -249,7 +250,7 @@ export default function MapScreen() {
             <div key={h.label} className="stop-card glass">
               <div className="between" style={{ marginBottom: 9 }}>
                 <span className="tiny row" style={{ gap: 5 }}>
-                  <Bed size={13} /> המלון שלכם
+                  <Bed size={13} /> {t('המלון שלכם')}
                 </span>
               </div>
               <h3 className="h3" style={{ fontSize: 16, marginBottom: 6 }}>{h.name}</h3>
@@ -261,7 +262,7 @@ export default function MapScreen() {
                 rel="noreferrer"
               >
                 <Navigation size={15} />
-                ניווט למלון
+                {t('ניווט למלון')}
               </a>
             </div>
           ))}
@@ -286,11 +287,11 @@ export default function MapScreen() {
 
             <div className="card" style={{ marginBottom: 16 }}>
               <div className="between" style={{ marginBottom: 10 }}>
-                <span className="tiny">שעת הגעה מתוכננת</span>
+                <span className="tiny">{t('שעת הגעה מתוכננת')}</span>
                 <strong className="num" style={{ fontSize: 14 }}>{details.time}</strong>
               </div>
               <div className="between">
-                <span className="tiny">קואורדינטות</span>
+                <span className="tiny">{t('קואורדינטות')}</span>
                 <span className="num tiny">{details.lat.toFixed(4)}, {details.lng.toFixed(4)}</span>
               </div>
             </div>
@@ -302,7 +303,7 @@ export default function MapScreen() {
               rel="noreferrer"
             >
               <Navigation size={17} />
-              פתח ניווט ב-Google Maps
+              {t('פתח ניווט ב-Google Maps')}
             </a>
           </>
         )}

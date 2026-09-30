@@ -12,6 +12,7 @@
  */
 
 import { record } from './telemetry'
+import { t } from '../i18n'
 
 const API = 'https://api.open-meteo.com/v1/forecast'
 const ARCHIVE_API = 'https://archive-api.open-meteo.com/v1/archive'
@@ -33,10 +34,10 @@ const ICON = {
 }
 
 export const GREETING = {
-  morning: 'בוקר טוב',
-  noon: 'צהריים טובים',
-  evening: 'ערב טוב',
-  night: 'לילה טוב',
+  morning: t('בוקר טוב'),
+  noon: t('צהריים טובים'),
+  evening: t('ערב טוב'),
+  night: t('לילה טוב'),
 }
 
 function periodFor(hour) {
@@ -96,7 +97,7 @@ export async function fetchForecast(lat, lng) {
     // including hours already past.
     const h = data.hourly ?? {}
     const hours = (h.time ?? [])
-      .map((t, i) => ({ time: t, tempC: h.temperature_2m?.[i], code: h.weather_code?.[i] }))
+      .map((time, i) => ({ time, tempC: h.temperature_2m?.[i], code: h.weather_code?.[i] }))
       .filter((x) => x.time.startsWith(today) && Number(x.time.slice(11, 13)) >= hour)
       .map((x) => ({
         time: x.time,
@@ -117,7 +118,7 @@ export async function fetchForecast(lat, lng) {
     record({
       kind: 'network',
       level: 'warn',
-      message: `מזג אוויר לא נטען: ${err?.message ?? err}`,
+      message: `מזג אוויר לא נטען: ${err?.message ?? err}`, // i18n-ignore
       context: { lat, lng },
     })
     return null
@@ -214,7 +215,7 @@ export async function fetchClimateAverage(lat, lng, month, day) {
     record({
       kind: 'network',
       level: 'warn',
-      message: `ממוצע אקלים לא נטען: ${err?.message ?? err}`,
+      message: `ממוצע אקלים לא נטען: ${err?.message ?? err}`, // i18n-ignore
       context: { lat, lng },
     })
     return null

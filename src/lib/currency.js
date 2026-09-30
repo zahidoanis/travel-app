@@ -1,3 +1,5 @@
+// i18n-ignore-file — bilingual lookup data (country name -> currency), not UI text.
+
 /**
  * Local currency for the destination, and live exchange rates.
  *
@@ -60,7 +62,8 @@ const BY_COUNTRY = {
   'פינלנד': 'EUR', 'Suomi': 'EUR', 'Finland': 'EUR',
 
   // Europe, own currency
-  'אנגליה': 'GBP', 'בריטניה': 'GBP', 'United Kingdom': 'GBP',
+  'אנגליה': 'GBP', 'בריטניה': 'GBP', 'United Kingdom': 'GBP', 'England': 'GBP',
+  'סקוטלנד': 'GBP', 'Scotland': 'GBP',
   'צ׳כיה': 'CZK', "צ'כיה": 'CZK', 'Česko': 'CZK', 'Czechia': 'CZK',
   'הונגריה': 'HUF', 'Magyarország': 'HUF', 'Hungary': 'HUF',
   'פולין': 'PLN', 'Polska': 'PLN', 'Poland': 'PLN',
@@ -114,7 +117,7 @@ const BY_COUNTRY = {
   // quoted in across this group, which is handled as a display fallback in
   // Finance.jsx (isConvertible) rather than baked in here as a wrong answer
   // to "what currency is this".
-  'איחוד האמירויות': 'AED', 'الإمارات العربية المتحدة': 'AED', 'United Arab Emirates': 'AED',
+  'איחוד האמירויות': 'AED', 'الإمارات العربية المتحدة': 'AED', 'United Arab Emirates': 'AED', 'UAE': 'AED',
   'קטאר': 'QAR', 'قطر': 'QAR', 'Qatar': 'QAR',
   'מצרים': 'EGP', 'مصر': 'EGP', 'Egypt': 'EGP',
   'מרוקו': 'MAD', 'المغرب': 'MAD', 'Morocco': 'MAD',

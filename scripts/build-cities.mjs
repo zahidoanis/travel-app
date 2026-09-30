@@ -188,6 +188,8 @@ for (const c of CITIES) {
     he: c.he,
     en: c.en.split(',')[0].trim(),
     country: c.country,
+    // English country, from the same 'Place, Country' string used to geocode.
+    countryEn: c.en.split(',').slice(1).join(',').trim() || c.en.split(',')[0].trim(), // city-states
     emoji: c.emoji,
     lat: +Number(hit.lat).toFixed(4),
     lng: +Number(hit.lon).toFixed(4),
@@ -223,7 +225,7 @@ export function searchCities(query, limit = 6) {
     const he = c.he.toLowerCase()
     const en = c.en.toLowerCase()
     if (he.startsWith(q) || en.startsWith(q)) starts.push(c)
-    else if (he.includes(q) || en.includes(q) || c.country.toLowerCase().includes(q)) contains.push(c)
+    else if (he.includes(q) || en.includes(q) || c.country.toLowerCase().includes(q) || c.countryEn.toLowerCase().includes(q)) contains.push(c)
     if (starts.length >= limit) break
   }
 

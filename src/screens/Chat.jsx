@@ -4,6 +4,7 @@ import { AlertTriangle, Bot, Mic, Paperclip, Send, Sparkles } from '../component
 import { useTrip } from '../TripProvider'
 import { hasAI, aiMode, aiModel } from '../lib/gemini'
 import { useSpeech } from '../lib/speech'
+import { t } from '../i18n'
 
 // Turns a URL inside message text into a real, clickable link. Two shapes
 // show up in practice: a bare https://… (BOOKING_LINK's report line, built
@@ -34,10 +35,10 @@ function linkify(text) {
 
 /** Openers, so an empty thread still shows what the agent is for. */
 const STARTERS = [
-  'מה כדאי לעשות היום אם יורד גשם?',
-  'תסדר לי מחדש את היום כך שנספיק הכול',
-  'איפה כדאי לאכול ליד העצירה הבאה?',
-  'כמה זמן ייקח להגיע בין העצירות?',
+  t('מה כדאי לעשות היום אם יורד גשם?'),
+  t('תסדר לי מחדש את היום כך שנספיק הכול'),
+  t('איפה כדאי לאכול ליד העצירה הבאה?'),
+  t('כמה זמן ייקח להגיע בין העצירות?'),
 ]
 
 /**
@@ -71,13 +72,13 @@ export default function Chat() {
             {hasAI ? (
               <>
                 <Sparkles size={12} />
-                סוכן פעיל · {aiModel}
-                {aiMode === 'direct' && ' · מצב פיתוח'}
+                {t('סוכן פעיל')} · {aiModel}
+                {aiMode === 'direct' && ` · ${t('מצב פיתוח')}`}
               </>
             ) : (
               <>
                 <Bot size={12} />
-                הסוכן אינו מחובר
+                {t('הסוכן אינו מחובר')}
               </>
             )}
           </span>
@@ -87,9 +88,9 @@ export default function Chat() {
               <div className="ai-avatar" style={{ width: 44, height: 44, borderRadius: 14 }}>
                 <Bot size={22} />
               </div>
-              <h2 className="h2" style={{ marginTop: 14 }}>מה תרצה לדעת?</h2>
+              <h2 className="h2" style={{ marginTop: 14 }}>{t('מה תרצה לדעת?')}</h2>
               <p className="sub" style={{ marginTop: 6, maxWidth: '30ch' }}>
-                הסוכן מכיר את המסלול שלך — את השעות, המקומות ומי מטייל.
+                {t('הסוכן מכיר את המסלול שלך — את השעות, המקומות ומי מטייל.')}
               </p>
 
               <div className="starters">
@@ -116,10 +117,10 @@ export default function Chat() {
             <div className="alert-card msg-in">
               <div className="row" style={{ marginBottom: 8 }}>
                 <span style={{ color: 'var(--rose)' }}><AlertTriangle size={16} /></span>
-                <strong style={{ fontSize: 13.5, fontWeight: 600 }}>הסוכן לא הצליח לענות</strong>
+                <strong style={{ fontSize: 13.5, fontWeight: 600 }}>{t('הסוכן לא הצליח לענות')}</strong>
               </div>
               <p className="tiny" style={{ margin: '0 0 12px' }}>{error}</p>
-              <button className="btn btn-ghost btn-sm" onClick={retryChatMessage}>נסה שוב</button>
+              <button className="btn btn-ghost btn-sm" onClick={retryChatMessage}>{t('נסה שוב')}</button>
             </div>
           )}
 
@@ -128,7 +129,7 @@ export default function Chat() {
       </div>
 
       <div className="chat-bar glass">
-        <button className="icon-btn" style={{ width: 34, height: 34 }} aria-label="צרף קובץ">
+        <button className="icon-btn" style={{ width: 34, height: 34 }} aria-label={t('צרף קובץ')}>
           <Paperclip size={17} />
         </button>
 
@@ -136,8 +137,8 @@ export default function Chat() {
           value={shown}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && sendChatMessage()}
-          placeholder={speech.listening ? 'מקשיב...' : 'שאל את סוכן ה-AI...'}
-          aria-label="הודעה"
+          placeholder={speech.listening ? t('מקשיב...') : t('שאל את סוכן ה-AI...')}
+          aria-label={t('הודעה')}
           disabled={!hasAI}
         />
 
@@ -146,7 +147,7 @@ export default function Chat() {
             className="icon-btn"
             style={{ width: 34, height: 34, color: speech.listening ? 'var(--rose)' : undefined }}
             onClick={speech.toggle}
-            aria-label={speech.listening ? 'עצור הקלטה' : 'דבר במקום להקליד'}
+            aria-label={speech.listening ? t('עצור הקלטה') : t('דבר במקום להקליד')}
             aria-pressed={speech.listening}
             disabled={!hasAI}
           >
@@ -154,7 +155,7 @@ export default function Chat() {
           </button>
         )}
 
-        <button className="send" onClick={() => sendChatMessage()} disabled={!draft.trim() || typing} aria-label="שלח">
+        <button className="send" onClick={() => sendChatMessage()} disabled={!draft.trim() || typing} aria-label={t('שלח')}>
           <Send size={16} />
         </button>
       </div>

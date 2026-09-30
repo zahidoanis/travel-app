@@ -91,7 +91,7 @@ export function search(query, limit = 5, kind, details = false) {
       record({
         kind: 'network',
         level: 'warn',
-        message: `חיפוש מיקום נכשל עבור "${q}"`,
+        message: `חיפוש מיקום נכשל עבור "${q}"`, // i18n-ignore — internal log
         context: { query: q, error: err?.message },
       })
       return []

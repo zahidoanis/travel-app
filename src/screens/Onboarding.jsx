@@ -9,6 +9,8 @@ import { search, geocode } from '../lib/geocode'
 import { CITIES, searchCities } from '../cities'
 import { breadcrumb, watchdog } from '../lib/telemetry'
 import DateRangeCalendar from '../components/DateRangeCalendar'
+import { t, tn } from '../i18n'
+import { lang } from '../i18n'
 
 /**
  * One question per screen. Each step declares its own validity, so the CTA
@@ -17,32 +19,32 @@ import DateRangeCalendar from '../components/DateRangeCalendar'
 const STEPS = [
   {
     id: 'where',
-    title: 'לאן נוסעים?',
-    sub: 'בחר יעד מהרשימה או הקלד יעד משלך.',
+    title: t('לאן נוסעים?'),
+    sub: t('בחר יעד מהרשימה או הקלד יעד משלך.'),
     valid: (a) => a.destination.trim().length > 1,
-    blocker: () => 'בחר או הקלד יעד כדי להמשיך.',
+    blocker: () => t('בחר או הקלד יעד כדי להמשיך.'),
   },
   {
     id: 'when',
-    title: 'מתי?',
-    sub: 'טווח התאריכים קובע את חלוקת הימים במסלול.',
+    title: t('מתי?'),
+    sub: t('טווח התאריכים קובע את חלוקת הימים במסלול.'),
     valid: (a) => Boolean(a.from && a.to && a.to > a.from),
     blocker: (a) =>
-      !a.from ? 'בחר תאריך יציאה.'
-        : !a.to ? 'בחר תאריך חזרה.'
-        : 'תאריך החזרה חייב להיות אחרי היציאה.',
+      !a.from ? t('בחר תאריך יציאה.')
+        : !a.to ? t('בחר תאריך חזרה.')
+        : t('תאריך החזרה חייב להיות אחרי היציאה.'),
   },
   {
     id: 'style',
-    title: 'מה אופי הטיול?',
-    sub: 'אפשר לבחור כמה. זה משפיע על סוג העצירות שנציע.',
+    title: t('מה אופי הטיול?'),
+    sub: t('אפשר לבחור כמה. זה משפיע על סוג העצירות שנציע.'),
     valid: (a) => a.styles.length > 0,
-    blocker: () => 'בחר לפחות סגנון אחד.',
+    blocker: () => t('בחר לפחות סגנון אחד.'),
   },
   {
     id: 'who',
-    title: 'מי מטייל?',
-    sub: 'שם המשפחה וכמות הנוסעים. כך אפשר לחלק את הלו"ז והוצאות לפי משפחה.',
+    title: t('מי מטייל?'),
+    sub: t('שם המשפחה וכמות הנוסעים. כך אפשר לחלק את הלו"ז והוצאות לפי משפחה.'),
     valid: (a) =>
       a.parties.length > 0 &&
       a.parties.every((p) => (a.parties.length === 1 || p.name.trim()) && p.members.length > 0),
@@ -50,30 +52,30 @@ const STEPS = [
       // A name only matters once there is more than one family to tell apart.
       if (a.parties.length > 1) {
         const i = a.parties.findIndex((p) => !p.name.trim())
-        if (i >= 0) return `למשפחה ${i + 1} חסר שם.`
+        if (i >= 0) return t('למשפחה {n} חסר שם.', { n: i + 1 })
       }
       const j = a.parties.findIndex((p) => p.members.length === 0)
-      if (j >= 0) return 'חסר לפחות נוסע אחד.'
-      return 'מלא את פרטי המשפחות.'
+      if (j >= 0) return t('חסר לפחות נוסע אחד.')
+      return t('מלא את פרטי המשפחות.')
     },
   },
   {
     id: 'food',
-    title: 'מה אוהבים לאכול?',
-    sub: 'ההעדפות האלה מסננות את המלצות המסעדות לאורך כל הטיול.',
+    title: t('מה אוהבים לאכול?'),
+    sub: t('ההעדפות האלה מסננות את המלצות המסעדות לאורך כל הטיול.'),
     valid: (a) => a.cuisines.length > 0,
-    blocker: () => 'בחר לפחות סוג מטבח אחד.',
+    blocker: () => t('בחר לפחות סוג מטבח אחד.'),
   },
   {
     id: 'flight',
-    title: 'איך מגיעים?',
-    sub: 'מספר טיסה וחברת תעופה — כדי שנוכל לתכנן את ההגעה למלון.',
+    title: t('איך מגיעים?'),
+    sub: t('מספר טיסה וחברת תעופה — כדי שנוכל לתכנן את ההגעה למלון.'),
     valid: () => true,
   },
   {
     id: 'stay',
-    title: 'איפה תישנו?',
-    sub: 'אם כבר הזמנתם — נאתר את המלון על המפה. אם לא, הסוכן ימצא לכם.',
+    title: t('איפה תישנו?'),
+    sub: t('אם כבר הזמנתם — נאתר את המלון על המפה. אם לא, הסוכן ימצא לכם.'),
     // Optional — a trip is plannable without a hotel picked yet.
     valid: () => true,
   },
@@ -133,7 +135,14 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
     }
 
     const local = searchCities(q, 6)
-    setCityHits(local.map((c) => ({ ...c, name: c.he, source: 'local' })))
+    // Each curated city carries both names; show (and store) the one in the
+    // UI's language, keeping the English one for searches either way.
+    setCityHits(local.map((c) => ({
+      ...c,
+      name: lang === 'en' ? c.en : c.he,
+      country: lang === 'en' ? c.countryEn : c.country,
+      source: 'local',
+    })))
 
     if (local.length > 0 || q.length < 3) {
       setCityLoading(false)
@@ -172,7 +181,7 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
     // Scoped to the destination so "Hilton" resolves in the right city.
     const hits = await search(`${q}, ${answers.destination}`, 5)
     setHotelHits(hits)
-    if (hits.length === 0) setHotelError('לא מצאתי מלון בשם הזה ביעד. נסה שם מדויק יותר.')
+    if (hits.length === 0) setHotelError(t('לא מצאתי מלון בשם הזה ביעד. נסה שם מדויק יותר.'))
     setLocating(false)
   }
 
@@ -282,20 +291,20 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
     try {
       const text = await complete({
         system:
-          'אתה סוכן נסיעות. החזר אך ורק שורות בפורמט: שם | אזור | טווח מחיר ללילה | משפט אחד למה מתאים. ' +
-          'בלי כותרות, בלי מספור, בלי טקסט נוסף. בדיוק 4 שורות. הכל בעברית פרט לשם המלון.',
+          'אתה סוכן נסיעות. החזר אך ורק שורות בפורמט: שם | אזור | טווח מחיר ללילה | משפט אחד למה מתאים. ' + // i18n-ignore — AI prompt; see gemini.js language override
+          'בלי כותרות, בלי מספור, בלי טקסט נוסף. בדיוק 4 שורות. הכל בעברית פרט לשם המלון.', // i18n-ignore
         prompt:
-          `יעד: ${answers.destination}${answers.country ? `, ${answers.country}` : ''}\n` +
-          `תאריכים: ${answers.from} עד ${answers.to} (${nights} לילות)\n` +
-          `נוסעים: ${travellers} ב-${answers.parties.length} משפחות\n` +
-          `אופי הטיול: ${styleNames || 'לא צוין'}\n` +
-          `בקשה חופשית: ${query.trim() || 'ללא העדפה מיוחדת'}\n\n` +
-          'הצע 4 מלונות אמיתיים שמתאימים.',
+          `יעד: ${answers.destination}${answers.country ? `, ${answers.country}` : ''}\n` + // i18n-ignore
+          `תאריכים: ${answers.from} עד ${answers.to} (${nights} לילות)\n` + // i18n-ignore
+          `נוסעים: ${travellers} ב-${answers.parties.length} משפחות\n` + // i18n-ignore
+          `אופי הטיול: ${styleNames || 'לא צוין'}\n` + // i18n-ignore
+          `בקשה חופשית: ${query.trim() || 'ללא העדפה מיוחדת'}\n\n` + // i18n-ignore
+          'הצע 4 מלונות אמיתיים שמתאימים.', // i18n-ignore
       })
 
       const rows = parseRows(text, ['name', 'area', 'price', 'reason'])
       if (rows.length === 0) {
-        setHotelError('לא הצלחתי לפענח את התשובה. נסה לנסח את הבקשה אחרת.')
+        setHotelError(t('לא הצלחתי לפענח את התשובה. נסה לנסח את הבקשה אחרת.'))
       }
       setHotels(rows)
     } catch (err) {
@@ -332,13 +341,13 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                 if (step > 0) setStep(step - 1)
                 else if (editMode) onClose?.()
               }}
-              aria-label={step === 0 && editMode ? 'סגור' : 'חזור'}
+              aria-label={step === 0 && editMode ? t('סגור') : t('חזור')}
               disabled={step === 0 && !editMode}
             >
               {step === 0 && editMode ? <X size={20} /> : <ArrowRight size={20} />}
             </button>
             <span className="tiny" style={{ fontWeight: 500 }}>
-              שלב <span className="num">{step + 1}</span> מתוך{' '}
+              {t('שלב')} <span className="num">{step + 1}</span> {t('מתוך')}{' '}
               <span className="num">{STEPS.length}</span>
             </span>
           </div>
@@ -364,8 +373,8 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                       set({ destination: e.target.value, country: '' })
                       lookupCity(e.target.value)
                     }}
-                    placeholder="עיר או מדינה"
-                    aria-label="יעד הטיול"
+                    placeholder={t('עיר או מדינה')}
+                    aria-label={t('יעד הטיול')}
                     aria-autocomplete="list"
                     autoComplete="off"
                     autoFocus
@@ -410,7 +419,7 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                 )}
               </div>
 
-              <span className="label" style={{ marginTop: 18 }}>יעדים פופולריים</span>
+              <span className="label" style={{ marginTop: 18 }}>{t('יעדים פופולריים')}</span>
               <div className="dest-grid">
                 {DESTINATIONS.map((d) => {
                   const on = answers.destination === d.city
@@ -424,7 +433,7 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                         // come from the same curated list this card's own
                         // city already lives in — no reason to geocode a
                         // place we already have the answer for.
-                        const known = CITIES.find((c) => c.he === d.city)
+                        const known = CITIES.find((c) => c.en === d.en)
                         set({
                           destination: d.city,
                           country: d.country,
@@ -456,26 +465,26 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
 
               <div className="date-grid" style={{ marginTop: 14 }}>
                 <label className="date-cell">
-                  <span className="label">שעת המראה</span>
+                  <span className="label">{t('שעת המראה')}</span>
                   <select
                     className="field"
                     value={answers.departTime}
                     onChange={(e) => set({ departTime: e.target.value })}
-                    aria-label="שעת המראה ביציאה"
+                    aria-label={t('שעת המראה ביציאה')}
                   >
-                    <option value="">בחר שעה</option>
+                    <option value="">{t('בחר שעה')}</option>
                     {TIME_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
                   </select>
                 </label>
                 <label className="date-cell">
-                  <span className="label">שעת המראה בחזרה</span>
+                  <span className="label">{t('שעת המראה בחזרה')}</span>
                   <select
                     className="field"
                     value={answers.returnTime}
                     onChange={(e) => set({ returnTime: e.target.value })}
-                    aria-label="שעת המראה בחזרה"
+                    aria-label={t('שעת המראה בחזרה')}
                   >
-                    <option value="">בחר שעה</option>
+                    <option value="">{t('בחר שעה')}</option>
                     {TIME_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
                   </select>
                 </label>
@@ -485,11 +494,11 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                 <Calendar size={17} />
                 {nights > 0 ? (
                   <span>
-                    <strong className="num">{nights}</strong> לילות ·{' '}
-                    <strong className="num">{nights + 1}</strong> ימי טיול
+                    <strong className="num">{nights}</strong> {tn(nights, 'לילה', 'לילות')} ·{' '}
+                    <strong className="num">{nights + 1}</strong> {tn(nights + 1, 'יום טיול', 'ימי טיול')}
                   </span>
                 ) : (
-                  <span className="tiny">בחר תאריך יציאה וחזרה</span>
+                  <span className="tiny">{t('בחר תאריך יציאה וחזרה')}</span>
                 )}
               </div>
 
@@ -505,7 +514,7 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                       set({ from: start, to: end.toISOString().slice(0, 10) })
                     }}
                   >
-                    <span className="num">{d}</span> לילות
+                    <span className="num">{d}</span> {t('לילות')}
                   </button>
                 ))}
               </div>
@@ -557,7 +566,7 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                   aria-pressed={!multiFamily}
                 >
                   <span className="radio">{!multiFamily && <Check size={11} />}</span>
-                  רק אנחנו
+                  {t('רק אנחנו')}
                 </button>
                 <button
                   className={`choice ${multiFamily ? "on" : ""}`}
@@ -569,7 +578,7 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                   aria-pressed={multiFamily}
                 >
                   <span className="radio">{multiFamily && <Check size={11} />}</span>
-                  כמה משפחות ביחד
+                  {t('כמה משפחות ביחד')}
                 </button>
               </div>
 
@@ -586,14 +595,14 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                           className="field-bare grow"
                           value={p.name}
                           onChange={(e) => patchParty(p.id, { name: e.target.value })}
-                          placeholder="שם המשפחה"
-                          aria-label={`שם משפחה ${pi + 1}`}
+                          placeholder={t('שם המשפחה')}
+                          aria-label={t('שם משפחה {n}', { n: pi + 1 })}
                         />
                         {answers.parties.length > 1 && (
                           <button
                             className="icon-btn" style={{ width: 28, height: 28 }}
                             onClick={() => set({ parties: answers.parties.filter((x) => x.id !== p.id) })}
-                            aria-label={`הסר את ${p.name}`}
+                            aria-label={t('הסר את {name}', { name: p.name })}
                           ><X size={14} /></button>
                         )}
                       </div>
@@ -631,30 +640,30 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                         />
                         <div className="date-grid">
                           <label className="date-cell">
-                            <span className="label">שעת הגעה</span>
+                            <span className="label">{t('שעת הגעה')}</span>
                             <select
                               className="field" value={p.arriveAt?.split('T')[1] ?? ''}
                               onChange={(e) => {
                                 const date = p.arriveAt?.split('T')[0] ?? answers.from
                                 patchParty(p.id, { arriveAt: date ? `${date}T${e.target.value || '00:00'}` : null })
                               }}
-                              aria-label={`שעת הגעה של ${p.name}`}
+                              aria-label={t('שעת הגעה של {name}', { name: p.name })}
                             >
-                              <option value="">בחר שעה</option>
+                              <option value="">{t('בחר שעה')}</option>
                               {TIME_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
                             </select>
                           </label>
                           <label className="date-cell">
-                            <span className="label">שעת עזיבה</span>
+                            <span className="label">{t('שעת עזיבה')}</span>
                             <select
                               className="field" value={p.departAt?.split('T')[1] ?? ''}
                               onChange={(e) => {
                                 const date = p.departAt?.split('T')[0] ?? answers.to
                                 patchParty(p.id, { departAt: date ? `${date}T${e.target.value || '00:00'}` : null })
                               }}
-                              aria-label={`שעת עזיבה של ${p.name}`}
+                              aria-label={t('שעת עזיבה של {name}', { name: p.name })}
                             >
-                              <option value="">בחר שעה</option>
+                              <option value="">{t('בחר שעה')}</option>
                               {TIME_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
                             </select>
                           </label>
@@ -664,19 +673,19 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
 
                     <div className="row" style={{ marginTop: 12, gap: 10 }}>
                       <span className="grow" style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--text-2)' }}>
-                        כמה נוסעים במשפחה
+                        {t('כמה נוסעים במשפחה')}
                       </span>
                       <span className="stepper">
                         <button
                           type="button"
                           onClick={() => setTravellerCount(p.id, p.members.length - 1)}
-                          aria-label={`פחות נוסעים ב${p.name}`}
+                          aria-label={t('פחות נוסעים ב{name}', { name: p.name })}
                         >−</button>
                         <span className="num">{p.members.length}</span>
                         <button
                           type="button"
                           onClick={() => setTravellerCount(p.id, p.members.length + 1)}
-                          aria-label={`עוד נוסעים ב${p.name}`}
+                          aria-label={t('עוד נוסעים ב{name}', { name: p.name })}
                         >+</button>
                       </span>
                     </div>
@@ -687,19 +696,19 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                       <>
                         <div className="row" style={{ marginTop: 10, gap: 10 }}>
                           <span className="grow" style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--text-2)' }}>
-                            כמה מהם ילדים
+                            {t('כמה מהם ילדים')}
                           </span>
                           <span className="stepper">
                             <button
                               type="button"
                               onClick={() => setKidsCount(p.id, (p.kidsCount ?? 0) - 1)}
-                              aria-label={`פחות ילדים ב${p.name}`}
+                              aria-label={t('פחות ילדים ב{name}', { name: p.name })}
                             >−</button>
                             <span className="num">{p.kidsCount ?? 0}</span>
                             <button
                               type="button"
                               onClick={() => setKidsCount(p.id, (p.kidsCount ?? 0) + 1)}
-                              aria-label={`עוד ילדים ב${p.name}`}
+                              aria-label={t('עוד ילדים ב{name}', { name: p.name })}
                             >+</button>
                           </span>
                         </div>
@@ -708,13 +717,13 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                           <div className="row" style={{ gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
                             {Array.from({ length: p.kidsCount ?? 0 }).map((_, ki) => (
                               <label key={ki} className="col" style={{ gap: 3 }}>
-                                <span className="tiny">גיל ילד/ה {ki + 1}</span>
+                                <span className="tiny">{t('גיל ילד/ה {n}', { n: ki + 1 })}</span>
                                 <input
                                   className="field" style={{ width: 64, padding: '8px 10px' }}
                                   type="number" min="0" max="17" inputMode="numeric"
                                   value={memberAge(p.members[ki])}
                                   onChange={(e) => setMemberAge(p.id, ki, e.target.value)}
-                                  aria-label={`גיל ילד ${ki + 1} ב${p.name}`}
+                                  aria-label={t('גיל ילד {n} ב{name}', { n: ki + 1, name: p.name })}
                                 />
                               </label>
                             ))}
@@ -734,16 +743,16 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                   disabled={answers.parties.length >= 6}
                 >
                   <Plus size={16} />
-                  הוסף משפחה
+                  {t('הוסף משפחה')}
                 </button>
               )}
 
               <div className="range-summary on" style={{ marginTop: 16 }}>
                 <Users size={17} />
                 <span>
-                  <strong className="num">{travellers}</strong> נוסעים ב-
+                  <strong className="num">{travellers}</strong> {tn(travellers, 'נוסע ב-', 'נוסעים ב-')}
                   <strong className="num">{answers.parties.length}</strong>{" "}
-                  {answers.parties.length === 1 ? "משפחה" : "משפחות"}
+                  {answers.parties.length === 1 ? t('משפחה') : t('משפחות')}
                 </span>
               </div>
             </>
@@ -776,38 +785,38 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
 
           {current.id === 'flight' && (
             <>
-              <span className="label">טיסת הלוך</span>
+              <span className="label">{t('טיסת הלוך')}</span>
               <div className="flight-grid">
                 <label>
-                  <span className="label">חברת תעופה</span>
+                  <span className="label">{t('חברת תעופה')}</span>
                   <input
                     className="field"
                     value={answers.flight.airline}
                     onChange={(e) => setFlight({ airline: e.target.value })}
                     placeholder="El Al / Wizz Air"
-                    aria-label="חברת תעופה"
+                    aria-label={t('חברת תעופה')}
                   />
                 </label>
                 <label>
-                  <span className="label">מספר טיסה</span>
+                  <span className="label">{t('מספר טיסה')}</span>
                   <input
                     className="field ltr"
                     value={answers.flight.number}
                     onChange={(e) => setFlight({ number: e.target.value.toUpperCase() })}
                     placeholder="LY381"
-                    aria-label="מספר טיסה"
+                    aria-label={t('מספר טיסה')}
                   />
                 </label>
               </div>
 
               <label style={{ display: 'block', marginTop: 12 }}>
-                <span className="label">שדה תעופה בהגעה</span>
+                <span className="label">{t('שדה תעופה בהגעה')}</span>
                 <input
                   className="field"
                   value={answers.flight.arrivalAirport}
                   onChange={(e) => setFlight({ arrivalAirport: e.target.value })}
-                  placeholder={`נמל התעופה של ${answers.destination || 'היעד'}`}
-                  aria-label="שדה תעופה בהגעה"
+                  placeholder={t('נמל התעופה של {place}', { place: answers.destination || t('היעד') })}
+                  aria-label={t('שדה תעופה בהגעה')}
                 />
               </label>
 
@@ -815,16 +824,13 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                 <div className="row" style={{ alignItems: 'flex-start', gap: 9 }}>
                   <span style={{ color: 'var(--muted)' }}><Info size={15} /></span>
                   <p className="tiny" style={{ margin: 0 }}>
-                    שעות ההמראה והנחיתה מגיעות מחברת התעופה, לא מהסוכן — אין לו גישה
-                    למאגר טיסות חי, והוא היה מנחש. נשמור את הפרטים וניתן לך קישור
-                    ישיר למעקב אחרי הטיסה.
+                    {t('שעות ההמראה והנחיתה מגיעות מחברת התעופה, לא מהסוכן — אין לו גישה למאגר טיסות חי, והוא היה מנחש. נשמור את הפרטים וניתן לך קישור ישיר למעקב אחרי הטיסה.')}
                   </p>
                 </div>
               </div>
 
               <p className="tiny" style={{ marginTop: 14 }}>
-                אחרי שנדע את שדה התעופה והמלון, הסוכן ימליץ איך להגיע ביניהם —
-                רכבת, שאטל, מונית או הסעה פרטית.
+                {t('אחרי שנדע את שדה התעופה והמלון, הסוכן ימליץ איך להגיע ביניהם — רכבת, שאטל, מונית או הסעה פרטית.')}
               </p>
             </>
           )}
@@ -832,12 +838,12 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
           {current.id === 'stay' && (
             <>
               {/* The first question decides which of two flows follows. */}
-              <div className="segmented" role="group" aria-label="האם הוזמן מלון">
+              <div className="segmented" role="group" aria-label={t('האם הוזמן מלון')}>
                 <button className={booked === 'yes' ? 'on' : ''} onClick={() => setBooked('yes')}>
-                  <Check size={15} /> כבר הזמנו
+                  <Check size={15} /> {t('כבר הזמנו')}
                 </button>
                 <button className={booked === 'no' ? 'on' : ''} onClick={() => setBooked('no')}>
-                  <Sparkles size={15} /> עוד מחפשים
+                  <Sparkles size={15} /> {t('עוד מחפשים')}
                 </button>
               </div>
 
@@ -845,7 +851,7 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
               {answers.stays.length > 0 && (
                 <div className="col" style={{ gap: 9, marginTop: 20 }}>
                   <span className="label" style={{ marginBottom: 0 }}>
-                    הלינה שלכם ({answers.stays.length})
+                    {t('הלינה שלכם')} ({answers.stays.length})
                   </span>
                   {answers.stays.map((s, i) => (
                     <div key={s.label} className="party-row">
@@ -858,21 +864,21 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                         className="icon-btn"
                         style={{ width: 30, height: 30 }}
                         onClick={() => set({ stays: answers.stays.filter((x) => x.label !== s.label) })}
-                        aria-label={`הסר את ${s.name}`}
+                        aria-label={t('הסר את {name}', { name: s.name })}
                       >
                         <X size={14} />
                       </button>
                     </div>
                   ))}
                   <p className="tiny">
-                    אפשר להוסיף עוד מלון — שימושי כשהטיול עובר בין ערים או כשכל משפחה ישנה במקום אחר.
+                    {t('אפשר להוסיף עוד מלון — שימושי כשהטיול עובר בין ערים או כשכל משפחה ישנה במקום אחר.')}
                   </p>
                 </div>
               )}
 
               {booked === 'yes' && (
                 <div style={{ marginTop: 20 }}>
-                  <span className="label">שם המלון</span>
+                  <span className="label">{t('שם המלון')}</span>
                   <div className="row field-row">
                     <Bed size={18} />
                     <input
@@ -880,8 +886,8 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                       value={hotelName}
                       onChange={(e) => setHotelName(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && findBookedHotel()}
-                      placeholder={`לדוגמה: Hilton ${answers.destination}`}
-                      aria-label="שם המלון שהוזמן"
+                      placeholder={t('לדוגמה: Hilton {city}', { city: answers.destination })}
+                      aria-label={t('שם המלון שהוזמן')}
                     />
                     {locating && <span className="typing"><i /><i /><i /></span>}
                   </div>
@@ -893,13 +899,13 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                     disabled={locating || !hotelName.trim()}
                   >
                     <MapPin size={16} />
-                    אתר את המיקום
+                    {t('אתר את המיקום')}
                   </button>
 
                   {hotelHits.length > 0 && (
                     <>
                       <span className="label" style={{ marginTop: 20 }}>
-                        {hotelHits.length === 1 ? 'נמצא' : 'נמצאו כמה — בחר את הנכון'}
+                        {hotelHits.length === 1 ? t('נמצא') : t('נמצאו כמה — בחר את הנכון')}
                       </span>
                       <div className="col" style={{ gap: 9 }}>
                         {hotelHits.map((h) => (
@@ -932,7 +938,7 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
 
               {booked === 'no' && (
                 <div style={{ marginTop: 20 }}>
-                  <span className="label">מה חשוב לך?</span>
+                  <span className="label">{t('מה חשוב לך?')}</span>
                   <div className="row field-row" style={{ marginBottom: 12 }}>
                     <Sparkles size={18} />
                     <input
@@ -940,8 +946,8 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && findHotels()}
-                      placeholder="קרוב למרכז, עם בריכה, שקט בלילה..."
-                      aria-label="חיפוש חופשי של מלון"
+                      placeholder={t('קרוב למרכז, עם בריכה, שקט בלילה...')}
+                      aria-label={t('חיפוש חופשי של מלון')}
                     />
                   </div>
 
@@ -954,18 +960,18 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                   {searching ? (
                     <>
                       <span className="typing"><i /><i /><i /></span>
-                      מחפש ב{answers.destination}...
+                      {t('מחפש ב{city}...', { city: answers.destination })}
                     </>
                   ) : (
                     <>
                       <Sparkles size={17} />
-                      מצא לי מלונות
+                      {t('מצא לי מלונות')}
                     </>
                   )}
                 </button>
               ) : (
                 <p className="tiny">
-                  חיפוש חכם דורש חיבור לסוכן ה-AI. אפשר להקליד שם מלון ידנית ולהמשיך.
+                  {t('חיפוש חכם דורש חיבור לסוכן ה-AI. אפשר להקליד שם מלון ידנית ולהמשיך.')}
                 </p>
               )}
 
@@ -977,7 +983,7 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
 
               {hotels.length > 0 && (
                 <>
-                  <span className="label" style={{ marginTop: 22 }}>הצעות הסוכן</span>
+                  <span className="label" style={{ marginTop: 22 }}>{t('הצעות הסוכן')}</span>
                   <div className="col" style={{ gap: 10 }}>
                     {hotels.map((h) => {
                       const on = answers.stays.some((s) => s.name === h.name)
@@ -1026,7 +1032,7 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                           <span className="choice-sub" style={{ marginTop: 8 }}>{h.reason}</span>
                           {on && (
                             <span className="badge" style={{ marginTop: 10 }}>
-                              <Check size={11} /> נבחר
+                              <Check size={11} /> {t('נבחר')}
                             </span>
                           )}
                         </button>
@@ -1037,16 +1043,14 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                           rel="noreferrer"
                         >
                           <Navigation size={12} />
-                          מחיר וזמינות אמיתיים
+                          {t('מחיר וזמינות אמיתיים')}
                         </a>
                         </div>
                       )
                     })}
                   </div>
                   <p className="tiny" style={{ marginTop: 12 }}>
-                    <Info size={12} /> המלונות אמיתיים — המחירים הם הערכה של מודל
-                    שפה, לא מחיר חי. לחץ "מחיר וזמינות אמיתיים" כדי לראות כמה זה
-                    עולה בתאריכים שלך.
+                    <Info size={12} /> {t('המלונות אמיתיים — המחירים הם הערכה של מודל שפה, לא מחיר חי. לחץ "מחיר וזמינות אמיתיים" כדי לראות כמה זה עולה בתאריכים שלך.')}
                   </p>
                 </>
               )}
@@ -1055,7 +1059,7 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
 
               {booked === null && (
                 <p className="tiny" style={{ marginTop: 20 }}>
-                  אפשר גם לדלג — המסלול ייבנה בלי נקודת לינה, ותוכל להוסיף אותה אחר כך.
+                  {t('אפשר גם לדלג — המסלול ייבנה בלי נקודת לינה, ותוכל להוסיף אותה אחר כך.')}
                 </p>
               )}
             </>
@@ -1073,7 +1077,7 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
           </p>
         )}
         <button className="btn btn-primary btn-block" onClick={next} disabled={!canAdvance}>
-          {step < STEPS.length - 1 ? 'הבא' : editMode ? 'שמור שינויים' : 'בוא נתחיל'}
+          {step < STEPS.length - 1 ? t('הבא') : editMode ? t('שמור שינויים') : t('בוא נתחיל')}
           <ArrowLeft size={18} />
         </button>
         {editMode && step < STEPS.length - 1 && (
@@ -1083,7 +1087,7 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
             disabled={!canAdvance}
             style={{ marginTop: 8 }}
           >
-            שמור וסגור
+            {t('שמור וסגור')}
           </button>
         )}
       </div>

@@ -8,7 +8,13 @@
  * 2. Lists lines that still carry Hebrew outside a comment and outside any
  *    t() call — strings that were never wrapped at all. Some are legitimate
  *    (regexes matching Hebrew model output, telemetry text, Hebrew data
- *    fields); annotate those with `i18n-ignore` on the same line.
+ *    fields); annotate those with `i18n-ignore` on the same line, or wrap a
+ *    whole region (e.g. a prompt template literal) in comments containing
+ *    `i18n-ignore-start` and `i18n-ignore-end`.
+ *
+ * Files marked `i18n-ignore-file` near the top are skipped (bilingual lookup
+ * data, not UI). cities.js is skipped too: it's generated bilingual data
+ * (he/en per city), not UI.
  *
  * Exits 1 when any key is missing, so it can gate a build.
  */
@@ -33,7 +39,7 @@ const files = []
     const p = join(dir, f)
     if (statSync(p).isDirectory()) {
       if (f !== 'locales') walk(p)
-    } else if (/\.(jsx?|mjs)$/.test(f) && f !== 'i18n.js') {
+    } else if (/\.(jsx?|mjs)$/.test(f) && f !== 'i18n.js' && f !== 'cities.js') {
       files.push(p)
     }
   }
@@ -47,6 +53,8 @@ const used = new Set()
 for (const file of files) {
   const text = readFileSync(file, 'utf8')
   const rel = relative(root, file)
+  // Whole-file opt-out for pure lookup data (see lib/currency.js).
+  if (text.slice(0, 400).includes('i18n-ignore-file')) continue
 
   const note = (key, index) => {
     used.add(key)
@@ -63,8 +71,12 @@ for (const file of files) {
   }
 
   let inBlock = false
+  let ignoring = false // between i18n-ignore-start / i18n-ignore-end
   text.split('\n').forEach((line, i) => {
     const trimmed = line.trim()
+    if (line.includes('i18n-ignore-start')) { ignoring = true; return }
+    if (line.includes('i18n-ignore-end')) { ignoring = false; return }
+    if (ignoring) return
     if (inBlock) {
       if (trimmed.includes('*/')) inBlock = false
       return

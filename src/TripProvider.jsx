@@ -13,6 +13,7 @@ import { hasAI, systemPrompt, streamReply } from './lib/gemini'
 import { fetchForecast, fetchClimateAverage } from './lib/weather'
 import { CITIES } from './cities'
 import { breadcrumb, record } from './lib/telemetry'
+import { t } from './i18n'
 
 // Firestore's free tier has a real daily write budget shared by every
 // feature, not just this one — a location fires far more often than a
@@ -164,8 +165,8 @@ function toFamilies(raw) {
 // regex word boundaries are Latin-only and silently no-op on Hebrew text.
 const WEATHER_TRIGGER = new RegExp(
   [
-    'מזג( ה)?אוויר', 'טמפרטורה', 'מעלות', 'גשם', 'שלג', 'קריר', 'תחזית',
-    'כמה חם', 'כמה קר',
+    'מזג( ה)?אוויר', 'טמפרטורה', 'מעלות', 'גשם', 'שלג', 'קריר', 'תחזית', // i18n-ignore — matches user input
+    'כמה חם', 'כמה קר', // i18n-ignore
     '\\bweather\\b', '\\btemperature\\b', '\\bforecast\\b', '\\bclimate\\b',
     '\\brain(y|ing)?\\b', '\\bsnow(y|ing)?\\b', '\\bdegrees?\\b', '\\bcelsius\\b',
     '\\bhot\\b', '\\bcold\\b', '\\bsunny\\b',
@@ -383,7 +384,7 @@ export function TripProvider({ children }) {
             setRaw(joined)
             setJustJoined(true)
             setLoading(false)
-            logActivity(joined.id, { type: 'join', message: `${user?.name || 'מישהו'} הצטרף/ה לטיול` })
+            logActivity(joined.id, { type: 'join', message: t('{name} הצטרף/ה לטיול', { name: user?.name || t('מישהו') }) })
             history.replaceState(null, '', location.pathname)
             return
           }
@@ -510,7 +511,8 @@ export function TripProvider({ children }) {
   // whether or not anything ran (or worked), so the chat claimed changes the
   // itinerary never got.
   const ACTION_LINE = /^\s*(PLAN_DAYS|ADD_STOP|REMOVE_STOP|BOOKING_LINK)\s*:\s*(.*)$/i
-  const CLAIM = /(הוספתי|עדכנתי|בניתי|שיניתי|הסרתי|תכננתי מחדש|הכנסתי|מחקתי)/
+  // Matches the model's reply in whichever language the UI asked it to use.
+  const CLAIM = /(הוספתי|עדכנתי|בניתי|שיניתי|הסרתי|תכננתי מחדש|הכנסתי|מחקתי|\bI(?:'ve| have)? (?:added|updated|rebuilt|changed|removed|replanned|moved|deleted)\b)/i // i18n-ignore
 
   const runChatActions = async (actions) => {
     const report = []
@@ -528,10 +530,10 @@ export function TripProvider({ children }) {
         const wanted = [...new Set(parts[0].split(',').map((n) => parseInt(n, 10)).filter(inRange))]
         for (const day of wanted) {
           const r = await plan(day, { instructions: parts[1] ?? '' })
-          const why = r.warning === 'busy' ? ' — עדיין באמצע תכנון, נסו שוב עוד רגע' : r.warning ? ` — ${r.warning}` : ''
+          const why = r.warning === 'busy' ? ` — ${t('עדיין באמצע תכנון, נסו שוב עוד רגע')}` : r.warning ? ` — ${r.warning}` : ''
           report.push(r.ok
-            ? `✓ בניתי מחדש את יום ${day} (${r.count} עצירות)`
-            : `✗ לא הצלחתי לבנות את יום ${day}${why}`)
+            ? `✓ ${t('בניתי מחדש את יום {day} ({n} עצירות)', { day, n: r.count })}`
+            : `✗ ${t('לא הצלחתי לבנות את יום {day}', { day })}${why}`)
           // The day was replaced wholesale — a stale working copy would undo it.
           delete work[day]
         }
@@ -541,17 +543,17 @@ export function TripProvider({ children }) {
         const [dayStr, time, query, he, category, desc] = parts
         const day = parseInt(dayStr, 10)
         if (!inRange(day) || !query || !he) {
-          report.push('✗ לא הבנתי איזו עצירה להוסיף')
+          report.push(`✗ ${t('לא הבנתי איזו עצירה להוסיף')}`)
           continue
         }
         const list = listFor(day)
         if (list.some((s) => (s.he ?? s.name) === he)) {
-          report.push(`• ${he} כבר ביום ${day}`)
+          report.push(`• ${t('{place} כבר ביום {day}', { place: he, day })}`)
           continue
         }
         const hit = (await geocode(query)) ?? (await geocode(he, trip.cityEn ?? trip.city))
         if (!hit) {
-          report.push(`✗ לא הצלחתי לאתר את "${he}" על המפה — לא הוספתי`)
+          report.push(`✗ ${t('לא הצלחתי לאתר את "{place}" על המפה — לא הוספתי', { place: he })}`)
           continue
         }
         const next = [...list, {
@@ -567,7 +569,7 @@ export function TripProvider({ children }) {
         }].sort((a, b) => String(a.time).localeCompare(String(b.time)))
         work[day] = next
         setDayStops(day, next)
-        report.push(`✓ הוספתי את ${he} ליום ${day}`)
+        report.push(`✓ ${t('הוספתי את {place} ליום {day}', { place: he, day })}`)
       }
 
       if (kind === 'REMOVE_STOP') {
@@ -578,12 +580,12 @@ export function TripProvider({ children }) {
           (s) => name && ((s.he ?? '').includes(name) || (s.name ?? '').includes(name) || (s.he && name.includes(s.he)))
         )
         if (at < 0) {
-          report.push(`✗ לא מצאתי "${name}" ביום ${dayStr}`)
+          report.push(`✗ ${t('לא מצאתי "{place}" ביום {day}', { place: name, day: dayStr })}`)
           continue
         }
         const [gone] = list.splice(at, 1)
         setDayStops(day, [...list])
-        report.push(`✓ הסרתי את ${gone.he ?? gone.name} מיום ${day}`)
+        report.push(`✓ ${t('הסרתי את {place} מיום {day}', { place: gone.he ?? gone.name, day })}`)
       }
 
       // A real, working link — not a claim of having booked anything. Google
@@ -596,12 +598,12 @@ export function TripProvider({ children }) {
       if (kind === 'BOOKING_LINK') {
         const [query, he, category] = parts
         if (!query || !he) {
-          report.push('✗ לא הבנתי איזה מקום לחפש')
+          report.push(`✗ ${t('לא הבנתי איזה מקום לחפש')}`)
           continue
         }
         const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
-        const verb = category?.trim() === 'מסעדה' ? 'להזמנת שולחן' : 'להזמנה'
-        report.push(`🔗 ${he} — קישור ${verb} (Google Maps): ${url}`)
+        const isFood = /מסעד|restaurant|food/i.test(category ?? '') // i18n-ignore — model output
+        report.push(`🔗 ${he} — ${isFood ? t('קישור להזמנת שולחן') : t('קישור להזמנה')} (Google Maps): ${url}`)
       }
     }
     return report
@@ -649,7 +651,7 @@ export function TripProvider({ children }) {
         setChatMessages((m) => [...m, {
           id: `a${Date.now()}`, role: 'ai',
           // The app's own account of what happened — never the model's.
-          text: report.join('\n') + (done ? '\n\nאפשר לראות את זה במסך "מסלול הטיול".' : ''),
+          text: report.join('\n') + (done ? `\n\n${t('אפשר לראות את זה במסך "מסלול הטיול".')}` : ''),
         }])
       } else {
         // A claim of having changed the itinerary with no action behind it is
@@ -657,7 +659,7 @@ export function TripProvider({ children }) {
         setChatMessages((m) => [...m, {
           id: `a${Date.now()}`, role: 'ai',
           text: CLAIM.test(say)
-            ? `${say}\n\n⚠ לא שיניתי כלום בלו"ז. כדי שאשנה, כתבו למשל "הוסף את זה ליום 1".`
+            ? `${say}\n\n⚠ ${t('לא שיניתי כלום בלו"ז. כדי שאשנה, כתבו למשל "הוסף את זה ליום 1".')}`
             : say,
         }])
       }
@@ -678,7 +680,7 @@ export function TripProvider({ children }) {
     const history = [...chatMessages, mine]
     setChatMessages(history)
     if (hasAI) askAgent(history)
-    else setChatError('הסוכן אינו מחובר כרגע.')
+    else setChatError(t('הסוכן אינו מחובר כרגע.'))
   }
 
   /** Re-runs the last question, dropping the failed exchange. */
@@ -726,7 +728,7 @@ export function TripProvider({ children }) {
         if (now - lastWriteAt.current < PRESENCE_WRITE_MS) return
         lastWriteAt.current = now
         updatePresence(trip.id, user?.uid, {
-          name: user?.name || 'מישהו',
+          name: user?.name || t('מישהו'),
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
           active: true,
@@ -815,7 +817,7 @@ export function TripProvider({ children }) {
   // No login requirement in this app means no reliable name for whoever is
   // acting — an anonymous session just says so rather than attributing the
   // change to nobody in particular.
-  const whoami = () => user?.name || 'מישהו בטיול'
+  const whoami = () => user?.name || t('מישהו בטיול')
 
   const addStop = (day, stop) => {
     const list = days[day] ?? []
@@ -826,7 +828,7 @@ export function TripProvider({ children }) {
     breadcrumb('action', `add stop to day ${day}`)
     setDayStops(day, next)
     if (trip) {
-      logActivity(trip.id, { type: 'stop', message: `${whoami()} הוסיף/ה עצירה ליום ${day}: ${stop.he ?? stop.name}` })
+      logActivity(trip.id, { type: 'stop', message: t('{name} הוסיף/ה עצירה ליום {day}: {place}', { name: whoami(), day, place: stop.he ?? stop.name }) })
     }
   }
 
@@ -834,7 +836,7 @@ export function TripProvider({ children }) {
     const removed = (days[day] ?? []).find((s) => s.id === id)
     setDayStops(day, (days[day] ?? []).filter((s) => s.id !== id))
     if (trip && removed) {
-      logActivity(trip.id, { type: 'stop', message: `${whoami()} הסיר/ה עצירה מיום ${day}: ${removed.he ?? removed.name}` })
+      logActivity(trip.id, { type: 'stop', message: t('{name} הסיר/ה עצירה מיום {day}: {place}', { name: whoami(), day, place: removed.he ?? removed.name }) })
     }
   }
 
@@ -1009,7 +1011,7 @@ export function TripProvider({ children }) {
   const addNote = (text) => {
     const trimmed = text.trim()
     if (!trimmed || !trip) return
-    logActivity(trip.id, { type: 'note', message: `${whoami()} הוסיף/ה הערה: ${trimmed}` })
+    logActivity(trip.id, { type: 'note', message: t('{name} הוסיף/ה הערה: {note}', { name: whoami(), note: trimmed }) })
     return updateTrip({ notes: [...trip.notes, { id: `n${Date.now()}`, text: trimmed }] })
   }
 

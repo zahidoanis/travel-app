@@ -3,6 +3,7 @@ import { Printer, Plane, Bed, Users } from '../components/Icons'
 import { useTrip } from '../TripProvider'
 import { memberAge } from '../data'
 import { dateForDay } from './Days'
+import { t, tn } from '../i18n'
 
 /**
  * A clean, read-only document of the whole trip — every day, not just the
@@ -33,26 +34,26 @@ export default function Summary() {
               {trip.city}{trip.country ? `, ${trip.country}` : ''}
             </h1>
             <p className="tiny" style={{ marginTop: 4 }}>
-              {trip.from} — {trip.to} · <span className="num">{trip.totalDays}</span> ימים
+              {trip.from} — {trip.to} · <span className="num">{trip.totalDays}</span> {tn(trip.totalDays, 'יום אחד', 'ימים')}
             </p>
           </div>
           <button className="btn btn-ghost" onClick={() => window.print()}>
             <Printer size={16} />
-            הדפס
+            {t('הדפס')}
           </button>
         </div>
       </div>
 
       <div className="pad summary-section">
-        <span className="label"><Users size={13} /> נוסעים</span>
+        <span className="label"><Users size={13} /> {t('נוסעים')}</span>
         <div className="col" style={{ gap: 6 }}>
           {families.map((f) => {
             const ages = f.members.map(memberAge).filter(Boolean)
             return (
               <p key={f.id} className="tiny" style={{ margin: 0 }}>
-                <strong>{f.name || 'הנוסעים'}:</strong>{' '}
-                {f.members.length} נוסעים
-                {ages.length > 0 ? ` · ילדים בני ${ages.join(', ')}` : ''}
+                <strong>{f.name || t('הנוסעים')}:</strong>{' '}
+                {f.members.length} {tn(f.members.length, 'נוסע', 'נוסעים')}
+                {ages.length > 0 ? ` · ${t('ילדים בני {ages}', { ages: ages.join(', ') })}` : ''}
               </p>
             )
           })}
@@ -63,7 +64,7 @@ export default function Summary() {
         <div className="pad summary-section">
           {hasFlight && (
             <p className="tiny" style={{ margin: '0 0 6px' }}>
-              <Plane size={13} /> <strong>טיסה:</strong>{' '}
+              <Plane size={13} /> <strong>{t('טיסה:')}</strong>{' '}
               {[flight.airline, flight.number, flight.arrivalAirport].filter(Boolean).join(' · ')}
             </p>
           )}
@@ -82,10 +83,10 @@ export default function Summary() {
         return (
           <div key={day} className="pad summary-day">
             <h2 className="h3">
-              יום {day} — {dateForDay(trip, day) ?? ''}
+              {t('יום')} {day} — {dateForDay(trip, day) ?? ''}
             </h2>
             {stops.length === 0 ? (
-              <p className="tiny">אין עדיין לו"ז ליום הזה.</p>
+              <p className="tiny">{t('אין עדיין לו"ז ליום הזה.')}</p>
             ) : (
               <div className="col" style={{ gap: 4 }}>
                 {stops.map((s) => (

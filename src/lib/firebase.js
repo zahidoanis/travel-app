@@ -1,4 +1,5 @@
 import { record } from './telemetry'
+import { t } from '../i18n'
 
 /**
  * Firebase bootstrap and identity.
@@ -170,7 +171,7 @@ export function onUser(fn) {
  */
 export async function signInWithGoogle() {
   const fb = await firebase()
-  if (!fb) throw new Error('Firebase אינו מוגדר')
+  if (!fb) throw new Error(t('Firebase אינו מוגדר'))
 
   const { AUTH, auth } = fb
   const provider = new AUTH.GoogleAuthProvider()
@@ -191,13 +192,13 @@ export async function signInWithGoogle() {
       return { user: describe(result.user), merged: true }
     }
     if (err?.code === 'auth/popup-closed-by-user') {
-      throw new Error('ההתחברות בוטלה')
+      throw new Error(t('ההתחברות בוטלה'))
     }
     // The UI only ever shows a generic message, which is fine for the user
     // but useless for finding out what actually failed on their device —
     // the real Firebase error code is worth keeping.
     record({ kind: 'auth', message: `signInWithGoogle: ${err?.code ?? 'unknown'} — ${err?.message ?? ''}`, stack: err?.stack })
-    throw new Error(err?.message ?? 'ההתחברות נכשלה')
+    throw new Error(err?.message ?? t('ההתחברות נכשלה'))
   }
 }
 

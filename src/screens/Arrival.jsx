@@ -4,6 +4,7 @@ import { Plane, Car, Sparkles, Info, Navigation, Clock } from '../components/Ico
 import { useTrip } from '../TripProvider'
 import { hasAI, complete, parseRows } from '../lib/gemini'
 import { breadcrumb, watchdog } from '../lib/telemetry'
+import { t } from '../i18n'
 
 /**
  * Getting from the airport to where you sleep.
@@ -28,12 +29,12 @@ export default function Arrival() {
   // it. Skyscanner and Kayak want IATA codes in the path, which we do not
   // have — a city name there just 404s — so the second link is an ordinary
   // search that surfaces every comparison site instead of guessing at one.
-  const origin = 'תל אביב'
+  const origin = t('תל אביב')
   const englishCity = trip?.cityEn ?? trip?.city ?? ''
   const query = `Flights from Tel Aviv to ${englishCity} on ${trip?.from ?? ''} through ${trip?.to ?? ''}`
   const googleFlights = `https://www.google.com/travel/flights?q=${encodeURIComponent(query)}`
   const compare = `https://www.google.com/search?q=${encodeURIComponent(
-    `טיסות תל אביב ${trip?.city ?? ''} ${trip?.from ?? ''}`
+    t('טיסות תל אביב {city} {date}', { city: trip?.city ?? '', date: trip?.from ?? '' })
   )}`
 
   const ask = async () => {
@@ -43,22 +44,22 @@ export default function Arrival() {
     setError(null)
     const done = watchdog('arrival.options', 35000, { city: trip?.city })
 
-    const dest = stay ? `${stay.name} (${stay.label})` : `מרכז ${trip.city}`
+    const dest = stay ? `${stay.name} (${stay.label})` : t('מרכז {city}', { city: trip.city })
 
     try {
       const text = await complete({
         system:
-          'אתה סוכן נסיעות מקומי. החזר אך ורק שורות בפורמט:\n' +
-          'אמצעי | זמן נסיעה משוער | טווח מחיר | משפט אחד עם טיפ מעשי\n' +
-          'בלי כותרות, בלי מספור, בלי טקסט נוסף. בדיוק 5 שורות, מהזול ליקר.\n' +
-          'כלול רכבת/מטרו אם קיימת, שאטל, מונית מוסדרת, והסעה פרטית מוזמנת מראש.',
+          'אתה סוכן נסיעות מקומי. החזר אך ורק שורות בפורמט:\n' + // i18n-ignore — AI prompt; see gemini.js language override
+          'אמצעי | זמן נסיעה משוער | טווח מחיר | משפט אחד עם טיפ מעשי\n' + // i18n-ignore
+          'בלי כותרות, בלי מספור, בלי טקסט נוסף. בדיוק 5 שורות, מהזול ליקר.\n' + // i18n-ignore
+          'כלול רכבת/מטרו אם קיימת, שאטל, מונית מוסדרת, והסעה פרטית מוזמנת מראש.', // i18n-ignore
         prompt:
-          `עיר: ${trip.city}${trip.country ? `, ${trip.country}` : ''}\n` +
-          (flight.arrivalAirport ? `שדה תעופה: ${flight.arrivalAirport}\n` : '') +
-          (flight.arrivalTime ? `שעת נחיתה מתוכננת: ${flight.arrivalTime}\n` : '') +
-          `יעד: ${dest}\n` +
-          `נוסעים: ${profile?.parties?.reduce((n, p) => n + p.members.length, 0) ?? 2}\n\n` +
-          'איך מגיעים משדה התעופה ליעד?',
+          `עיר: ${trip.city}${trip.country ? `, ${trip.country}` : ''}\n` + // i18n-ignore
+          (flight.arrivalAirport ? `שדה תעופה: ${flight.arrivalAirport}\n` : '') + // i18n-ignore
+          (flight.arrivalTime ? `שעת נחיתה מתוכננת: ${flight.arrivalTime}\n` : '') + // i18n-ignore
+          `יעד: ${dest}\n` + // i18n-ignore
+          `נוסעים: ${profile?.parties?.reduce((n, p) => n + p.members.length, 0) ?? 2}\n\n` + // i18n-ignore
+          'איך מגיעים משדה התעופה ליעד?', // i18n-ignore
       })
 
       setOptions(parseRows(text, ['mode', 'duration', 'price', 'tip']))
@@ -80,13 +81,13 @@ export default function Arrival() {
     try {
       const text = await complete({
         system:
-          'אתה סוכן נסיעות מקומי. החזר אך ורק שורות בפורמט:\n' +
-          'שם השירות | סוג | טווח מחיר להסעה משדה התעופה | משפט אחד למה מומלץ\n' +
-          'בלי כותרות, בלי מספור, בלי טקסט נוסף. בדיוק 4 שורות.\n' +
-          'רק שירותים אמיתיים ומוכרים בעיר. אם אינך בטוח שקיים — אל תמציא.',
+          'אתה סוכן נסיעות מקומי. החזר אך ורק שורות בפורמט:\n' + // i18n-ignore
+          'שם השירות | סוג | טווח מחיר להסעה משדה התעופה | משפט אחד למה מומלץ\n' + // i18n-ignore
+          'בלי כותרות, בלי מספור, בלי טקסט נוסף. בדיוק 4 שורות.\n' + // i18n-ignore
+          'רק שירותים אמיתיים ומוכרים בעיר. אם אינך בטוח שקיים — אל תמציא.', // i18n-ignore
         prompt:
-          `עיר: ${trip.city}${trip.country ? `, ${trip.country}` : ''}\n\n` +
-          'אילו שירותי הסעה והורדה מהשדה מוכרים ואמינים שם? כולל אפליקציות מקומיות.',
+          `עיר: ${trip.city}${trip.country ? `, ${trip.country}` : ''}\n\n` + // i18n-ignore
+          'אילו שירותי הסעה והורדה מהשדה מוכרים ואמינים שם? כולל אפליקציות מקומיות.', // i18n-ignore
       })
 
       setDrivers(parseRows(text, ['name', 'kind', 'price', 'why']))
@@ -105,9 +106,9 @@ export default function Arrival() {
       <TopBar />
 
       <div className="pad">
-        <h1 className="h1" style={{ fontSize: 24 }}>הגעה ליעד</h1>
+        <h1 className="h1" style={{ fontSize: 24 }}>{t('הגעה ליעד')}</h1>
         <p className="tiny" style={{ marginTop: 4 }}>
-          משדה התעופה עד {stay ? stay.name : `מרכז ${trip.city}`}
+          {t('משדה התעופה עד {place}', { place: stay ? stay.name : t('מרכז {city}', { city: trip.city }) })}
         </p>
       </div>
 
@@ -120,9 +121,9 @@ export default function Arrival() {
           <div className="row" style={{ gap: 9, marginBottom: 12 }}>
             <span className="contact-icon"><Plane size={15} /></span>
             <span className="col" style={{ gap: 2 }}>
-              <strong style={{ fontSize: 15, fontWeight: 600 }}>חיפוש טיסות</strong>
+              <strong style={{ fontSize: 15, fontWeight: 600 }}>{t('חיפוש טיסות')}</strong>
               <span className="tiny">
-                {origin} → {trip.city} · <span className="num">{trip.from}</span> עד{' '}
+                {origin} → {trip.city} · <span className="num">{trip.from}</span> {t('עד')}{' '}
                 <span className="num">{trip.to}</span>
               </span>
             </span>
@@ -145,15 +146,14 @@ export default function Arrival() {
               rel="noreferrer"
             >
               <Navigation size={14} />
-              השוואת מחירים
+              {t('השוואת מחירים')}
             </a>
           </div>
 
           <div className="row" style={{ alignItems: 'flex-start', gap: 9, marginTop: 12 }}>
             <span style={{ color: 'var(--muted)' }}><Info size={14} /></span>
             <p className="tiny" style={{ margin: 0 }}>
-              המסלול והתאריכים שלך כבר ממולאים. הסוכן לא מחפש טיסות בעצמו — אין לו
-              נתונים חיים, והוא היה מנחש מחירים.
+              {t('המסלול והתאריכים שלך כבר ממולאים. הסוכן לא מחפש טיסות בעצמו — אין לו נתונים חיים, והוא היה מנחש מחירים.')}
             </p>
           </div>
         </div>
@@ -184,21 +184,20 @@ export default function Arrival() {
               rel="noreferrer"
             >
               <Clock size={14} />
-              בדוק שעות ומצב טיסה
+              {t('בדוק שעות ומצב טיסה')}
             </a>
 
             <div className="row" style={{ alignItems: 'flex-start', gap: 9, marginTop: 12 }}>
               <span style={{ color: 'var(--muted)' }}><Info size={14} /></span>
               <p className="tiny" style={{ margin: 0 }}>
-                שעות ההמראה והנחיתה מגיעות מחברת התעופה. הסוכן אינו מחובר למאגר
-                טיסות חי — הוא היה מנחש, ולא אתן לו.
+                {t('שעות ההמראה והנחיתה מגיעות מחברת התעופה. הסוכן אינו מחובר למאגר טיסות חי — הוא היה מנחש, ולא אתן לו.')}
               </p>
             </div>
           </div>
         ) : (
           <div className="card" style={{ textAlign: 'center' }}>
             <p className="sub">
-              לא הוזנו פרטי טיסה. אפשר להוסיף אותם בשאלון הפתיחה.
+              {t('לא הוזנו פרטי טיסה. אפשר להוסיף אותם בשאלון הפתיחה.')}
             </p>
           </div>
         )}
@@ -206,23 +205,23 @@ export default function Arrival() {
 
       {/* Transfer options */}
       <div className="pad section-head">
-        <h2 className="h2" style={{ fontSize: 16 }}>איך מגיעים</h2>
+        <h2 className="h2" style={{ fontSize: 16 }}>{t('איך מגיעים')}</h2>
       </div>
 
       <div className="pad">
         <div className="row" style={{ gap: 9 }}>
           <button className="btn btn-primary grow" onClick={ask} disabled={loading || !hasAI}>
             {loading ? <span className="typing"><i /><i /><i /></span> : <Sparkles size={16} />}
-            אפשרויות הגעה
+            {t('אפשרויות הגעה')}
           </button>
           <button className="btn btn-ghost grow" onClick={askDrivers} disabled={loading || !hasAI}>
             <Car size={16} />
-            שירותי הסעות
+            {t('שירותי הסעות')}
           </button>
         </div>
 
         {!hasAI && (
-          <p className="tiny" style={{ marginTop: 12 }}>דורש חיבור לסוכן ה-AI.</p>
+          <p className="tiny" style={{ marginTop: 12 }}>{t('דורש חיבור לסוכן ה-AI.')}</p>
         )}
         {error && <p className="tiny" style={{ color: 'var(--rose)', marginTop: 12 }}>{error}</p>}
 
@@ -246,7 +245,7 @@ export default function Arrival() {
         {drivers.length > 0 && (
           <>
             <div className="section-head" style={{ marginBottom: 12 }}>
-              <h2 className="h2" style={{ fontSize: 15 }}>שירותי הסעה</h2>
+              <h2 className="h2" style={{ fontSize: 15 }}>{t('שירותי הסעה')}</h2>
             </div>
             <div className="col" style={{ gap: 10 }}>
               {drivers.map((d) => (
@@ -268,7 +267,7 @@ export default function Arrival() {
                     rel="noreferrer"
                   >
                     <Navigation size={14} />
-                    חפש פרטים
+                    {t('חפש פרטים')}
                   </a>
                 </div>
               ))}
@@ -278,7 +277,7 @@ export default function Arrival() {
 
         {(options.length > 0 || drivers.length > 0) && (
           <p className="tiny" style={{ marginTop: 14 }}>
-            המחירים והזמנים הם הערכות של מודל שפה — בדקו מול הספק לפני שמזמינים.
+            {t('המחירים והזמנים הם הערכות של מודל שפה — בדקו מול הספק לפני שמזמינים.')}
           </p>
         )}
       </div>

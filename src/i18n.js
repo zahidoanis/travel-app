@@ -18,15 +18,30 @@ import en from './locales/en'
 const KEY = 'tripai.lang'
 export const LANGS = ['he', 'en']
 
+function fromBrowser() {
+  const prefs = typeof navigator !== 'undefined' ? (navigator.languages ?? [navigator.language]) : []
+  return prefs.some((l) => /^(he|iw)\b/i.test(l ?? '')) ? 'he' : 'en'
+}
+
 function detect() {
   try {
     const saved = localStorage.getItem(KEY)
     if (LANGS.includes(saved)) return saved
+    // First visit since English existed. Anyone with TripAI data already on
+    // this device was using the app in Hebrew — keep them there instead of
+    // flipping them to English just because their browser is set that way.
+    let returning = false
+    for (let i = 0; i < localStorage.length; i++) {
+      if (localStorage.key(i)?.startsWith('tripai.')) returning = true
+    }
+    const pick = returning ? 'he' : fromBrowser()
+    // Remembered, so the answer can't drift on a later visit (e.g. once
+    // telemetry has written its own tripai.* key for a new English user).
+    localStorage.setItem(KEY, pick)
+    return pick
   } catch {
-    /* private mode — fall through to the browser's own preference */
+    return fromBrowser() // private mode / storage blocked
   }
-  const prefs = typeof navigator !== 'undefined' ? (navigator.languages ?? [navigator.language]) : []
-  return prefs.some((l) => /^(he|iw)\b/i.test(l ?? '')) ? 'he' : 'en'
 }
 
 export const lang = detect()
@@ -38,6 +53,9 @@ export const locale = lang === 'he' ? 'he-IL' : 'en-US'
 if (typeof document !== 'undefined') {
   document.documentElement.lang = lang
   document.documentElement.dir = dir
+  // index.html's <title> is the Hebrew one (crawlers and share previews
+  // read it before any script runs); the tab title follows the UI.
+  if (lang === 'en') document.title = 'TripAI — Your travel assistant'
 }
 
 /** Persists the choice and reloads into it. */

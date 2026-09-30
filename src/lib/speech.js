@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { record, breadcrumb } from './telemetry'
+import { t, locale } from '../i18n'
 
 /**
  * Hebrew dictation via the Web Speech API — built into the browser, free, no
@@ -9,7 +10,7 @@ import { record, breadcrumb } from './telemetry'
  * Safari only from 14.5. `supported` lets the UI hide the button rather than
  * offer one that silently does nothing — which is what it did before.
  */
-export function useSpeech({ lang = 'he-IL', onResult } = {}) {
+export function useSpeech({ lang = locale, onResult } = {}) {
   const [listening, setListening] = useState(false)
   const [interim, setInterim] = useState('')
   const [error, setError] = useState(null)
@@ -67,10 +68,10 @@ export function useSpeech({ lang = 'he-IL', onResult } = {}) {
       }
       const message =
         event.error === 'not-allowed'
-          ? 'הגישה למיקרופון נחסמה. אפשר אותה בהגדרות הדפדפן.'
+          ? t('הגישה למיקרופון נחסמה. אפשר אותה בהגדרות הדפדפן.')
           : event.error === 'network'
-            ? 'זיהוי הדיבור דורש חיבור לאינטרנט.'
-            : `זיהוי הדיבור נכשל (${event.error}).`
+            ? t('זיהוי הדיבור דורש חיבור לאינטרנט.')
+            : t('זיהוי הדיבור נכשל ({code}).', { code: event.error })
 
       setError(message)
       setListening(false)
@@ -93,7 +94,7 @@ export function useSpeech({ lang = 'he-IL', onResult } = {}) {
       setListening(true)
       breadcrumb('action', 'dictation started')
     } catch (err) {
-      setError('לא הצלחתי להפעיל את המיקרופון.')
+      setError(t('לא הצלחתי להפעיל את המיקרופון.'))
       record({ kind: 'speech', message: err?.message ?? String(err) })
     }
   }, [Recognition, lang, listening])

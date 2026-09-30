@@ -14,6 +14,22 @@
  * With neither set, the chat falls back to its scripted responses.
  */
 
+import { t, lang } from '../i18n'
+
+/**
+ * The prompts in this file (and the other AI prompts in the app) are written
+ * in Hebrew. Rather than maintain a second English copy of each, English mode
+ * appends one directive to every request, in streamReply() below, that
+ * overrides their language while leaving their machine formats alone.
+ */
+const LANGUAGE_OVERRIDE = lang === 'en'
+  ? '\n\n---\nLANGUAGE OVERRIDE — this takes priority over any language instruction anywhere else in these instructions. ' +
+    'The user\'s interface is in English. Write every human-readable word of your output in English: replies, place ' +
+    'display names, areas, cuisines, price ranges, descriptions and categories — including any field or column the ' +
+    'instructions say to write in Hebrew (עברית). Keep machine formats exactly as specified: action keywords ' + // i18n-ignore
+    '(PLAN_DAYS, ADD_STOP, REMOVE_STOP, BOOKING_LINK), column order, the | separators, and HH:MM times. ' +
+    'For a category, use one of: museum, restaurant, walk, sight (or attraction, for a booking link).'
+  : ''
 const PROXY = import.meta.env?.VITE_AI_PROXY_URL ?? ''
 const KEY = import.meta.env?.VITE_GEMINI_API_KEY ?? ''
 const MODEL = import.meta.env?.VITE_GEMINI_MODEL ?? 'gemini-3.6-flash'
@@ -24,6 +40,7 @@ export const hasAI = Boolean(PROXY || KEY)
 export const aiMode = PROXY ? 'proxy' : KEY ? 'direct' : 'off'
 export const aiModel = MODEL
 
+// i18n-ignore-start — AI prompt text below; see LANGUAGE_OVERRIDE above.
 /**
  * Formats the real reading `fetchTripWeather` (TripProvider.jsx) pulled for
  * this trip — a live Open-Meteo forecast, or a historical climate average
@@ -118,6 +135,7 @@ BOOKING_LINK: <שם המקום באנגלית בפורמט "Place, City, Country
   מכין קישור אמיתי לחיפוש ולהזמנה של מסעדה או אטרקציה — לא מבצע הזמנה בפועל, רק מכין קישור. השתמש בזה כשמבקשים ממך "תזמין", "תשריין" או "תבדוק זמינות" למקום קונקרטי. דוגמה: BOOKING_LINK: Le Jules Verne, Paris, France | לה ז'ול ורן | מסעדה
 כשמבקשים "הוסף את X" או "עדכן בהתאם" אחרי שהצעת משהו — כתוב את שורות ה-ADD_STOP/REMOVE_STOP המתאימות, ועדיף אותן על PLAN_DAYS כדי לא לדרוס את מה שכבר מתוכנן.`
 }
+// i18n-ignore-end
 
 /** Maps our message shape to Gemini's `contents`. */
 const toContents = (messages) =>
@@ -130,12 +148,12 @@ const toContents = (messages) =>
 
 /**
  * Streams a reply. Calls `onChunk(text)` for each delta and resolves with the
- * full text. Throws with a Hebrew message the UI can show as-is.
+ * full text. Throws with a message (in the UI's language) the UI can show as-is.
  */
 export async function streamReply({ messages, system, searchContext, signal, onChunk }) {
   const body = {
     contents: toContents(messages),
-    systemInstruction: { parts: [{ text: system }] },
+    systemInstruction: { parts: [{ text: system + LANGUAGE_OVERRIDE }] },
     // Thinking tokens count against maxOutputTokens, and Gemini 3 spends
     // several hundred on a question like this — leave room for both.
     generationConfig: { temperature: 0.7, maxOutputTokens: 2048 },
@@ -160,13 +178,13 @@ export async function streamReply({ messages, system, searchContext, signal, onC
     })
   } catch (err) {
     if (err?.name === 'AbortError') throw err
-    throw new Error('אין חיבור לשרת ה-AI. בדוק את החיבור לאינטרנט.')
+    throw new Error(t('אין חיבור לשרת ה-AI. בדוק את החיבור לאינטרנט.'))
   }
 
   if (!res.ok) throw new Error(await describeError(res))
 
   const reader = res.body?.getReader()
-  if (!reader) throw new Error('התשובה מהשרת ריקה.')
+  if (!reader) throw new Error(t('התשובה מהשרת ריקה.'))
 
   const decoder = new TextDecoder()
   let buffer = ''
@@ -195,7 +213,7 @@ export async function streamReply({ messages, system, searchContext, signal, onC
   buffer += decoder.decode()
   if (buffer.trim()) emit(buffer)
 
-  if (!full.trim()) throw new Error('הסוכן לא החזיר תשובה. נסה לנסח מחדש.')
+  if (!full.trim()) throw new Error(t('הסוכן לא החזיר תשובה. נסה לנסח מחדש.'))
   return full
 }
 
@@ -267,13 +285,13 @@ async function describeError(res) {
     /* non-JSON body */
   }
 
-  if (res.status === 429) return 'חרגת ממכסת הבקשות החינמית. המתן דקה ונסה שוב.'
-  if (res.status === 400 && /API key not valid/i.test(detail)) return 'מפתח ה-API אינו תקין.'
+  if (res.status === 429) return t('חרגת ממכסת הבקשות החינמית. המתן דקה ונסה שוב.')
+  if (res.status === 400 && /API key not valid/i.test(detail)) return t('מפתח ה-API אינו תקין.')
   if (res.status === 403) {
-    return 'הבקשה נדחתה. בדוק שהמפתח מורשה לדומיין הזה ושה-Generative Language API מופעל.'
+    return t('הבקשה נדחתה. בדוק שהמפתח מורשה לדומיין הזה ושה-Generative Language API מופעל.')
   }
   if (res.status === 404) {
-    return `הדגם "${MODEL}" לא נמצא. הרץ \`npm run ai:check\` כדי לראות אילו דגמים זמינים למפתח שלך.`
+    return t('הדגם "{model}" לא נמצא. הרץ `npm run ai:check` כדי לראות אילו דגמים זמינים למפתח שלך.', { model: MODEL })
   }
-  return `שגיאה מה-AI (${res.status})${detail ? `: ${detail}` : ''}`
+  return `${t('שגיאה מה-AI ({status})', { status: res.status })}${detail ? `: ${detail}` : ''}`
 }

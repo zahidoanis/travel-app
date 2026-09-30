@@ -14,16 +14,18 @@ import { complete, parseRows, hasAI } from './gemini'
 import { geocodeAll } from './geocode'
 import { record, breadcrumb, watchdog } from './telemetry'
 import { CATEGORIES, TRAVEL_STYLES } from '../data'
+import { t } from '../i18n'
 
 const CATEGORY_IDS = Object.keys(CATEGORIES)
 
-/** Maps the model's Hebrew category word onto one of our four pin types. */
+/** Maps the model's category word — Hebrew or English, depending on the UI
+ *  language it was asked to answer in — onto one of our four pin types. */
 export function normaliseCategory(word = '') {
   const w = word.trim()
-  if (/מוזיאון|גלריה|תערוכה/.test(w)) return 'museum'
-  if (/מסעד|אוכל|קפה|בר|שוק/.test(w)) return 'food'
-  if (/הליכ|טיול|פארק|גן|שיטוט/.test(w)) return 'walking'
-  if (/אתר|מגדל|כנסי|ארמון|נוף|תצפית/.test(w)) return 'landmark'
+  if (/מוזיאון|גלריה|תערוכה|museum|galler|exhibit/i.test(w)) return 'museum' // i18n-ignore
+  if (/מסעד|אוכל|קפה|בר|שוק|restaurant|food|caf|\bbar\b|market/i.test(w)) return 'food' // i18n-ignore
+  if (/הליכ|טיול|פארק|גן|שיטוט|walk|hike|park|garden|stroll/i.test(w)) return 'walking' // i18n-ignore
+  if (/אתר|מגדל|כנסי|ארמון|נוף|תצפית|sight|landmark|tower|church|cathedral|palace|view/i.test(w)) return 'landmark' // i18n-ignore
   return CATEGORY_IDS.includes(w) ? w : 'landmark'
 }
 
@@ -32,7 +34,7 @@ export function normaliseCategory(word = '') {
  */
 export async function buildItinerary({ trip, families, already = [], instructions = '', signal }) {
   if (!hasAI) {
-    return { stops: [], source: 'fallback', warning: 'סוכן ה-AI אינו מחובר' }
+    return { stops: [], source: 'fallback', warning: t('סוכן ה-AI אינו מחובר') }
   }
 
   breadcrumb('action', `generate itinerary for ${trip.city}`)
@@ -46,27 +48,27 @@ export async function buildItinerary({ trip, families, already = [], instruction
     const text = await complete({
       signal,
       system:
-        'אתה מתכנן מסלולי טיול. החזר אך ורק שורות בפורמט:\n' +
-        'שעה | כתובת מלאה באנגלית | שם המקום בעברית | קטגוריה | משפט תיאור קצר\n' +
-        'קטגוריה היא אחת מ: מוזיאון, מסעדה, הליכה, אתר.\n' +
-        'הכתובת באנגלית חייבת להיות בפורמט "Place, City, Country" עם השם הרשמי ' +
-        'שמופיע במפות — היא משמשת לחיפוש גיאוגרפי, ולכן שם העיר והמדינה באנגלית בלבד.\n' +
-        'בלי כותרות, בלי מספור, בלי טקסט נוסף. בדיוק 5 שורות, לפי סדר השעות.',
+        'אתה מתכנן מסלולי טיול. החזר אך ורק שורות בפורמט:\n' + // i18n-ignore — AI prompt; see gemini.js language override
+        'שעה | כתובת מלאה באנגלית | שם המקום בעברית | קטגוריה | משפט תיאור קצר\n' + // i18n-ignore
+        'קטגוריה היא אחת מ: מוזיאון, מסעדה, הליכה, אתר.\n' + // i18n-ignore
+        'הכתובת באנגלית חייבת להיות בפורמט "Place, City, Country" עם השם הרשמי ' + // i18n-ignore
+        'שמופיע במפות — היא משמשת לחיפוש גיאוגרפי, ולכן שם העיר והמדינה באנגלית בלבד.\n' + // i18n-ignore
+        'בלי כותרות, בלי מספור, בלי טקסט נוסף. בדיוק 5 שורות, לפי סדר השעות.', // i18n-ignore
       prompt:
-        `עיר: ${trip.city}${trip.country ? `, ${trip.country}` : ''}\n` +
-        `יום ${trip.day} מתוך ${trip.totalDays}\n` +
-        `נוסעים: ${families.reduce((n, f) => n + f.members.length, 0)}\n` +
-        `אופי הטיול: ${styleNames || 'כללי'}\n` +
+        `עיר: ${trip.city}${trip.country ? `, ${trip.country}` : ''}\n` + // i18n-ignore
+        `יום ${trip.day} מתוך ${trip.totalDays}\n` + // i18n-ignore
+        `נוסעים: ${families.reduce((n, f) => n + f.members.length, 0)}\n` + // i18n-ignore
+        `אופי הטיול: ${styleNames || 'כללי'}\n` + // i18n-ignore
         (already.length > 0
-          ? `כבר מתוכננים בימים אחרים של אותו טיול — אל תציע אותם שוב: ${already.join(', ')}\n`
+          ? `כבר מתוכננים בימים אחרים של אותו טיול — אל תציע אותם שוב: ${already.join(', ')}\n` // i18n-ignore
           : '') +
-        (instructions ? `הנחיות מפורשות מהמשתמש — חובה לכבד אותן: ${instructions}\n` : '') +
-        '\nתכנן יום אחד, מ-09:00 עד הערב, עם מרחקי הליכה סבירים בין העצירות.',
+        (instructions ? `הנחיות מפורשות מהמשתמש — חובה לכבד אותן: ${instructions}\n` : '') + // i18n-ignore
+        '\nתכנן יום אחד, מ-09:00 עד הערב, עם מרחקי הליכה סבירים בין העצירות.', // i18n-ignore
     })
 
     const rows = parseRows(text, ['time', 'name', 'he', 'category', 'desc'])
     if (rows.length === 0) {
-      return { stops: [], source: 'fallback', warning: 'לא הצלחתי לפענח את המסלול' }
+      return { stops: [], source: 'fallback', warning: t('לא הצלחתי לפענח את המסלול') }
     }
 
     // The model returns a fully qualified English address, which Nominatim can
@@ -104,12 +106,12 @@ export async function buildItinerary({ trip, families, already = [], instruction
     return {
       stops,
       source: 'ai',
-      warning: dropped > 0 ? `${dropped} עצירות לא אותרו על המפה והושמטו` : undefined,
+      warning: dropped > 0 ? t('{n} עצירות לא אותרו על המפה והושמטו', { n: dropped }) : undefined,
     }
   } catch (err) {
     record({
       kind: 'ai',
-      message: `יצירת מסלול נכשלה: ${err?.message ?? err}`,
+      message: `יצירת מסלול נכשלה: ${err?.message ?? err}`, // i18n-ignore — internal log
       stack: err?.stack,
       context: { city: trip.city },
     })

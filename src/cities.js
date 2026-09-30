@@ -15,6 +15,7 @@ export const CITIES = [
     "he": "פריז",
     "en": "Paris",
     "country": "צרפת",
+    "countryEn": "France",
     "emoji": "🗼",
     "lat": 48.8589,
     "lng": 2.32
@@ -23,6 +24,7 @@ export const CITIES = [
     "he": "רומא",
     "en": "Rome",
     "country": "איטליה",
+    "countryEn": "Italy",
     "emoji": "🏛️",
     "lat": 41.8933,
     "lng": 12.4829
@@ -31,6 +33,7 @@ export const CITIES = [
     "he": "פראג",
     "en": "Prague",
     "country": "צ׳כיה",
+    "countryEn": "Czechia",
     "emoji": "🏰",
     "lat": 50.0875,
     "lng": 14.4213
@@ -39,6 +42,7 @@ export const CITIES = [
     "he": "ברצלונה",
     "en": "Barcelona",
     "country": "ספרד",
+    "countryEn": "Spain",
     "emoji": "🎨",
     "lat": 41.3826,
     "lng": 2.1771
@@ -47,6 +51,7 @@ export const CITIES = [
     "he": "מדריד",
     "en": "Madrid",
     "country": "ספרד",
+    "countryEn": "Spain",
     "emoji": "🇪🇸",
     "lat": 40.4168,
     "lng": -3.7035
@@ -55,6 +60,7 @@ export const CITIES = [
     "he": "סביליה",
     "en": "Seville",
     "country": "ספרד",
+    "countryEn": "Spain",
     "emoji": "💃",
     "lat": 37.3886,
     "lng": -5.9953
@@ -63,6 +69,7 @@ export const CITIES = [
     "he": "ולנסיה",
     "en": "Valencia",
     "country": "ספרד",
+    "countryEn": "Spain",
     "emoji": "🍊",
     "lat": 39.4697,
     "lng": -0.3763
@@ -71,6 +78,7 @@ export const CITIES = [
     "he": "מלגה",
     "en": "Malaga",
     "country": "ספרד",
+    "countryEn": "Spain",
     "emoji": "🏖️",
     "lat": 36.7648,
     "lng": -4.4422
@@ -79,6 +87,7 @@ export const CITIES = [
     "he": "איביזה",
     "en": "Ibiza",
     "country": "ספרד",
+    "countryEn": "Spain",
     "emoji": "🎉",
     "lat": 38.9744,
     "lng": 1.4197
@@ -87,6 +96,7 @@ export const CITIES = [
     "he": "לונדון",
     "en": "London",
     "country": "אנגליה",
+    "countryEn": "United Kingdom",
     "emoji": "☂️",
     "lat": 51.5074,
     "lng": -0.1278
@@ -95,6 +105,7 @@ export const CITIES = [
     "he": "אדינבורו",
     "en": "Edinburgh",
     "country": "סקוטלנד",
+    "countryEn": "Scotland",
     "emoji": "🏰",
     "lat": 55.9533,
     "lng": -3.1884
@@ -103,6 +114,7 @@ export const CITIES = [
     "he": "אמסטרדם",
     "en": "Amsterdam",
     "country": "הולנד",
+    "countryEn": "Netherlands",
     "emoji": "🚲",
     "lat": 52.3731,
     "lng": 4.8925
@@ -111,6 +123,7 @@ export const CITIES = [
     "he": "ברלין",
     "en": "Berlin",
     "country": "גרמניה",
+    "countryEn": "Germany",
     "emoji": "🐻",
     "lat": 52.5174,
     "lng": 13.3951
@@ -119,6 +132,7 @@ export const CITIES = [
     "he": "מינכן",
     "en": "Munich",
     "country": "גרמניה",
+    "countryEn": "Germany",
     "emoji": "🍺",
     "lat": 48.1371,
     "lng": 11.5754
@@ -127,6 +141,7 @@ export const CITIES = [
     "he": "פרנקפורט",
     "en": "Frankfurt",
     "country": "גרמניה",
+    "countryEn": "Germany",
     "emoji": "🏦",
     "lat": 50.1106,
     "lng": 8.6821
@@ -135,6 +150,7 @@ export const CITIES = [
     "he": "המבורג",
     "en": "Hamburg",
     "country": "גרמניה",
+    "countryEn": "Germany",
     "emoji": "⚓",
     "lat": 53.5502,
     "lng": 10.0013
@@ -143,6 +159,7 @@ export const CITIES = [
     "he": "קלן",
     "en": "Cologne",
     "country": "גרמניה",
+    "countryEn": "Germany",
     "emoji": "⛪",
     "lat": 50.9384,
     "lng": 6.96
@@ -151,6 +168,7 @@ export const CITIES = [
     "he": "וינה",
     "en": "Vienna",
     "country": "אוסטריה",
+    "countryEn": "Austria",
     "emoji": "🎻",
     "lat": 48.2084,
     "lng": 16.3725
@@ -159,6 +177,7 @@ export const CITIES = [
     "he": "זלצבורג",
     "en": "Salzburg",
     "country": "אוסטריה",
+    "countryEn": "Austria",
     "emoji": "🎼",
     "lat": 47.7981,
     "lng": 13.0465
@@ -167,6 +186,7 @@ export const CITIES = [
     "he": "טירול",
     "en": "Tyrol",
     "country": "אוסטריה",
+    "countryEn": "Austria",
     "emoji": "⛰️",
     "lat": 47.2232,
     "lng": 11.5261
@@ -175,6 +195,7 @@ export const CITIES = [
     "he": "בודפשט",
     "en": "Budapest",
     "country": "הונגריה",
+    "countryEn": "Hungary",
     "emoji": "♨️",
     "lat": 47.4979,
     "lng": 19.0402
@@ -183,6 +204,7 @@ export const CITIES = [
     "he": "אתונה",
     "en": "Athens",
     "country": "יוון",
+    "countryEn": "Greece",
     "emoji": "🏺",
     "lat": 37.9756,
     "lng": 23.7348
@@ -191,6 +213,7 @@ export const CITIES = [
     "he": "סלוניקי",
     "en": "Thessaloniki",
     "country": "יוון",
+    "countryEn": "Greece",
     "emoji": "🌊",
     "lat": 40.6403,
     "lng": 22.9353
@@ -199,6 +222,7 @@ export const CITIES = [
     "he": "רודוס",
     "en": "Rhodes",
     "country": "יוון",
+    "countryEn": "Greece",
     "emoji": "🏖️",
     "lat": 36.1725,
     "lng": 27.9194
@@ -207,6 +231,7 @@ export const CITIES = [
     "he": "כרתים",
     "en": "Heraklion",
     "country": "יוון",
+    "countryEn": "Greece",
     "emoji": "🏝️",
     "lat": 35.3391,
     "lng": 25.1333
@@ -215,6 +240,7 @@ export const CITIES = [
     "he": "סנטוריני",
     "en": "Santorini",
     "country": "יוון",
+    "countryEn": "Greece",
     "emoji": "🌋",
     "lat": 36.4071,
     "lng": 25.4567
@@ -223,6 +249,7 @@ export const CITIES = [
     "he": "מיקונוס",
     "en": "Mykonos",
     "country": "יוון",
+    "countryEn": "Greece",
     "emoji": "🐚",
     "lat": 37.4514,
     "lng": 25.3923
@@ -231,6 +258,7 @@ export const CITIES = [
     "he": "לרנקה",
     "en": "Larnaca",
     "country": "קפריסין",
+    "countryEn": "Cyprus",
     "emoji": "🌅",
     "lat": 34.9236,
     "lng": 33.6236
@@ -239,6 +267,7 @@ export const CITIES = [
     "he": "פאפוס",
     "en": "Paphos",
     "country": "קפריסין",
+    "countryEn": "Cyprus",
     "emoji": "🏛️",
     "lat": 34.7744,
     "lng": 32.4232
@@ -247,6 +276,7 @@ export const CITIES = [
     "he": "איה נאפה",
     "en": "Ayia Napa",
     "country": "קפריסין",
+    "countryEn": "Cyprus",
     "emoji": "🏖️",
     "lat": 34.9893,
     "lng": 33.9962
@@ -255,6 +285,7 @@ export const CITIES = [
     "he": "מילאנו",
     "en": "Milan",
     "country": "איטליה",
+    "countryEn": "Italy",
     "emoji": "👗",
     "lat": 45.4642,
     "lng": 9.1896
@@ -263,6 +294,7 @@ export const CITIES = [
     "he": "ונציה",
     "en": "Venice",
     "country": "איטליה",
+    "countryEn": "Italy",
     "emoji": "🚤",
     "lat": 45.4372,
     "lng": 12.3346
@@ -271,6 +303,7 @@ export const CITIES = [
     "he": "פירנצה",
     "en": "Florence",
     "country": "איטליה",
+    "countryEn": "Italy",
     "emoji": "🖼️",
     "lat": 43.7698,
     "lng": 11.2556
@@ -279,6 +312,7 @@ export const CITIES = [
     "he": "בולוניה",
     "en": "Bologna",
     "country": "איטליה",
+    "countryEn": "Italy",
     "emoji": "🍝",
     "lat": 44.4938,
     "lng": 11.3426
@@ -287,6 +321,7 @@ export const CITIES = [
     "he": "פלרמו",
     "en": "Palermo",
     "country": "איטליה",
+    "countryEn": "Italy",
     "emoji": "🍋",
     "lat": 38.1112,
     "lng": 13.3524
@@ -295,6 +330,7 @@ export const CITIES = [
     "he": "טוסקנה",
     "en": "Tuscany",
     "country": "איטליה",
+    "countryEn": "Italy",
     "emoji": "🍷",
     "lat": 43.4587,
     "lng": 11.1389
@@ -303,6 +339,7 @@ export const CITIES = [
     "he": "דולומיטים",
     "en": "Dolomites",
     "country": "איטליה",
+    "countryEn": "Italy",
     "emoji": "🏔️",
     "lat": 46.2946,
     "lng": 12.0513
@@ -311,6 +348,7 @@ export const CITIES = [
     "he": "נאפולי",
     "en": "Naples",
     "country": "איטליה",
+    "countryEn": "Italy",
     "emoji": "🍕",
     "lat": 40.8359,
     "lng": 14.2488
@@ -319,6 +357,7 @@ export const CITIES = [
     "he": "ליסבון",
     "en": "Lisbon",
     "country": "פורטוגל",
+    "countryEn": "Portugal",
     "emoji": "🚋",
     "lat": 38.7078,
     "lng": -9.1366
@@ -327,6 +366,7 @@ export const CITIES = [
     "he": "פורטו",
     "en": "Porto",
     "country": "פורטוגל",
+    "countryEn": "Portugal",
     "emoji": "🍷",
     "lat": 41.1502,
     "lng": -8.6103
@@ -335,6 +375,7 @@ export const CITIES = [
     "he": "דבלין",
     "en": "Dublin",
     "country": "אירלנד",
+    "countryEn": "Ireland",
     "emoji": "☘️",
     "lat": 53.3494,
     "lng": -6.2606
@@ -343,6 +384,7 @@ export const CITIES = [
     "he": "קופנהגן",
     "en": "Copenhagen",
     "country": "דנמרק",
+    "countryEn": "Denmark",
     "emoji": "🧜",
     "lat": 55.6867,
     "lng": 12.5701
@@ -351,6 +393,7 @@ export const CITIES = [
     "he": "שטוקהולם",
     "en": "Stockholm",
     "country": "שוודיה",
+    "countryEn": "Sweden",
     "emoji": "🛥️",
     "lat": 59.3251,
     "lng": 18.0711
@@ -359,6 +402,7 @@ export const CITIES = [
     "he": "אוסלו",
     "en": "Oslo",
     "country": "נורווגיה",
+    "countryEn": "Norway",
     "emoji": "🏔️",
     "lat": 59.9133,
     "lng": 10.739
@@ -367,6 +411,7 @@ export const CITIES = [
     "he": "הלסינקי",
     "en": "Helsinki",
     "country": "פינלנד",
+    "countryEn": "Finland",
     "emoji": "❄️",
     "lat": 60.1666,
     "lng": 24.9435
@@ -375,6 +420,7 @@ export const CITIES = [
     "he": "רייקיאוויק",
     "en": "Reykjavik",
     "country": "איסלנד",
+    "countryEn": "Iceland",
     "emoji": "🌋",
     "lat": 64.146,
     "lng": -21.9422
@@ -383,6 +429,7 @@ export const CITIES = [
     "he": "ציריך",
     "en": "Zurich",
     "country": "שווייץ",
+    "countryEn": "Switzerland",
     "emoji": "🏔️",
     "lat": 47.3744,
     "lng": 8.541
@@ -391,6 +438,7 @@ export const CITIES = [
     "he": "ז׳נבה",
     "en": "Geneva",
     "country": "שווייץ",
+    "countryEn": "Switzerland",
     "emoji": "⛲",
     "lat": 46.2018,
     "lng": 6.1466
@@ -399,6 +447,7 @@ export const CITIES = [
     "he": "לוצרן",
     "en": "Lucerne",
     "country": "שווייץ",
+    "countryEn": "Switzerland",
     "emoji": "🚠",
     "lat": 47.0521,
     "lng": 8.3058
@@ -407,6 +456,7 @@ export const CITIES = [
     "he": "אינטרלאקן",
     "en": "Interlaken",
     "country": "שווייץ",
+    "countryEn": "Switzerland",
     "emoji": "⛷️",
     "lat": 46.6855,
     "lng": 7.8585
@@ -415,6 +465,7 @@ export const CITIES = [
     "he": "שטרסבורג",
     "en": "Strasbourg",
     "country": "צרפת",
+    "countryEn": "France",
     "emoji": "🥨",
     "lat": 48.5846,
     "lng": 7.7507
@@ -423,6 +474,7 @@ export const CITIES = [
     "he": "ניס",
     "en": "Nice",
     "country": "צרפת",
+    "countryEn": "France",
     "emoji": "🌴",
     "lat": 43.7009,
     "lng": 7.2684
@@ -431,6 +483,7 @@ export const CITIES = [
     "he": "ליון",
     "en": "Lyon",
     "country": "צרפת",
+    "countryEn": "France",
     "emoji": "🍷",
     "lat": 45.7578,
     "lng": 4.832
@@ -439,6 +492,7 @@ export const CITIES = [
     "he": "מרסיי",
     "en": "Marseille",
     "country": "צרפת",
+    "countryEn": "France",
     "emoji": "⛵",
     "lat": 43.2964,
     "lng": 5.3778
@@ -447,6 +501,7 @@ export const CITIES = [
     "he": "בריסל",
     "en": "Brussels",
     "country": "בלגיה",
+    "countryEn": "Belgium",
     "emoji": "🧇",
     "lat": 50.8467,
     "lng": 4.3525
@@ -455,6 +510,7 @@ export const CITIES = [
     "he": "ורשה",
     "en": "Warsaw",
     "country": "פולין",
+    "countryEn": "Poland",
     "emoji": "🏛️",
     "lat": 52.232,
     "lng": 21.0067
@@ -463,6 +519,7 @@ export const CITIES = [
     "he": "קרקוב",
     "en": "Krakow",
     "country": "פולין",
+    "countryEn": "Poland",
     "emoji": "🐉",
     "lat": 50.0469,
     "lng": 19.9972
@@ -471,6 +528,7 @@ export const CITIES = [
     "he": "בוקרשט",
     "en": "Bucharest",
     "country": "רומניה",
+    "countryEn": "Romania",
     "emoji": "🏰",
     "lat": 44.4361,
     "lng": 26.1027
@@ -479,6 +537,7 @@ export const CITIES = [
     "he": "סופיה",
     "en": "Sofia",
     "country": "בולגריה",
+    "countryEn": "Bulgaria",
     "emoji": "⛪",
     "lat": 42.6977,
     "lng": 23.3217
@@ -487,6 +546,7 @@ export const CITIES = [
     "he": "בלגרד",
     "en": "Belgrade",
     "country": "סרביה",
+    "countryEn": "Serbia",
     "emoji": "🌉",
     "lat": 44.8153,
     "lng": 20.4457
@@ -495,6 +555,7 @@ export const CITIES = [
     "he": "זאגרב",
     "en": "Zagreb",
     "country": "קרואטיה",
+    "countryEn": "Croatia",
     "emoji": "🇭🇷",
     "lat": 45.8131,
     "lng": 15.9773
@@ -503,6 +564,7 @@ export const CITIES = [
     "he": "דוברובניק",
     "en": "Dubrovnik",
     "country": "קרואטיה",
+    "countryEn": "Croatia",
     "emoji": "🏰",
     "lat": 42.6491,
     "lng": 18.094
@@ -511,6 +573,7 @@ export const CITIES = [
     "he": "ספליט",
     "en": "Split",
     "country": "קרואטיה",
+    "countryEn": "Croatia",
     "emoji": "⛵",
     "lat": 43.5116,
     "lng": 16.44
@@ -519,6 +582,7 @@ export const CITIES = [
     "he": "לובליאנה",
     "en": "Ljubljana",
     "country": "סלובניה",
+    "countryEn": "Slovenia",
     "emoji": "🐉",
     "lat": 46.05,
     "lng": 14.5069
@@ -527,6 +591,7 @@ export const CITIES = [
     "he": "טביליסי",
     "en": "Tbilisi",
     "country": "גאורגיה",
+    "countryEn": "Georgia",
     "emoji": "🍇",
     "lat": 41.6935,
     "lng": 44.8014
@@ -535,6 +600,7 @@ export const CITIES = [
     "he": "באטומי",
     "en": "Batumi",
     "country": "גאורגיה",
+    "countryEn": "Georgia",
     "emoji": "🌊",
     "lat": 41.651,
     "lng": 41.636
@@ -543,6 +609,7 @@ export const CITIES = [
     "he": "ירוואן",
     "en": "Yerevan",
     "country": "ארמניה",
+    "countryEn": "Armenia",
     "emoji": "⛰️",
     "lat": 40.1777,
     "lng": 44.5126
@@ -551,6 +618,7 @@ export const CITIES = [
     "he": "באקו",
     "en": "Baku",
     "country": "אזרבייג׳ן",
+    "countryEn": "Azerbaijan",
     "emoji": "🔥",
     "lat": 40.3756,
     "lng": 49.8328
@@ -559,6 +627,7 @@ export const CITIES = [
     "he": "איסטנבול",
     "en": "Istanbul",
     "country": "טורקיה",
+    "countryEn": "Turkey",
     "emoji": "🕌",
     "lat": 41.0064,
     "lng": 28.9759
@@ -567,6 +636,7 @@ export const CITIES = [
     "he": "דובאי",
     "en": "Dubai",
     "country": "איחוד האמירויות",
+    "countryEn": "United Arab Emirates",
     "emoji": "🌇",
     "lat": 25.0743,
     "lng": 55.1886
@@ -575,6 +645,7 @@ export const CITIES = [
     "he": "אבו דאבי",
     "en": "Abu Dhabi",
     "country": "איחוד האמירויות",
+    "countryEn": "United Arab Emirates",
     "emoji": "🕌",
     "lat": 24.4538,
     "lng": 54.3774
@@ -583,6 +654,7 @@ export const CITIES = [
     "he": "דוחא",
     "en": "Doha",
     "country": "קטאר",
+    "countryEn": "Qatar",
     "emoji": "🏙️",
     "lat": 25.3109,
     "lng": 51.5082
@@ -591,6 +663,7 @@ export const CITIES = [
     "he": "עמאן",
     "en": "Amman",
     "country": "ירדן",
+    "countryEn": "Jordan",
     "emoji": "🏜️",
     "lat": 31.9516,
     "lng": 35.924
@@ -599,6 +672,7 @@ export const CITIES = [
     "he": "קהיר",
     "en": "Cairo",
     "country": "מצרים",
+    "countryEn": "Egypt",
     "emoji": "🐫",
     "lat": 30.0444,
     "lng": 31.2357
@@ -607,6 +681,7 @@ export const CITIES = [
     "he": "מרקש",
     "en": "Marrakesh",
     "country": "מרוקו",
+    "countryEn": "Morocco",
     "emoji": "🕌",
     "lat": 31.6258,
     "lng": -7.9892
@@ -615,6 +690,7 @@ export const CITIES = [
     "he": "קזבלנקה",
     "en": "Casablanca",
     "country": "מרוקו",
+    "countryEn": "Morocco",
     "emoji": "🌊",
     "lat": 33.5945,
     "lng": -7.62
@@ -623,6 +699,7 @@ export const CITIES = [
     "he": "בנגקוק",
     "en": "Bangkok",
     "country": "תאילנד",
+    "countryEn": "Thailand",
     "emoji": "🛕",
     "lat": 13.7525,
     "lng": 100.4935
@@ -631,6 +708,7 @@ export const CITIES = [
     "he": "פוקט",
     "en": "Phuket",
     "country": "תאילנד",
+    "countryEn": "Thailand",
     "emoji": "🏝️",
     "lat": 7.9366,
     "lng": 98.3529
@@ -639,6 +717,7 @@ export const CITIES = [
     "he": "צ׳יאנג מאי",
     "en": "Chiang Mai",
     "country": "תאילנד",
+    "countryEn": "Thailand",
     "emoji": "🐘",
     "lat": 18.7883,
     "lng": 98.9859
@@ -647,6 +726,7 @@ export const CITIES = [
     "he": "טוקיו",
     "en": "Tokyo",
     "country": "יפן",
+    "countryEn": "Japan",
     "emoji": "🗾",
     "lat": 35.6769,
     "lng": 139.7639
@@ -655,6 +735,7 @@ export const CITIES = [
     "he": "קיוטו",
     "en": "Kyoto",
     "country": "יפן",
+    "countryEn": "Japan",
     "emoji": "⛩️",
     "lat": 35.0116,
     "lng": 135.7681
@@ -663,6 +744,7 @@ export const CITIES = [
     "he": "אוסקה",
     "en": "Osaka",
     "country": "יפן",
+    "countryEn": "Japan",
     "emoji": "🍜",
     "lat": 34.6938,
     "lng": 135.5015
@@ -671,6 +753,7 @@ export const CITIES = [
     "he": "סיאול",
     "en": "Seoul",
     "country": "קוריאה",
+    "countryEn": "South Korea",
     "emoji": "🏯",
     "lat": 37.5667,
     "lng": 126.9783
@@ -679,6 +762,7 @@ export const CITIES = [
     "he": "בייג׳ינג",
     "en": "Beijing",
     "country": "סין",
+    "countryEn": "China",
     "emoji": "🏯",
     "lat": 39.9057,
     "lng": 116.3913
@@ -687,6 +771,7 @@ export const CITIES = [
     "he": "שנגחאי",
     "en": "Shanghai",
     "country": "סין",
+    "countryEn": "China",
     "emoji": "🌆",
     "lat": 31.2313,
     "lng": 121.47
@@ -695,6 +780,7 @@ export const CITIES = [
     "he": "הונג קונג",
     "en": "Hong Kong",
     "country": "הונג קונג",
+    "countryEn": "Hong Kong",
     "emoji": "🏙️",
     "lat": 22.3492,
     "lng": 114.1858
@@ -703,6 +789,7 @@ export const CITIES = [
     "he": "סינגפור",
     "en": "Singapore",
     "country": "סינגפור",
+    "countryEn": "Singapore",
     "emoji": "🦁",
     "lat": 1.3571,
     "lng": 103.8195
@@ -711,6 +798,7 @@ export const CITIES = [
     "he": "קואלה לומפור",
     "en": "Kuala Lumpur",
     "country": "מלזיה",
+    "countryEn": "Malaysia",
     "emoji": "🏙️",
     "lat": 3.1517,
     "lng": 101.6942
@@ -719,6 +807,7 @@ export const CITIES = [
     "he": "באלי",
     "en": "Denpasar",
     "country": "אינדונזיה",
+    "countryEn": "Indonesia",
     "emoji": "🌺",
     "lat": -8.6653,
     "lng": 115.2176
@@ -727,6 +816,7 @@ export const CITIES = [
     "he": "הו צ׳י מין",
     "en": "Ho Chi Minh City",
     "country": "וייטנאם",
+    "countryEn": "Vietnam",
     "emoji": "🛵",
     "lat": 10.7737,
     "lng": 106.7166
@@ -735,6 +825,7 @@ export const CITIES = [
     "he": "האנוי",
     "en": "Hanoi",
     "country": "וייטנאם",
+    "countryEn": "Vietnam",
     "emoji": "🍲",
     "lat": 21.0283,
     "lng": 105.854
@@ -743,6 +834,7 @@ export const CITIES = [
     "he": "דלהי",
     "en": "New Delhi",
     "country": "הודו",
+    "countryEn": "India",
     "emoji": "🕌",
     "lat": 28.6139,
     "lng": 77.209
@@ -751,6 +843,7 @@ export const CITIES = [
     "he": "מומבאי",
     "en": "Mumbai",
     "country": "הודו",
+    "countryEn": "India",
     "emoji": "🎬",
     "lat": 19.055,
     "lng": 72.8692
@@ -759,6 +852,7 @@ export const CITIES = [
     "he": "גואה",
     "en": "Panaji",
     "country": "הודו",
+    "countryEn": "India",
     "emoji": "🏖️",
     "lat": 15.499,
     "lng": 73.8282
@@ -767,6 +861,7 @@ export const CITIES = [
     "he": "קטמנדו",
     "en": "Kathmandu",
     "country": "נפאל",
+    "countryEn": "Nepal",
     "emoji": "🏔️",
     "lat": 27.7083,
     "lng": 85.3206
@@ -775,6 +870,7 @@ export const CITIES = [
     "he": "קולומבו",
     "en": "Colombo",
     "country": "סרי לנקה",
+    "countryEn": "Sri Lanka",
     "emoji": "🌴",
     "lat": 6.9389,
     "lng": 79.8542
@@ -783,6 +879,7 @@ export const CITIES = [
     "he": "מלדיביים",
     "en": "Male",
     "country": "מלדיביים",
+    "countryEn": "Maldives",
     "emoji": "🏝️",
     "lat": 4.178,
     "lng": 73.5107
@@ -791,6 +888,7 @@ export const CITIES = [
     "he": "ניו יורק",
     "en": "New York",
     "country": "ארצות הברית",
+    "countryEn": "United States",
     "emoji": "🗽",
     "lat": 40.7127,
     "lng": -74.006
@@ -799,6 +897,7 @@ export const CITIES = [
     "he": "לוס אנג׳לס",
     "en": "Los Angeles",
     "country": "ארצות הברית",
+    "countryEn": "United States",
     "emoji": "🌴",
     "lat": 34.0537,
     "lng": -118.2428
@@ -807,6 +906,7 @@ export const CITIES = [
     "he": "סן פרנסיסקו",
     "en": "San Francisco",
     "country": "ארצות הברית",
+    "countryEn": "United States",
     "emoji": "🌉",
     "lat": 37.7879,
     "lng": -122.4075
@@ -815,6 +915,7 @@ export const CITIES = [
     "he": "לאס וגאס",
     "en": "Las Vegas",
     "country": "ארצות הברית",
+    "countryEn": "United States",
     "emoji": "🎰",
     "lat": 36.1674,
     "lng": -115.1484
@@ -823,6 +924,7 @@ export const CITIES = [
     "he": "מיאמי",
     "en": "Miami",
     "country": "ארצות הברית",
+    "countryEn": "United States",
     "emoji": "🏖️",
     "lat": 25.7742,
     "lng": -80.1936
@@ -831,6 +933,7 @@ export const CITIES = [
     "he": "שיקגו",
     "en": "Chicago",
     "country": "ארצות הברית",
+    "countryEn": "United States",
     "emoji": "🌃",
     "lat": 41.8756,
     "lng": -87.6244
@@ -839,6 +942,7 @@ export const CITIES = [
     "he": "בוסטון",
     "en": "Boston",
     "country": "ארצות הברית",
+    "countryEn": "United States",
     "emoji": "🎓",
     "lat": 42.3588,
     "lng": -71.0578
@@ -847,6 +951,7 @@ export const CITIES = [
     "he": "וושינגטון",
     "en": "Washington",
     "country": "ארצות הברית",
+    "countryEn": "United States",
     "emoji": "🏛️",
     "lat": 38.8951,
     "lng": -77.0364
@@ -855,6 +960,7 @@ export const CITIES = [
     "he": "אורלנדו",
     "en": "Orlando",
     "country": "ארצות הברית",
+    "countryEn": "United States",
     "emoji": "🎢",
     "lat": 28.5421,
     "lng": -81.379
@@ -863,6 +969,7 @@ export const CITIES = [
     "he": "טורונטו",
     "en": "Toronto",
     "country": "קנדה",
+    "countryEn": "Canada",
     "emoji": "🍁",
     "lat": 43.6535,
     "lng": -79.3839
@@ -871,6 +978,7 @@ export const CITIES = [
     "he": "מונטריאול",
     "en": "Montreal",
     "country": "קנדה",
+    "countryEn": "Canada",
     "emoji": "🍁",
     "lat": 45.5032,
     "lng": -73.5698
@@ -879,6 +987,7 @@ export const CITIES = [
     "he": "ונקובר",
     "en": "Vancouver",
     "country": "קנדה",
+    "countryEn": "Canada",
     "emoji": "🏔️",
     "lat": 49.2609,
     "lng": -123.114
@@ -887,6 +996,7 @@ export const CITIES = [
     "he": "מקסיקו סיטי",
     "en": "Mexico City",
     "country": "מקסיקו",
+    "countryEn": "Mexico",
     "emoji": "🌮",
     "lat": 19.3208,
     "lng": -99.1515
@@ -895,6 +1005,7 @@ export const CITIES = [
     "he": "קנקון",
     "en": "Cancun",
     "country": "מקסיקו",
+    "countryEn": "Mexico",
     "emoji": "🏝️",
     "lat": 21.1527,
     "lng": -86.8426
@@ -903,6 +1014,7 @@ export const CITIES = [
     "he": "הוואנה",
     "en": "Havana",
     "country": "קובה",
+    "countryEn": "Cuba",
     "emoji": "🚗",
     "lat": 23.1353,
     "lng": -82.359
@@ -911,6 +1023,7 @@ export const CITIES = [
     "he": "ריו דה ז׳ניירו",
     "en": "Rio de Janeiro",
     "country": "ברזיל",
+    "countryEn": "Brazil",
     "emoji": "🌴",
     "lat": -22.911,
     "lng": -43.2094
@@ -919,6 +1032,7 @@ export const CITIES = [
     "he": "סאו פאולו",
     "en": "Sao Paulo",
     "country": "ברזיל",
+    "countryEn": "Brazil",
     "emoji": "🏙️",
     "lat": -23.5507,
     "lng": -46.6334
@@ -927,6 +1041,7 @@ export const CITIES = [
     "he": "בואנוס איירס",
     "en": "Buenos Aires",
     "country": "ארגנטינה",
+    "countryEn": "Argentina",
     "emoji": "💃",
     "lat": -34.6096,
     "lng": -58.3888
@@ -935,6 +1050,7 @@ export const CITIES = [
     "he": "סנטיאגו",
     "en": "Santiago",
     "country": "צ׳ילה",
+    "countryEn": "Chile",
     "emoji": "🏔️",
     "lat": -33.4377,
     "lng": -70.6511
@@ -943,6 +1059,7 @@ export const CITIES = [
     "he": "לימה",
     "en": "Lima",
     "country": "פרו",
+    "countryEn": "Peru",
     "emoji": "🦙",
     "lat": -12.046,
     "lng": -77.0306
@@ -951,6 +1068,7 @@ export const CITIES = [
     "he": "קוסקו",
     "en": "Cusco",
     "country": "פרו",
+    "countryEn": "Peru",
     "emoji": "🏔️",
     "lat": -13.5171,
     "lng": -71.9785
@@ -959,6 +1077,7 @@ export const CITIES = [
     "he": "בוגוטה",
     "en": "Bogota",
     "country": "קולומביה",
+    "countryEn": "Colombia",
     "emoji": "☕",
     "lat": 4.6534,
     "lng": -74.0836
@@ -967,6 +1086,7 @@ export const CITIES = [
     "he": "קייפטאון",
     "en": "Cape Town",
     "country": "דרום אפריקה",
+    "countryEn": "South Africa",
     "emoji": "🐧",
     "lat": -33.9288,
     "lng": 18.4172
@@ -975,6 +1095,7 @@ export const CITIES = [
     "he": "ניירובי",
     "en": "Nairobi",
     "country": "קניה",
+    "countryEn": "Kenya",
     "emoji": "🦁",
     "lat": -1.289,
     "lng": 36.8173
@@ -983,6 +1104,7 @@ export const CITIES = [
     "he": "סידני",
     "en": "Sydney",
     "country": "אוסטרליה",
+    "countryEn": "Australia",
     "emoji": "🦘",
     "lat": -33.8698,
     "lng": 151.2083
@@ -991,6 +1113,7 @@ export const CITIES = [
     "he": "מלבורן",
     "en": "Melbourne",
     "country": "אוסטרליה",
+    "countryEn": "Australia",
     "emoji": "☕",
     "lat": -37.8142,
     "lng": 144.9632
@@ -999,6 +1122,7 @@ export const CITIES = [
     "he": "אוקלנד",
     "en": "Auckland",
     "country": "ניו זילנד",
+    "countryEn": "New Zealand",
     "emoji": "🥝",
     "lat": -36.8521,
     "lng": 174.7632
@@ -1007,6 +1131,7 @@ export const CITIES = [
     "he": "תל אביב",
     "en": "Tel Aviv",
     "country": "ישראל",
+    "countryEn": "Israel",
     "emoji": "🇮🇱",
     "lat": 32.0853,
     "lng": 34.7818
@@ -1015,6 +1140,7 @@ export const CITIES = [
     "he": "ירושלים",
     "en": "Jerusalem",
     "country": "ישראל",
+    "countryEn": "Israel",
     "emoji": "🕍",
     "lat": 31.7788,
     "lng": 35.2258
@@ -1023,6 +1149,7 @@ export const CITIES = [
     "he": "אילת",
     "en": "Eilat",
     "country": "ישראל",
+    "countryEn": "Israel",
     "emoji": "🐠",
     "lat": 29.5569,
     "lng": 34.9498
@@ -1041,7 +1168,7 @@ export function searchCities(query, limit = 6) {
     const he = c.he.toLowerCase()
     const en = c.en.toLowerCase()
     if (he.startsWith(q) || en.startsWith(q)) starts.push(c)
-    else if (he.includes(q) || en.includes(q) || c.country.toLowerCase().includes(q)) contains.push(c)
+    else if (he.includes(q) || en.includes(q) || c.country.toLowerCase().includes(q) || c.countryEn.toLowerCase().includes(q)) contains.push(c)
     if (starts.length >= limit) break
   }
 

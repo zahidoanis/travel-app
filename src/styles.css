@@ -586,7 +586,11 @@ input, select, textarea { font: inherit; color: inherit; }
 /* ---------- Map ---------- */
 
 .map-screen { position: relative; flex: 1; overflow: hidden; display: flex; flex-direction: column; }
-.map-canvas { position: absolute; inset: 0; overflow: hidden; background: #0A0B12; }
+/* direction: ltr — a map's east is to the right in every language. Tiles are
+   placed with inset-inline-start, which resolves to `right` under the app's
+   RTL, mirroring the tile grid against the pin overlay (whose SVG x-axis
+   always runs left-to-right). Pinning the canvas to LTR makes both agree. */
+.map-canvas { position: absolute; inset: 0; overflow: hidden; background: #0A0B12; direction: ltr; }
 
 /* Google Static Maps path: one full-bleed image. */
 .map-canvas > img { width: 100%; height: 100%; display: block; }
@@ -692,6 +696,10 @@ input, select, textarea { font: inherit; color: inherit; }
   border-radius: var(--r-lg) 6px var(--r-lg) var(--r-lg);
 }
 .bubble a { color: var(--cyan); text-decoration: underline; text-underline-offset: 2px; word-break: break-all; }
+/* LTR keeps the same sides (user right, agent left), which in an LTR column
+   means the opposite flex ends. The tail corners already match those sides. */
+[dir="ltr"] .bubble.ai { align-self: flex-start; }
+[dir="ltr"] .bubble.me { align-self: flex-end; }
 .msg-in { animation: msg-in 0.34s var(--ease); }
 @keyframes msg-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 

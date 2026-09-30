@@ -4,6 +4,7 @@ import Sheet from '../components/Sheet'
 import TicketPhoto from '../components/TicketPhoto'
 import { Plus, X, Ticket, Phone } from '../components/Icons'
 import { useTrip } from '../TripProvider'
+import { t } from '../i18n'
 
 /**
  * Bookings kept for this trip, plus tickets saved without a real booking
@@ -37,21 +38,20 @@ export default function Reservations() {
         <div className="between" style={{ alignItems: 'flex-start', marginBottom: 4 }}>
           <div>
             <h1 className="h1" style={{ fontSize: 24 }}>
-              ההזמנות שלך{reservations.length > 0 ? ` (${reservations.length})` : ''}
+              {t('ההזמנות שלך')}{reservations.length > 0 ? ` (${reservations.length})` : ''}
             </h1>
             <p className="tiny" style={{ marginTop: 4 }}>{trip.city}</p>
           </div>
           <button
             className="icon-btn boxed" style={{ width: 34, height: 34 }}
             onClick={() => setAddingTicket(true)}
-            aria-label="הוסף כרטיס"
+            aria-label={t('הוסף כרטיס')}
           ><Plus size={17} /></button>
         </div>
 
         {reservations.length === 0 && (
           <p className="tiny" style={{ marginTop: 20 }}>
-            אין עדיין כלום כאן. אפשר לשמור הזמנה דרך "הזמן" בעצירה במסלול, או
-            ללחוץ על + כדי לצרף כרטיס שכבר יש לכם — טיסה, כניסה לאתר, כל דבר.
+            {t('אין עדיין כלום כאן. אפשר לשמור הזמנה דרך "הזמן" בעצירה במסלול, או ללחוץ על + כדי לצרף כרטיס שכבר יש לכם — טיסה, כניסה לאתר, כל דבר.')}
           </p>
         )}
 
@@ -71,8 +71,8 @@ export default function Reservations() {
                   <strong style={{ fontSize: 13.5, fontWeight: 600 }}>{r.place}</strong>
                   {r.kind !== 'ticket' && (
                     <span className="tiny">
-                      <span className="num">{r.party}</span> {r.kind === 'food' ? 'סועדים' : 'משתתפים'}
-                      {r.phone ? ' · יש טלפון' : ''}
+                      <span className="num">{r.party}</span> {r.kind === 'food' ? t('סועדים') : t('משתתפים')}
+                      {r.phone ? ` · ${t('יש טלפון')}` : ''}
                     </span>
                   )}
                 </span>
@@ -80,14 +80,14 @@ export default function Reservations() {
                   <a
                     className="icon-btn" style={{ width: 30, height: 30 }}
                     href={`tel:${r.phone.replace(/\s/g, '')}`}
-                    aria-label={`התקשר ל${r.place}`}
+                    aria-label={t('התקשר ל{place}', { place: r.place })}
                   ><Phone size={14} /></a>
                 )}
                 <TicketPhoto tripId={trip.id} ticketId={r.id} />
                 <button
                   className="icon-btn" style={{ width: 30, height: 30 }}
                   onClick={() => removeReservation(r.id)}
-                  aria-label={`בטל את ${r.place}`}
+                  aria-label={t('בטל את {place}', { place: r.place })}
                 ><X size={13} /></button>
               </div>
             ))}
@@ -95,19 +95,19 @@ export default function Reservations() {
         )}
       </div>
 
-      <Sheet open={addingTicket} title="הוסף כרטיס" onClose={() => setAddingTicket(false)}>
-        <span className="label">מה זה?</span>
+      <Sheet open={addingTicket} title={t('הוסף כרטיס')} onClose={() => setAddingTicket(false)}>
+        <span className="label">{t('מה זה?')}</span>
         <input
           className="field" style={{ marginBottom: 16 }}
           value={ticketName}
           onChange={(e) => setTicketName(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && saveTicket()}
-          placeholder="לדוגמה: טיסת חזרה, כניסה לטירה"
-          aria-label="מה זה"
+          placeholder={t('לדוגמה: טיסת חזרה, כניסה לטירה')}
+          aria-label={t('מה זה')}
           autoFocus
         />
         <button className="btn btn-primary btn-block" onClick={saveTicket} disabled={!ticketName.trim()}>
-          <Plus size={16} /> המשך לצירוף תמונה
+          <Plus size={16} /> {t('המשך לצירוף תמונה')}
         </button>
       </Sheet>
     </div>

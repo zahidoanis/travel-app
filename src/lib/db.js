@@ -91,7 +91,7 @@ async function guarded(name, fn, fallback) {
   } catch (err) {
     record({
       kind: 'db',
-      message: `פעולת ${name} נכשלה: ${err?.message ?? err}`,
+      message: `פעולת ${name} נכשלה: ${err?.message ?? err}`, // i18n-ignore — internal log
       stack: err?.stack,
       context: { operation: name, code: err?.code ?? null },
     })

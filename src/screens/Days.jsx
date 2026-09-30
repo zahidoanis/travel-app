@@ -9,6 +9,7 @@ import { useTrip } from '../TripProvider'
 import { hasAI, complete, parseRows } from '../lib/gemini'
 import { geocode, search } from '../lib/geocode'
 import { breadcrumb, watchdog } from '../lib/telemetry'
+import { t, tn, locale } from '../i18n'
 
 /**
  * The calendar date and weekday for one day of the trip, in Hebrew — "יום
@@ -25,13 +26,14 @@ export function dateForDay(trip, day) {
   const [y, m, d] = trip.from.split('-').map(Number)
   if (!y || !m || !d) return null
   const date = new Date(y, m - 1, d + (day - 1))
-  return date.toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' })
+  return date.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' })
 }
 
 const CAT_FROM_WORD = (w = '') => {
-  if (/מוזיאון|גלריה/.test(w)) return 'museum'
-  if (/מסעד|אוכל|קפה|שוק/.test(w)) return 'food'
-  if (/הליכ|פארק|גן|שיטוט/.test(w)) return 'walking'
+  // Model output, in either language — not UI text.
+  if (/מוזיאון|גלריה|museum|galler/i.test(w)) return 'museum' // i18n-ignore
+  if (/מסעד|אוכל|קפה|שוק|restaurant|food|caf|market/i.test(w)) return 'food' // i18n-ignore
+  if (/הליכ|פארק|גן|שיטוט|walk|park|garden|stroll/i.test(w)) return 'walking' // i18n-ignore
   return 'landmark'
 }
 
@@ -58,13 +60,13 @@ export default function Days() {
       const hits = await search(q, 5)
       if (hits.length > 0) return hits
     }
-    if (ai && hasAI && /[֐-׿]/.test(name)) {
+    if (ai && hasAI && /[֐-׿]/.test(name)) { // i18n-ignore — detects a Hebrew place name
       try {
         const local = (await complete({
           system:
-            'החזר אך ורק את שם המקום בשפה המקומית או באנגלית כפי שהוא מופיע ב-OpenStreetMap. ' +
-            'שורה אחת, בלי הסברים, בלי מירכאות.',
-          prompt: `${name} — ליד ${trip.city}, ${trip.country}`,
+            'החזר אך ורק את שם המקום בשפה המקומית או באנגלית כפי שהוא מופיע ב-OpenStreetMap. ' + // i18n-ignore — AI prompt
+            'שורה אחת, בלי הסברים, בלי מירכאות.', // i18n-ignore
+          prompt: `${name} — ליד ${trip.city}, ${trip.country}`, // i18n-ignore
         })).split('\n')[0].trim()
         if (local) {
           for (const q of [`${local}, ${trip.country}`, local]) {
@@ -85,7 +87,7 @@ export default function Days() {
     if (hit) {
       updateStop(activeDay, s.id, { lat: hit.lat, lng: hit.lng, desc: s.desc || hit.label })
     } else {
-      setError(`עדיין לא הצלחתי לאתר את "${s.he ?? s.name}". אפשר לכתוב את שמו באנגלית או בשפת המקום.`)
+      setError(t('עדיין לא הצלחתי לאתר את "{name}". אפשר לכתוב את שמו באנגלית או בשפת המקום.', { name: s.he ?? s.name }))
     }
   }
 
@@ -122,22 +124,22 @@ export default function Days() {
     const done = watchdog('days.suggest', 30000, { day: activeDay })
 
     try {
-      const already = stops.map((s) => s.name).join(', ') || 'אין עדיין'
+      const already = stops.map((s) => s.name).join(', ') || 'אין עדיין' // i18n-ignore — AI prompt
       const text = await complete({
         system:
-          'אתה מתכנן מסלולי טיול. החזר אך ורק שורות בפורמט:\n' +
-          'שעה | כתובת מלאה באנגלית בפורמט "Place, City, Country" | שם בעברית | קטגוריה | תיאור קצר\n' +
-          'קטגוריה היא אחת מ: מוזיאון, מסעדה, הליכה, אתר.\n' +
-          'בלי כותרות, בלי מספור, בלי טקסט נוסף. בדיוק 4 שורות.',
+          'אתה מתכנן מסלולי טיול. החזר אך ורק שורות בפורמט:\n' + // i18n-ignore — AI prompt; see gemini.js language override
+          'שעה | כתובת מלאה באנגלית בפורמט "Place, City, Country" | שם בעברית | קטגוריה | תיאור קצר\n' + // i18n-ignore
+          'קטגוריה היא אחת מ: מוזיאון, מסעדה, הליכה, אתר.\n' + // i18n-ignore
+          'בלי כותרות, בלי מספור, בלי טקסט נוסף. בדיוק 4 שורות.', // i18n-ignore
         prompt:
-          `עיר: ${trip.city}${trip.country ? `, ${trip.country}` : ''}\n` +
-          `יום ${activeDay} מתוך ${trip.totalDays}\n` +
-          `כבר במסלול היום: ${already}\n\n` +
-          'הצע 4 עצירות נוספות שאינן ברשימה, עם שעות שמשתלבות בין הקיימות.',
+          `עיר: ${trip.city}${trip.country ? `, ${trip.country}` : ''}\n` + // i18n-ignore
+          `יום ${activeDay} מתוך ${trip.totalDays}\n` + // i18n-ignore
+          `כבר במסלול היום: ${already}\n\n` + // i18n-ignore
+          'הצע 4 עצירות נוספות שאינן ברשימה, עם שעות שמשתלבות בין הקיימות.', // i18n-ignore
       })
 
       const rows = parseRows(text, ['time', 'name', 'he', 'category', 'desc'])
-      if (rows.length === 0) setError('לא הצלחתי לפענח את ההצעות. נסה שוב.')
+      if (rows.length === 0) setError(t('לא הצלחתי לפענח את ההצעות. נסה שוב.'))
       setSuggestions(rows)
     } catch (err) {
       setError(err.message)
@@ -194,7 +196,7 @@ export default function Days() {
       lng: hit?.lng ?? null,
     })
 
-    if (!hit) setError(`"${name}" נוסף ללו"ז אבל לא אותר על המפה.`)
+    if (!hit) setError(t('"{name}" נוסף ללו"ז אבל לא אותר על המפה.', { name }))
     setManualName('')
     setPicked(null)
     setPlaceHits([])
@@ -207,7 +209,7 @@ export default function Days() {
     setAdding(null)
 
     if (!hit) {
-      setError(`לא הצלחתי לאתר את "${row.name.split(',')[0]}" על המפה.`)
+      setError(t('לא הצלחתי לאתר את "{name}" על המפה.', { name: row.name.split(',')[0] }))
       return
     }
 
@@ -229,9 +231,9 @@ export default function Days() {
       <TopBar />
 
       <div className="pad">
-        <h1 className="h1" style={{ fontSize: 24 }}>מסלול הטיול</h1>
+        <h1 className="h1" style={{ fontSize: 24 }}>{t('מסלול הטיול')}</h1>
         <p className="tiny" style={{ marginTop: 4 }}>
-          {trip.city} · <span className="num">{trip.totalDays}</span> ימים
+          {trip.city} · <span className="num">{trip.totalDays}</span> {tn(trip.totalDays, 'יום אחד', 'ימים')}
         </p>
       </div>
 
@@ -266,11 +268,11 @@ export default function Days() {
             >
               <span className="day-chip-num num">{d}</span>
               <span className="day-chip-label">
-                יום {d}
+                {t('יום')} {d}
                 <span className="tiny">
                   {date
-                    ? <>{date}{count > 0 && <> · <span className="num">{count}</span> עצירות</>}</>
-                    : count > 0 ? <><span className="num">{count}</span> עצירות</> : 'ריק'}
+                    ? <>{date}{count > 0 && <> · <span className="num">{count}</span> {tn(count, 'עצירה', 'עצירות')}</>}</>
+                    : count > 0 ? <><span className="num">{count}</span> {tn(count, 'עצירה', 'עצירות')}</> : t('ריק')}
                 </span>
               </span>
             </button>
@@ -280,7 +282,7 @@ export default function Days() {
 
       <div className="pad section-head">
         <span className="col" style={{ gap: 2 }}>
-          <h2 className="h2" style={{ fontSize: 16 }}>יום {activeDay}</h2>
+          <h2 className="h2" style={{ fontSize: 16 }}>{t('יום')} {activeDay}</h2>
           {dateForDay(trip, activeDay) && (
             <span className="tiny">{dateForDay(trip, activeDay)}</span>
           )}
@@ -294,10 +296,10 @@ export default function Days() {
               style={{ padding: '6px 12px' }}
               onClick={() => toggleSharedDay(activeDay)}
               aria-pressed={isSharedDay}
-              title={isSharedDay ? 'היום הזה מתוכנן יחד עם כל מי שהצטרף אליו' : 'תכנן את היום הזה יחד עם משפחות אחרות'}
+              title={isSharedDay ? t('היום הזה מתוכנן יחד עם כל מי שהצטרף אליו') : t('תכנן את היום הזה יחד עם משפחות אחרות')}
             >
               <Users size={13} style={{ marginInlineEnd: 5 }} />
-              יחד
+              {t('יחד')}
             </button>
           )}
           <button
@@ -305,8 +307,8 @@ export default function Days() {
             style={{ width: 30, height: 30 }}
             onClick={() => plan(activeDay)}
             disabled={planning}
-            aria-label="בנה את היום מחדש"
-            title="בנה את היום מחדש"
+            aria-label={t('בנה את היום מחדש')}
+            title={t('בנה את היום מחדש')}
           >
             <RefreshCw size={15} />
           </button>
@@ -321,16 +323,16 @@ export default function Days() {
         {planning && stops.length === 0 && (
           <div className="card" style={{ textAlign: 'center' }}>
             <span className="typing"><i /><i /><i /></span>
-            <p className="tiny" style={{ marginTop: 10 }}>הסוכן בונה את היום...</p>
+            <p className="tiny" style={{ marginTop: 10 }}>{t('הסוכן בונה את היום...')}</p>
           </div>
         )}
 
         {!planning && stops.length === 0 && (
           <div className="card" style={{ textAlign: 'center' }}>
-            <p className="sub" style={{ marginBottom: 14 }}>היום הזה עדיין ריק.</p>
+            <p className="sub" style={{ marginBottom: 14 }}>{t('היום הזה עדיין ריק.')}</p>
             <button className="btn btn-primary btn-sm" onClick={() => plan(activeDay)}>
               <Sparkles size={15} />
-              בנה לי יום
+              {t('בנה לי יום')}
             </button>
           </div>
         )}
@@ -359,24 +361,24 @@ export default function Days() {
                       className="icon-btn" style={{ width: 26, height: 26 }}
                       onClick={() => moveStop(activeDay, s.id, -1)}
                       disabled={i === 0}
-                      aria-label="הזז למעלה"
+                      aria-label={t('הזז למעלה')}
                     ><ArrowUp size={13} /></button>
                     <button
                       className="icon-btn" style={{ width: 26, height: 26 }}
                       onClick={() => moveStop(activeDay, s.id, 1)}
                       disabled={i === stops.length - 1}
-                      aria-label="הזז למטה"
+                      aria-label={t('הזז למטה')}
                     ><ArrowDown size={13} /></button>
                     <button
                       className="icon-btn" style={{ width: 26, height: 26 }}
                       onClick={() => setBooking(s)}
-                      aria-label={`הזמן מקום ב${s.he}`}
-                      title="הזמנת מקום או כרטיסים"
+                      aria-label={t('הזמן מקום ב{place}', { place: s.he })}
+                      title={t('הזמנת מקום או כרטיסים')}
                     ><Ticket size={13} /></button>
                     <button
                       className="icon-btn" style={{ width: 26, height: 26 }}
                       onClick={() => removeStop(activeDay, s.id)}
-                      aria-label={`הסר את ${s.he}`}
+                      aria-label={t('הסר את {name}', { name: s.he })}
                     ><X size={13} /></button>
                   </span>
                 </div>
@@ -392,21 +394,21 @@ export default function Days() {
                       onClick={() => locateStop(s)}
                       disabled={locatingId === s.id}
                     >
-                      {locatingId === s.id ? 'מאתר…' : 'לא על המפה — אתר'}
+                      {locatingId === s.id ? t('מאתר…') : t('לא על המפה — אתר')}
                     </button>
                   )}
                   {trip.totalDays > 1 && (
                     <label className="row" style={{ gap: 6, marginInlineStart: 'auto' }}>
-                      <span className="tiny">העבר ליום</span>
+                      <span className="tiny">{t('העבר ליום')}</span>
                       <select
                         className="day-move"
                         value={activeDay}
                         onChange={(e) => moveStopToDay(activeDay, s.id, Number(e.target.value))}
-                        aria-label={`העבר את ${s.he} ליום אחר`}
+                        aria-label={t('העבר את {place} ליום אחר', { place: s.he })}
                       >
                         {dayList.map((d) => (
                           <option key={d} value={d}>
-                            {d === activeDay ? `יום ${d} (כאן)` : `יום ${d}`}
+                            {d === activeDay ? t('יום {n} (כאן)', { n: d }) : t('יום {n}', { n: d })}
                           </option>
                         ))}
                       </select>
@@ -420,7 +422,7 @@ export default function Days() {
 
         {/* Add manually */}
         <div className="section-head" style={{ marginBottom: 12 }}>
-          <h2 className="h2" style={{ fontSize: 15 }}>הוסף יעד בעצמך</h2>
+          <h2 className="h2" style={{ fontSize: 15 }}>{t('הוסף יעד בעצמך')}</h2>
         </div>
 
         <div className="card" style={{ marginBottom: 20 }}>
@@ -431,8 +433,8 @@ export default function Days() {
                 className="field-bare"
                 value={manualName}
                 onChange={(e) => { setManualName(e.target.value); lookupPlace(e.target.value) }}
-                placeholder="שם המקום"
-                aria-label="שם היעד"
+                placeholder={t('שם המקום')}
+                aria-label={t('שם היעד')}
                 autoComplete="off"
               />
               {placeLoading && <span className="typing"><i /><i /><i /></span>}
@@ -457,7 +459,7 @@ export default function Days() {
 
           <div className="row" style={{ gap: 10, marginTop: 11 }}>
             <label style={{ flex: '0 0 108px' }}>
-              <span className="label">שעה</span>
+              <span className="label">{t('שעה')}</span>
               <input
                 type="time"
                 className="field"
@@ -466,7 +468,7 @@ export default function Days() {
               />
             </label>
             <label className="grow">
-              <span className="label">קטגוריה</span>
+              <span className="label">{t('קטגוריה')}</span>
               <select
                 className="field"
                 value={manualCat}
@@ -481,7 +483,7 @@ export default function Days() {
 
           {picked && (
             <p className="tiny" style={{ marginTop: 10 }}>
-              נמצא: <span className="num">{picked.lat.toFixed(4)}, {picked.lng.toFixed(4)}</span>
+              {t('נמצא:')} <span className="num">{picked.lat.toFixed(4)}, {picked.lng.toFixed(4)}</span>
             </p>
           )}
 
@@ -492,30 +494,29 @@ export default function Days() {
             disabled={!manualName.trim() || locating}
           >
             {locating ? <span className="typing"><i /><i /><i /></span> : <Plus size={15} />}
-            הוסף ליום {activeDay}
+            {t('הוסף ליום {day}', { day: activeDay })}
           </button>
 
           <p className="tiny" style={{ marginTop: 10 }}>
-            בחירה מהרשימה מצמידה מיקום מדויק. אפשר גם להקליד שם חופשי — נחפש אותו
-            לפני ההוספה, ואם לא יימצא הוא לא ייכנס למפה.
+            {t('בחירה מהרשימה מצמידה מיקום מדויק. אפשר גם להקליד שם חופשי — נחפש אותו לפני ההוספה, ואם לא יימצא הוא לא ייכנס למפה.')}
           </p>
         </div>
 
         {/* Add from the agent */}
         <div className="section-head" style={{ marginBottom: 12 }}>
-          <h2 className="h2" style={{ fontSize: 15 }}>או שהסוכן יציע</h2>
+          <h2 className="h2" style={{ fontSize: 15 }}>{t('או שהסוכן יציע')}</h2>
         </div>
 
         {hasAI ? (
           <button className="btn btn-ghost btn-block" onClick={suggest} disabled={asking}>
             {asking ? (
-              <><span className="typing"><i /><i /><i /></span> מחפש רעיונות...</>
+              <><span className="typing"><i /><i /><i /></span> {t('מחפש רעיונות...')}</>
             ) : (
-              <><Sparkles size={16} /> הצע לי עצירות ליום {activeDay}</>
+              <><Sparkles size={16} /> {t('הצע לי עצירות ליום {day}', { day: activeDay })}</>
             )}
           </button>
         ) : (
-          <p className="tiny">הצעות דורשות חיבור לסוכן ה-AI.</p>
+          <p className="tiny">{t('הצעות דורשות חיבור לסוכן ה-AI.')}</p>
         )}
 
         {error && <p className="tiny" style={{ color: 'var(--rose)', marginTop: 12 }}>{error}</p>}
@@ -546,7 +547,7 @@ export default function Days() {
               </button>
             ))}
             <p className="tiny">
-              עצירה נוספת מאותרת על המפה לפני שהיא נכנסת למסלול — אם לא נמצא מיקום, היא לא תתווסף.
+              {t('עצירה נוספת מאותרת על המפה לפני שהיא נכנסת למסלול — אם לא נמצא מיקום, היא לא תתווסף.')}
             </p>
           </div>
         )}

@@ -6,6 +6,7 @@ import {
 } from '../components/Icons'
 import { useTrip } from '../TripProvider'
 import { SUPPORTED, SYMBOL, localCurrency, fetchRates, isConvertible } from '../lib/currency'
+import { t, tn } from '../i18n'
 
 const fmt = (n) =>
   n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -194,11 +195,11 @@ export default function Finance() {
 
         <div className="pad between" style={{ alignItems: 'flex-start', marginTop: 6 }}>
           <div>
-            <h1 className="h1" style={{ fontSize: 25 }}>פיננסים</h1>
-            <p className="tiny" style={{ marginTop: 4 }}>מעקב הוצאות והמרת מטבע</p>
+            <h1 className="h1" style={{ fontSize: 25 }}>{t('פיננסים')}</h1>
+            <p className="tiny" style={{ marginTop: 4 }}>{t('מעקב הוצאות והמרת מטבע')}</p>
           </div>
           <div className="col" style={{ alignItems: 'flex-end' }}>
-            <span className="tiny">סה"כ הוצאות</span>
+            <span className="tiny">{t('סה"כ הוצאות')}</span>
             <strong style={{ fontSize: 20, fontWeight: 700 }}>
               <span className="num">₪{total.toLocaleString('en-US')}</span>
             </strong>
@@ -210,7 +211,7 @@ export default function Finance() {
           <section className="converter">
             <div className="row" style={{ marginBottom: 14 }}>
               <span style={{ color: 'var(--lav)' }}><RefreshCw size={17} /></span>
-              <h2 className="h2" style={{ fontSize: 16 }}>מחשבון המרה</h2>
+              <h2 className="h2" style={{ fontSize: 16 }}>{t('מחשבון המרה')}</h2>
             </div>
 
             <div className="cur-field">
@@ -218,13 +219,13 @@ export default function Finance() {
                 value={amount}
                 onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ''))}
                 inputMode="decimal"
-                aria-label={`סכום ב-${from}`}
+                aria-label={t('סכום ב-{currency}', { currency: from })}
               />
               <select
                 className="cur-select"
                 value={from}
                 onChange={(e) => setFrom(e.target.value)}
-                aria-label="מטבע מקור"
+                aria-label={t('מטבע מקור')}
               >
                 {SUPPORTED.map((c) => (
                   <option key={c} value={c}>{c} ({SYMBOL[c]})</option>
@@ -233,7 +234,7 @@ export default function Finance() {
             </div>
 
             <div className="swap-row">
-              <button className={`swap ${spin ? 'spin' : ''}`} onClick={swap} aria-label="החלף מטבעות">
+              <button className={`swap ${spin ? 'spin' : ''}`} onClick={swap} aria-label={t('החלף מטבעות')}>
                 <ArrowUpDown size={16} />
               </button>
             </div>
@@ -244,7 +245,7 @@ export default function Finance() {
                 className="cur-select"
                 value={to}
                 onChange={(e) => { setTo(e.target.value); setTouched(true) }}
-                aria-label="מטבע יעד"
+                aria-label={t('מטבע יעד')}
               >
                 {SUPPORTED.map((c) => (
                   <option key={c} value={c}>{c} ({SYMBOL[c]})</option>
@@ -257,16 +258,16 @@ export default function Finance() {
             <p className="tiny" style={{ marginTop: 12 }}>
               {rate != null ? (
                 <>
-                  שער יציג:{' '}
+                  {t('שער יציג:')}{' '}
                   <span className="num">1 {from} = {rate.toFixed(3)} {to}</span>
-                  {rates?.date && <> · עודכן <span className="num">{rates.date}</span></>}
+                  {rates?.date && <> · {t('עודכן')} <span className="num">{rates.date}</span></>}
                 </>
               ) : ratesError ? (
                 <span style={{ color: 'var(--amber)' }}>
-                  שערי ההמרה לא נטענו. בדוק חיבור לאינטרנט.
+                  {t('שערי ההמרה לא נטענו. בדוק חיבור לאינטרנט.')}
                 </span>
               ) : (
-                'טוען שערים...'
+                t('טוען שערים...')
               )}
             </p>
 
@@ -278,16 +279,14 @@ export default function Finance() {
                 <span className="tiny">
                   {localOk ? (
                     <>
-                      <strong className="ltr">{to}</strong> הוא המטבע ב{trip.city}.
-                      אפשר לשנות אם צריך.
+                      <strong className="ltr">{to}</strong> {t('הוא המטבע ב{city}. אפשר לשנות אם צריך.', { city: trip.city })}
                     </>
                   ) : (
                     <>
-                      המטבע המקומי ב{trip.city} הוא{' '}
-                      <strong className="ltr">{local} ({SYMBOL[local] ?? local})</strong>,
-                      אבל אין לו שער חי בשירות החינמי שבו האפליקציה משתמשת.
-                      המחשבון כאן מציג <strong className="ltr">USD</strong> כברירת מחדל —
-                      אפשר לבחור מטבע אחר.
+                      {t('המטבע המקומי ב{city} הוא', { city: trip.city })}{' '}
+                      <strong className="ltr">{local} ({SYMBOL[local] ?? local})</strong>,{' '}
+                      {t('אבל אין לו שער חי בשירות החינמי שבו האפליקציה משתמשת.')}{' '}
+                      {t('המחשבון כאן מציג')} <strong className="ltr">USD</strong> {t('כברירת מחדל — אפשר לבחור מטבע אחר.')}
                     </>
                   )}
                 </span>
@@ -300,28 +299,28 @@ export default function Finance() {
         <div className="pad section-head">
           <div className="row" style={{ gap: 8 }}>
             <span style={{ color: 'var(--lav)' }}><Users size={18} /></span>
-            <h2 className="h2">מי שילם על מה</h2>
+            <h2 className="h2">{t('מי שילם על מה')}</h2>
           </div>
           <button
             onClick={() => setAddOpen(true)}
             style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--lav)' }}
           >
-            הוסף הוצאה קבוצתית +
+            {t('הוסף הוצאה קבוצתית +')}
           </button>
         </div>
 
         <div className="pad">
           <div className="card">
             <div className="between" style={{ marginBottom: 14 }}>
-              <span className="tiny">מצב החובות:</span>
+              <span className="tiny">{t('מצב החובות:')}</span>
               {/* Splitting per family charges each household once for all of
                   its members, instead of splitting head by head. */}
-              <div className="split-toggle" role="group" aria-label="אופן החלוקה">
+              <div className="split-toggle" role="group" aria-label={t('אופן החלוקה')}>
                 <button className={splitBy === 'person' ? 'on' : ''} onClick={() => setSplitBy('person')}>
-                  לפי אדם
+                  {t('לפי אדם')}
                 </button>
                 <button className={splitBy === 'family' ? 'on' : ''} onClick={() => setSplitBy('family')}>
-                  לפי משפחה
+                  {t('לפי משפחה')}
                 </button>
               </div>
             </div>
@@ -334,7 +333,7 @@ export default function Finance() {
                     <span className="col" style={{ gap: 1 }}>
                       <span style={{ fontSize: 14, fontWeight: 500 }}>{p.name}</span>
                       {splitBy === 'family' && (
-                        <span className="tiny"><span className="num">{p.size}</span> נוסעים</span>
+                        <span className="tiny"><span className="num">{p.size}</span> {tn(p.size, 'נוסע', 'נוסעים')}</span>
                       )}
                     </span>
                   </div>
@@ -343,13 +342,13 @@ export default function Finance() {
 
               <div className="col" style={{ gap: 9, minWidth: 128 }}>
                 <div className="balance owe">
-                  אתה חייב <span className="num">{Math.round(owe)}₪</span>
+                  {t('אתה חייב')} <span className="num">{Math.round(owe)}₪</span>
                 </div>
                 <div className="balance owed">
-                  חייבים לך <span className="num">{Math.round(owed)}₪</span>
+                  {t('חייבים לך')} <span className="num">{Math.round(owed)}₪</span>
                 </div>
                 <span className="tiny" style={{ textAlign: 'center' }}>
-                  חלוקה שווה (<span className="num">{shares}</span>)
+                  {t('חלוקה שווה')} (<span className="num">{shares}</span>)
                 </span>
               </div>
             </div>
@@ -357,14 +356,14 @@ export default function Finance() {
         </div>
 
         <div className="pad section-head">
-          <h2 className="h2" style={{ fontSize: 16 }}>הוצאות אחרונות</h2>
+          <h2 className="h2" style={{ fontSize: 16 }}>{t('הוצאות אחרונות')}</h2>
         </div>
 
         <div className="pad" style={{ paddingBottom: 30 }}>
           <div className="card" style={{ paddingBlock: 4 }}>
             {expenses.length === 0 && (
               <p className="tiny" style={{ padding: 16, textAlign: 'center' }}>
-                עדיין אין הוצאות רשומות
+                {t('עדיין אין הוצאות רשומות')}
               </p>
             )}
             {expenses.map((e) => {
@@ -375,7 +374,7 @@ export default function Finance() {
                   className="expense-row"
                   style={{ width: '100%', textAlign: 'start' }}
                   onClick={() => openEdit(e)}
-                  aria-label={`ערוך את ההוצאה ${e.title}`}
+                  aria-label={t('ערוך את ההוצאה {title}', { title: e.title })}
                 >
                   <span className="avatar" style={{ background: m.color, width: 34, height: 34 }}>
                     {m.short}
@@ -383,7 +382,7 @@ export default function Finance() {
                   <span className="grow col" style={{ gap: 2 }}>
                     <strong style={{ fontSize: 13.5, fontWeight: 600 }}>{e.title}</strong>
                     <span className="tiny">
-                      שילם/ה {m.name} · <span className="num">₪{Math.round(e.amount / shares)}</span> {splitBy === 'family' ? 'למשפחה' : 'לאדם'}
+                      {t('שילם/ה {name}', { name: m.name })} · <span className="num">₪{Math.round(e.amount / shares)}</span> {splitBy === 'family' ? t('למשפחה') : t('לאדם')}
                     </span>
                   </span>
                   <strong className="num" style={{ fontSize: 14 }}>₪{e.amount}</strong>
@@ -396,24 +395,24 @@ export default function Finance() {
 
       <button className="fab" onClick={() => setAddOpen(true)}>
         <Receipt size={17} />
-        הוסף הוצאה
+        {t('הוסף הוצאה')}
       </button>
 
       <Sheet
         open={addOpen}
-        title={editingId ? 'עריכת הוצאה' : 'הוצאה קבוצתית חדשה'}
+        title={editingId ? t('עריכת הוצאה') : t('הוצאה קבוצתית חדשה')}
         onClose={closeSheet}
       >
-        <label className="label" htmlFor="exp-title">על מה שילמתם?</label>
+        <label className="label" htmlFor="exp-title">{t('על מה שילמתם?')}</label>
         <input
           id="exp-title"
           className="field"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="לדוגמה: ארוחת ערב ב-Le Comptoir"
+          placeholder={t('לדוגמה: ארוחת ערב ב-Le Comptoir')}
         />
 
-        <label className="label" htmlFor="exp-amount" style={{ marginTop: 16 }}>סכום (₪)</label>
+        <label className="label" htmlFor="exp-amount" style={{ marginTop: 16 }}>{t('סכום (₪)')}</label>
         <input
           id="exp-amount"
           className="field num"
@@ -423,7 +422,7 @@ export default function Finance() {
           placeholder="0.00"
         />
 
-        <label className="label" style={{ marginTop: 16 }}>מי שילם?</label>
+        <label className="label" style={{ marginTop: 16 }}>{t('מי שילם?')}</label>
         <div className="pills" style={{ marginBottom: 22 }}>
           {MEMBERS.map((m) => (
             <button key={m.id} className={`pill ${payerId === m.id ? 'on' : ''}`} onClick={() => setPayer(m.id)}>
@@ -434,20 +433,20 @@ export default function Finance() {
 
         <div className="row" style={{ gap: 9 }}>
           {editingId && (
-            <button className="btn btn-ghost" onClick={removeExpense} aria-label="מחק הוצאה">
+            <button className="btn btn-ghost" onClick={removeExpense} aria-label={t('מחק הוצאה')}>
               <X size={17} />
             </button>
           )}
           <button className="btn btn-primary btn-block grow" onClick={saveExpense}>
             {saved
-              ? <><Check size={17} /> נשמר</>
+              ? <><Check size={17} /> {t('נשמר')}</>
               : editingId
-                ? <><Check size={17} /> שמור שינויים</>
-                : <><Plus size={17} /> הוסף הוצאה</>}
+                ? <><Check size={17} /> {t('שמור שינויים')}</>
+                : <><Plus size={17} /> {t('הוסף הוצאה')}</>}
           </button>
         </div>
         <p className="tiny" style={{ textAlign: 'center', marginTop: 12 }}>
-          ההוצאה תתחלק שווה בשווה בין <span className="num">{shares}</span> {splitBy === 'family' ? 'המשפחות' : 'חברי הקבוצה'}
+          {t('ההוצאה תתחלק שווה בשווה בין')} <span className="num">{shares}</span> {splitBy === 'family' ? t('המשפחות') : t('חברי הקבוצה')}
         </p>
       </Sheet>
     </>

@@ -3,6 +3,7 @@ import TopBar from '../components/TopBar'
 import { Bed, MapPin, X, Plus } from '../components/Icons'
 import { useTrip } from '../TripProvider'
 import { search } from '../lib/geocode'
+import { t } from '../i18n'
 
 /**
  * Where you're sleeping — separate from the onboarding wizard so it stays
@@ -28,7 +29,7 @@ export default function Hotels() {
     setHits([])
     const results = await search(`${q}, ${trip.city}`, 5)
     setHits(results)
-    if (results.length === 0) setError('לא מצאתי מלון בשם הזה ביעד. נסה שם מדויק יותר.')
+    if (results.length === 0) setError(t('לא מצאתי מלון בשם הזה ביעד. נסה שם מדויק יותר.'))
     setLocating(false)
   }
 
@@ -43,15 +44,15 @@ export default function Hotels() {
       <TopBar />
 
       <div className="pad">
-        <h1 className="h1" style={{ fontSize: 24 }}>מלונות</h1>
+        <h1 className="h1" style={{ fontSize: 24 }}>{t('מלונות')}</h1>
         <p className="tiny" style={{ marginTop: 4 }}>
-          מקומות הלינה בטיול — אפשר להוסיף כמה, ולסמן לאילו תאריכים כל אחד שייך
+          {t('מקומות הלינה בטיול — אפשר להוסיף כמה, ולסמן לאילו תאריכים כל אחד שייך')}
         </p>
       </div>
 
       <div className="pad" style={{ marginTop: 18 }}>
         {stays.length === 0 ? (
-          <p className="tiny">עוד לא הוספתם מלון.</p>
+          <p className="tiny">{t('עוד לא הוספתם מלון.')}</p>
         ) : (
           <div className="col" style={{ gap: 10 }}>
             {stays.map((s) => (
@@ -68,7 +69,7 @@ export default function Hotels() {
                     className="icon-btn"
                     style={{ width: 30, height: 30 }}
                     onClick={() => removeStay(s.label)}
-                    aria-label={`הסר את ${s.name}`}
+                    aria-label={t('הסר את {name}', { name: s.name })}
                   >
                     <X size={14} />
                   </button>
@@ -80,7 +81,7 @@ export default function Hotels() {
                 {stays.length > 1 && (
                   <div className="row" style={{ gap: 8 }}>
                     <label className="col" style={{ gap: 3, flex: 1 }}>
-                      <span className="tiny">מתאריך</span>
+                      <span className="tiny">{t('מתאריך')}</span>
                       <input
                         type="date"
                         className="field"
@@ -91,7 +92,7 @@ export default function Hotels() {
                       />
                     </label>
                     <label className="col" style={{ gap: 3, flex: 1 }}>
-                      <span className="tiny">עד תאריך</span>
+                      <span className="tiny">{t('עד תאריך')}</span>
                       <input
                         type="date"
                         className="field"
@@ -110,7 +111,7 @@ export default function Hotels() {
       </div>
 
       <div className="pad" style={{ marginTop: 22 }}>
-        <span className="label">הוסף מלון</span>
+        <span className="label">{t('הוסף מלון')}</span>
         <div className="row field-row" style={{ marginBottom: 10 }}>
           <Bed size={18} />
           <input
@@ -118,15 +119,15 @@ export default function Hotels() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && findHotel()}
-            placeholder={`לדוגמה: Hilton ${trip.city}`}
-            aria-label="שם המלון"
+            placeholder={t('לדוגמה: Hilton {city}', { city: trip.city })}
+            aria-label={t('שם המלון')}
           />
           {locating && <span className="typing"><i /><i /><i /></span>}
         </div>
 
         <button className="btn btn-ghost btn-block" onClick={findHotel} disabled={locating || !name.trim()}>
           <MapPin size={16} />
-          אתר את המיקום
+          {t('אתר את המיקום')}
         </button>
 
         {error && (

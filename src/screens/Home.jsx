@@ -13,6 +13,7 @@ import { CITIES } from '../cities'
 import WeatherSheet from '../components/WeatherSheet'
 import NoteSheet from '../components/NoteSheet'
 import { record } from '../lib/telemetry'
+import { t, tn, lang } from '../i18n'
 
 /** "מגיעים ב-25.8 בשעה 14:30 · עוזבים ב-28.8" — the tooltip on a family's
  *  pill, built from whichever of arriveAt/departAt were actually set. */
@@ -21,9 +22,10 @@ function arrivalTitle(f) {
     if (!dt) return null
     const [datePart, time] = dt.split('T')
     const [, m, d] = datePart.split('-').map(Number)
-    return `${label} ב-${d}.${m}${time ? ` בשעה ${time}` : ''}`
+    const date = lang === 'en' ? `${m}/${d}` : `${d}.${m}`
+    return t('{label} ב-{date}', { label, date }) + (time ? t(' בשעה {time}', { time }) : '')
   }
-  return [part('מגיעים', f.arriveAt), part('עוזבים', f.departAt)].filter(Boolean).join(' · ') || undefined
+  return [part(t('מגיעים'), f.arriveAt), part(t('עוזבים'), f.departAt)].filter(Boolean).join(' · ') || undefined
 }
 
 /** Calendar days from today to a "YYYY-MM-DD" date — built from local parts
@@ -186,7 +188,7 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
                 record({ kind: 'debug', level: 'info', message: 'DIAG: share icon tapped (home hero)' })
                 setShareOpen(true)
               }}
-              aria-label="שתף את המסלול"
+              aria-label={t('שתף את המסלול')}
             >
               <Share size={17} />
             </button>
@@ -197,7 +199,7 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
                 placeholder greeting is fine, a wrong one (guessed from the
                 visitor's own clock) is not. */}
             <h1 className="hero-title">
-              {forecast ? `${GREETING[forecast.now.period]}!` : 'שלום!'}
+              {forecast ? `${GREETING[forecast.now.period]}!` : t('שלום!')}
             </h1>
             {farOut ? (
               climate && (
@@ -210,12 +212,12 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
                     className="badge"
                     style={{ background: 'rgba(13,154,150,0.16)', color: 'var(--cyan)', padding: '2px 8px', fontSize: 10.5 }}
                   >
-                    ממוצע היסטורי
+                    {t('ממוצע היסטורי')}
                   </span>
                   <span aria-hidden="true">{climate.icon}</span>
                   <span style={{ textDecoration: 'underline', textUnderlineOffset: 3 }}>
                     <span className="num" dir="ltr">{climate.tempMax}°/{climate.tempMin}°</span>
-                    {' '}בתאריכי הטיול · <span className="num">{climate.rainChance}%</span> סיכוי לגשם
+                    {' '}{t('בתאריכי הטיול')} · <span className="num">{climate.rainChance}%</span> {t('סיכוי לגשם')}
                   </span>
                 </button>
               )
@@ -227,17 +229,17 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
                   onClick={() => setForecastOpen(true)}
                 >
                   <span aria-hidden="true">{forecast.now.icon}</span>
-                  <span className="num">{forecast.now.tempC}°</span> ב{TRIP.city} עכשיו · תחזית
+                  <span className="num">{forecast.now.tempC}°</span> {t('ב{city} עכשיו · תחזית', { city: TRIP.city })}
                 </button>
               )
             )}
             <p className="sub" style={{ maxWidth: '92%', marginTop: forecast ? 8 : undefined }}>
               {planning
-                ? `הסוכן בונה עכשיו מסלול ל${TRIP.city}...`
-                : `הנה התכנון ליום ${TRIP.day} ב${TRIP.city}, מותאם לסגנון שבחרת.`}
+                ? t('הסוכן בונה עכשיו מסלול ל{city}...', { city: TRIP.city })
+                : t('הנה התכנון ליום {day} ב{city}, מותאם לסגנון שבחרת.', { day: TRIP.day, city: TRIP.city })}
             </p>
             <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={onStartRoute}>
-              התחל מסלול
+              {t('התחל מסלול')}
             </button>
           </div>
         </section>
@@ -251,13 +253,13 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
         <div className="section-head" style={{ marginBottom: 10 }}>
           <div className="row" style={{ gap: 8 }}>
             <span style={{ color: 'var(--lav)' }}><Note size={17} /></span>
-            <h2 className="h2" style={{ fontSize: 16 }}>הערות</h2>
+            <h2 className="h2" style={{ fontSize: 16 }}>{t('הערות')}</h2>
           </div>
           <button
             onClick={() => setNoteEditing({ isNew: true })}
             style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--lav)' }}
           >
-            הוסף +
+            {t('הוסף +')}
           </button>
         </div>
 
@@ -269,14 +271,14 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
                 className="expense-row"
                 style={{ width: '100%', textAlign: 'start' }}
                 onClick={() => setNoteEditing({ isNew: false, id: n.id, text: n.text })}
-                aria-label="ערוך הערה"
+                aria-label={t('ערוך הערה')}
               >
                 <span className="tiny" style={{ lineHeight: 1.6 }}>{n.text}</span>
               </button>
             ))}
           </div>
         ) : (
-          <p className="tiny">אין עדיין הערות. לדוגמה: פרטי נהג, קוד לדירה, מספר הזמנה.</p>
+          <p className="tiny">{t('אין עדיין הערות. לדוגמה: פרטי נהג, קוד לדירה, מספר הזמנה.')}</p>
         )}
       </div>
 
@@ -284,20 +286,20 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
       <div className="pad section-head" style={{ marginBottom: 10 }}>
         <div className="row" style={{ gap: 8 }}>
           <span style={{ color: 'var(--lav)' }}><Users size={17} /></span>
-          <h2 className="h2" style={{ fontSize: 16 }}>מי מטייל</h2>
+          <h2 className="h2" style={{ fontSize: 16 }}>{t('מי מטייל')}</h2>
         </div>
         <span className="row" style={{ gap: 14 }}>
           <button
             onClick={() => openEdit('who')}
             style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--muted)' }}
           >
-            ערוך
+            {t('ערוך')}
           </button>
           <button
             onClick={() => setShareOpen(true)}
             style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--lav)' }}
           >
-            הזמן חברים +
+            {t('הזמן חברים +')}
           </button>
         </span>
       </div>
@@ -323,19 +325,19 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
 
       <div className="pad section-head">
         <h2 className="h2">
-          {FAMILIES.length > 1 ? `התכנון של ${FAMILIES.find((f) => f.id === activeFamily)?.name ?? ''}` : 'התכנון להיום'}
+          {FAMILIES.length > 1 ? t('התכנון של {name}', { name: FAMILIES.find((f) => f.id === activeFamily)?.name ?? '' }) : t('התכנון להיום')}
         </h2>
         <span className="row" style={{ gap: 10 }}>
           <span className="tiny">
-            יום <span className="num">{TRIP.day}</span> מתוך <span className="num">{TRIP.totalDays}</span>
+            {t('יום')} <span className="num">{TRIP.day}</span> {t('מתוך')} <span className="num">{TRIP.totalDays}</span>
           </span>
           <button
             className="icon-btn"
             style={{ width: 30, height: 30 }}
             onClick={plan}
             disabled={planning}
-            aria-label="בנה מסלול מחדש"
-            title="בנה מסלול מחדש"
+            aria-label={t('בנה מסלול מחדש')}
+            title={t('בנה מסלול מחדש')}
           >
             <RefreshCw size={15} />
           </button>
@@ -357,7 +359,7 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
                 <span className={`time-chip ${isNext ? 'next' : ''}`}>
                   {isNext && <i className="dot dot-pulse" style={{ display: 'inline-block', marginInlineEnd: 5 }} />}
                   <span className="num">{s.time}</span>
-                  {isNext && ' (הבא)'}
+                  {isNext && ` ${t('(הבא)')}`}
                 </span>
                 <span style={{ color: 'var(--muted-2)' }}><Bookmark size={15} /></span>
               </div>
@@ -377,7 +379,7 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
 
         {!planning && STOPS.length === 0 && (
           <div className="timeline-card" style={{ display: 'grid', placeItems: 'center', height: 180 }}>
-            <span className="tiny">אין עצירות ליום הזה</span>
+            <span className="tiny">{t('אין עצירות ליום הזה')}</span>
           </div>
         )}
       </div>
@@ -389,8 +391,8 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
           <button className="save-prompt" onClick={openAccount}>
             <span className="save-icon"><Cloud size={17} /></span>
             <span className="grow col" style={{ gap: 3, textAlign: 'start' }}>
-              <strong>שמור כדי לפתוח גם מהטלפון</strong>
-              <span className="tiny">הטיול קיים כרגע על המכשיר הזה בלבד</span>
+              <strong>{t('שמור כדי לפתוח גם מהטלפון')}</strong>
+              <span className="tiny">{t('הטיול קיים כרגע על המכשיר הזה בלבד')}</span>
             </span>
             <ArrowLeft size={17} />
           </button>
@@ -411,8 +413,8 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
               <Sparkles size={17} />
             </span>
             <span className="col" style={{ gap: 2, textAlign: "start" }}>
-              <strong style={{ fontSize: 14, fontWeight: 600 }}>שאל את הסוכן</strong>
-              <span className="tiny">המלצות להמשך היום, לפי המסלול שלך</span>
+              <strong style={{ fontSize: 14, fontWeight: 600 }}>{t('שאל את הסוכן')}</strong>
+              <span className="tiny">{t('המלצות להמשך היום, לפי המסלול שלך')}</span>
             </span>
           </span>
           <ArrowLeft size={18} />
@@ -426,9 +428,9 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
             <span className="row">
               <span style={{ color: 'var(--lav)' }}><Route size={18} /></span>
               <span className="col" style={{ gap: 2, textAlign: 'start' }}>
-                <strong style={{ fontSize: 14, fontWeight: 600 }}>מסלול הטיול</strong>
+                <strong style={{ fontSize: 14, fontWeight: 600 }}>{t('מסלול הטיול')}</strong>
                 <span className="tiny">
-                  <span className="num">{TRIP.totalDays}</span> ימים · הוסף עצירות ושנה סדר
+                  <span className="num">{TRIP.totalDays}</span> {tn(TRIP.totalDays, 'יום אחד', 'ימים')} · {t('הוסף עצירות ושנה סדר')}
                 </span>
               </span>
             </span>
@@ -439,8 +441,8 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
             <span className="row">
               <span style={{ color: 'var(--lav)' }}><Utensils size={18} /></span>
               <span className="col" style={{ gap: 2, textAlign: 'start' }}>
-                <strong style={{ fontSize: 14, fontWeight: 600 }}>איפה אוכלים</strong>
-                <span className="tiny">המלצות מסעדות לפי ההעדפות שלכם</span>
+                <strong style={{ fontSize: 14, fontWeight: 600 }}>{t('איפה אוכלים')}</strong>
+                <span className="tiny">{t('המלצות מסעדות לפי ההעדפות שלכם')}</span>
               </span>
             </span>
             <ArrowLeft size={18} />
@@ -450,8 +452,8 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
             <span className="row">
               <span style={{ color: 'var(--lav)' }}><Plane size={18} /></span>
               <span className="col" style={{ gap: 2, textAlign: 'start' }}>
-                <strong style={{ fontSize: 14, fontWeight: 600 }}>הגעה ליעד</strong>
-                <span className="tiny">טיסה, שדה תעופה והדרך למלון</span>
+                <strong style={{ fontSize: 14, fontWeight: 600 }}>{t('הגעה ליעד')}</strong>
+                <span className="tiny">{t('טיסה, שדה תעופה והדרך למלון')}</span>
               </span>
             </span>
             <ArrowLeft size={18} />
@@ -461,11 +463,11 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
             <span className="row">
               <span style={{ color: 'var(--lav)' }}><Bed size={18} /></span>
               <span className="col" style={{ gap: 2, textAlign: 'start' }}>
-                <strong style={{ fontSize: 14, fontWeight: 600 }}>מלונות</strong>
+                <strong style={{ fontSize: 14, fontWeight: 600 }}>{t('מלונות')}</strong>
                 <span className="tiny">
                   {TRIP.stays?.length > 0
-                    ? `${TRIP.stays.length} מקומות לינה`
-                    : 'עוד לא הוספתם מלון'}
+                    ? tn(TRIP.stays.length, 'מקום לינה אחד', '{n} מקומות לינה')
+                    : t('עוד לא הוספתם מלון')}
                 </span>
               </span>
             </span>
@@ -476,8 +478,8 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
             <span className="row">
               <span style={{ color: 'var(--lav)' }}><Printer size={18} /></span>
               <span className="col" style={{ gap: 2, textAlign: 'start' }}>
-                <strong style={{ fontSize: 14, fontWeight: 600 }}>סיכום להדפסה</strong>
-                <span className="tiny">כל הימים במסמך אחד, לשיתוף או הדפסה</span>
+                <strong style={{ fontSize: 14, fontWeight: 600 }}>{t('סיכום להדפסה')}</strong>
+                <span className="tiny">{t('כל הימים במסמך אחד, לשיתוף או הדפסה')}</span>
               </span>
             </span>
             <ArrowLeft size={18} />
@@ -487,9 +489,9 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
             <span className="row">
               <span style={{ color: 'var(--lav)' }}><Clock size={18} /></span>
               <span className="col" style={{ gap: 2, textAlign: 'start' }}>
-                <strong style={{ fontSize: 14, fontWeight: 600 }}>הלו"ז המלא של היום</strong>
+                <strong style={{ fontSize: 14, fontWeight: 600 }}>{t('הלו"ז המלא של היום')}</strong>
                 <span className="tiny">
-                  <span className="num">{STOPS.length}</span> עצירות · מסתיים ב-
+                  <span className="num">{STOPS.length}</span> {tn(STOPS.length, 'עצירה', 'עצירות')} · {t('מסתיים ב-')}
                   <span className="num">{STOPS[STOPS.length - 1]?.time ?? '—'}</span>
                 </span>
               </span>
@@ -505,9 +507,9 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
             <span className="row">
               <span style={{ color: 'var(--lav)' }}><Layers size={18} /></span>
               <span className="col" style={{ gap: 2, textAlign: 'start' }}>
-                <strong style={{ fontSize: 14, fontWeight: 600 }}>הטיולים שלי</strong>
+                <strong style={{ fontSize: 14, fontWeight: 600 }}>{t('הטיולים שלי')}</strong>
                 <span className="tiny">
-                  {trips.length > 1 ? `עבור בין ${trips.length} הטיולים שלך` : 'שמור, שתף או תכנן טיול נוסף'}
+                  {trips.length > 1 ? t('עבור בין {n} הטיולים שלך', { n: trips.length }) : t('שמור, שתף או תכנן טיול נוסף')}
                 </span>
               </span>
             </span>
