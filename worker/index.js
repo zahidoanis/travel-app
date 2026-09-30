@@ -265,7 +265,8 @@ export default {
                 found +
                 '\n\nיש לך עכשיו גישה למידע הזה — אלה מקומות אמיתיים עם מחיר ודירוג אמיתיים, לא הצעות כלליות. ' +
                 'כשאתה מציע אחד מהם, כלול את הקישור (productUrl) בדיוק כפי שהוא, בלי לשנות אותו — זה קישור הזמנה אמיתי. ' +
-                'אם שום תוצאה לא מתאימה לשאלה, אמור זאת בכנות במקום להתעלם ולהמציא משהו אחר.',
+                'אם אף תוצאה לא רלוונטית לשאלה (למשל שאלו על מסעדות), פשוט התעלם מהן וענה כרגיל — ' +
+                'ובשום מקרה אל תמציא סיור או מחיר שלא מופיעים כאן.',
             },
           ],
         }
@@ -456,11 +457,20 @@ async function tavilySearch(env, userText, extraContext) {
 // generic Tavily web search: it returns an actual bookable product with a
 // real price and a real link, not an article that merely mentions one.
 // Same imprecise-on-purpose trade as NEEDS_SEARCH.
+//
+// Stems, not whole phrases: the first version listed exact phrases ("מה
+// כדאי לעשות") and missed most real ones — "מה לראות", "מה מומלץ", "המלצות
+// למחר", "איפה כדאי לבקר", and every English phrasing — so the feature looked
+// like it had stopped working when it had simply never fired. Erring wide is
+// cheap here: Viator's free tier allows 150 requests per 10 seconds, and the
+// injected instruction below tells the model to ignore results that don't fit.
 const NEEDS_ATTRACTIONS = new RegExp(
   [
-    'אטרקציה', 'אטרקציות', 'סיור', 'סיורים', 'טיול מאורגן', 'כרטיסים',
-    'מה לעשות', 'מה כדאי לעשות', 'דברים לעשות', 'מומלץ לבקר', 'פעילות', 'פעילויות',
-    'attraction', 'tour', 'things to do', 'activity', 'activities', 'ticket', 'excursion',
+    'אטרקצי', 'סיור', 'טיול מאורגן', 'טיול יום', 'כרטיס', 'פעילו',
+    'לעשות', 'לראות', 'לבקר', 'ביקור', 'לבלות', 'בילוי',
+    'מומלץ', 'המלצ', 'תמליץ', 'ממליץ', 'רעיונ', 'שווה', 'מקומות', 'שייט', 'סדנ',
+    'attraction', 'tour', 'things to', 'to do', 'to see', 'visit', 'sightseeing',
+    'activit', 'ticket', 'excursion', 'recommend', 'ideas?', 'day trip', 'cruise', 'should we do', 'can we do',
   ].join('|'),
   'i'
 )
