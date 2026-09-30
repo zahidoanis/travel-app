@@ -2,7 +2,7 @@
  * Which visual theme the app renders in.
  *
  *   'cream'   — Cream & Gold ("שמנת וזהב"), the light version of Golden
- *               Hour, tried 2026-09-30. theme-cream.css.
+ *               Hour, chosen 2026-09-30. theme-cream.css.
  *   'gold'    — Golden Hour ("שעת זהב"), the warm canvas mockup on a dark
  *               espresso ground. theme-gold.css, scoped to [data-theme="gold"].
  *   'night'   — Electric Night, chosen 2026-09-30 from the design canvas.
