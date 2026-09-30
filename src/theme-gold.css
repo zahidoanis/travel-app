@@ -6,8 +6,8 @@
    [data-theme="gold"] (set in theme.js) and layered over styles.css, so
    switching THEME between 'gold', 'night' and 'classic' is lossless.
 
-   Palette: plum-black ground, sunset orange for the one primary action,
-   warm amber for the agent and selection, cream text. Display type is
+   Palette: plum-black ground, antique gold for the one primary action,
+   soft copper for the agent and selection, cream text. Display type is
    Frank Ruhl Libre (a Hebrew serif) at 900; body stays Rubik.
    ============================================================ */
 
@@ -26,17 +26,17 @@
   --tint:          rgba(247, 234, 224, 0.05);
   --tint-2:        rgba(247, 234, 224, 0.09);
 
-  /* Dark labels on the orange — white on #FF7A45 is ~2.6:1. */
-  --ink:           #FF7A45;
-  --ink-2:         #FF8A5C;
+  /* Antique gold — the sunset orange read as glaring. Dark labels: white on it is too weak. */
+  --ink:           #D4AF6A;
+  --ink-2:         #E0C088;
   --on-ink:        #1A0C12;
 
-  --accent:        #F2A541;
-  --accent-2:      #F6B864;
-  --accent-soft:   rgba(242, 165, 65, 0.15);
-  --lav:           #FFD2BD;
+  --accent:        #C08A5B;
+  --accent-2:      #CF9C70;
+  --accent-soft:   rgba(192, 138, 91, 0.15);
+  --lav:           #EAD7B8;
   --cyan:          #5FD3C4;
-  --amber:         #F2A541;
+  --amber:         #C08A5B;
   --rose:          #FF6B7A;
   --emerald:       #7FD89A;
   --gold:          #F2C27A;
@@ -57,8 +57,8 @@
 [data-theme="gold"] body { background: var(--bg); color: var(--text); }
 [data-theme="gold"] .shell {
   background:
-    radial-gradient(900px 520px at 85% -10%, rgba(255, 122, 69, 0.10), transparent 60%),
-    radial-gradient(700px 480px at 5% 105%, rgba(242, 165, 65, 0.07), transparent 58%),
+    radial-gradient(900px 520px at 85% -10%, rgba(212, 175, 106, 0.10), transparent 60%),
+    radial-gradient(700px 480px at 5% 105%, rgba(192, 138, 91, 0.07), transparent 58%),
     #0D060A;
 }
 [data-theme="gold"] .app { background: var(--bg); }
@@ -74,7 +74,7 @@
 [data-theme="gold"] .h1 { font-weight: 900; letter-spacing: -0.6px; }
 [data-theme="gold"] .h2 { font-weight: 900; letter-spacing: -0.2px; }
 
-/* ---------- Primary actions: orange with dark labels ---------- */
+/* ---------- Primary actions: gold with dark labels ---------- */
 
 [data-theme="gold"] .btn-primary,
 [data-theme="gold"] .pill.on,
@@ -90,10 +90,10 @@
   color: var(--on-ink);
   border-color: transparent;
 }
-[data-theme="gold"] .btn-primary { box-shadow: 0 8px 26px rgba(255, 122, 69, 0.3); }
+[data-theme="gold"] .btn-primary { box-shadow: 0 8px 26px rgba(212, 175, 106, 0.3); }
 [data-theme="gold"] .btn-primary:hover { filter: brightness(1.06); }
-[data-theme="gold"] .fab { box-shadow: 0 10px 30px rgba(255, 122, 69, 0.35); }
-[data-theme="gold"] .segmented button.on { box-shadow: 0 4px 14px rgba(255, 122, 69, 0.25); }
+[data-theme="gold"] .fab { box-shadow: 0 10px 30px rgba(212, 175, 106, 0.35); }
+[data-theme="gold"] .segmented button.on { box-shadow: 0 4px 14px rgba(212, 175, 106, 0.25); }
 
 /* ---------- Top bar + navigation ---------- */
 
@@ -106,12 +106,12 @@
   border-color: rgba(247, 234, 224, 0.1);
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
 }
-[data-theme="gold"] .nav-item.active .nav-glyph { box-shadow: 0 6px 18px rgba(255, 122, 69, 0.35); }
+[data-theme="gold"] .nav-item.active .nav-glyph { box-shadow: 0 6px 18px rgba(212, 175, 106, 0.35); }
 [data-theme="gold"] .rail { background: #10080C; }
 [data-theme="gold"] .rail-item.active { background: var(--tint-2); color: var(--text); }
 [data-theme="gold"] .rail-brand,
 [data-theme="gold"] .wordmark-ai,
-[data-theme="gold"] .brand { background-image: linear-gradient(120deg, #FFD2BD 10%, #FF7A45 90%); }
+[data-theme="gold"] .brand { background-image: linear-gradient(120deg, #EAD7B8 10%, #D4AF6A 90%); }
 
 /* ---------- Home ---------- */
 
@@ -123,7 +123,7 @@
   border: 1px solid var(--border);
   box-shadow: none;
 }
-[data-theme="gold"] .hero::after { background: radial-gradient(circle, rgba(255, 122, 69, 0.28), transparent 68%); }
+[data-theme="gold"] .hero::after { background: radial-gradient(circle, rgba(212, 175, 106, 0.28), transparent 68%); }
 [data-theme="gold"] .hero.has-photo {
   min-height: 430px;
   border: none;
@@ -155,7 +155,7 @@
 [data-theme="gold"] .hero-icon {
   background: rgba(20, 10, 16, 0.45);
   border-color: rgba(247, 234, 224, 0.26);
-  color: #FFD2BD;
+  color: #EAD7B8;
 }
 [data-theme="gold"] .hero.has-photo .icon-btn.boxed {
   background: rgba(20, 10, 16, 0.4);
@@ -164,15 +164,15 @@
 [data-theme="gold"] .hero .sub { color: var(--text-2); }
 [data-theme="gold"] .hero.has-photo .sub { color: #E7CFC2; }
 
-/* Plan rows: quiet, with the next stop warmed and its time in orange. */
+/* Plan rows: quiet, with the next stop warmed and its time in gold. */
 [data-theme="gold"] .timeline-card {
   border-radius: 18px;
   background: rgba(247, 234, 224, 0.04);
   border-color: rgba(247, 234, 224, 0.08);
 }
 [data-theme="gold"] .timeline-card.next {
-  background: rgba(255, 122, 69, 0.1);
-  border-color: rgba(255, 122, 69, 0.38);
+  background: rgba(212, 175, 106, 0.1);
+  border-color: rgba(212, 175, 106, 0.38);
 }
 [data-theme="gold"] .time-chip { font-family: "Frank Ruhl Libre", serif; color: #D9BFB0; font-weight: 700; }
 [data-theme="gold"] .time-chip.next { color: var(--ink); font-weight: 900; }
@@ -183,19 +183,19 @@
 
 [data-theme="gold"] .choice.on,
 [data-theme="gold"] .dest.on {
-  background: linear-gradient(150deg, rgba(255, 122, 69, 0.2), var(--card));
+  background: linear-gradient(150deg, rgba(212, 175, 106, 0.2), var(--card));
   border-color: var(--ink);
 }
 [data-theme="gold"] .choice.on .choice-icon { background: rgba(255, 244, 236, 0.92); }
 [data-theme="gold"] .option { background: var(--sunken); }
 [data-theme="gold"] .option.on { background: var(--accent-soft); border-color: var(--accent); }
 [data-theme="gold"] .propose-card {
-  background: linear-gradient(150deg, rgba(242, 165, 65, 0.14), var(--card));
-  border-color: rgba(242, 165, 65, 0.32);
+  background: linear-gradient(150deg, rgba(192, 138, 91, 0.14), var(--card));
+  border-color: rgba(192, 138, 91, 0.32);
 }
 [data-theme="gold"] .alert-card { background: rgba(255, 107, 122, 0.08); border-color: rgba(255, 107, 122, 0.3); }
 [data-theme="gold"] .converter { background: var(--card); box-shadow: none; }
-[data-theme="gold"] .party-card.needs { background: rgba(242, 165, 65, 0.07); }
+[data-theme="gold"] .party-card.needs { background: rgba(192, 138, 91, 0.07); }
 [data-theme="gold"] .progress > i { background: linear-gradient(90deg, var(--accent), var(--ink)); }
 [data-theme="gold"] .date-cell input[type="date"] { color-scheme: dark; }
 [data-theme="gold"] .field:focus,
@@ -203,8 +203,8 @@
 
 /* ---------- Chat ---------- */
 
-/* Burnt orange, not the button orange: white on #A8431F is ~6:1. */
-[data-theme="gold"] .bubble.me { background: #A8431F; color: #fff; border-color: transparent; }
+/* Deep bronze, not the button gold: white on #7A5A2E is ~6.3:1. */
+[data-theme="gold"] .bubble.me { background: #7A5A2E; color: #fff; border-color: transparent; }
 [data-theme="gold"] .bubble.ai { background: var(--card); border-color: var(--border); box-shadow: none; }
 [data-theme="gold"] .ai-status.live { color: var(--accent); }
 
@@ -239,8 +239,8 @@
 
 [data-theme="gold"] .welcome-aura {
   background:
-    radial-gradient(circle at 40% 40%, rgba(255, 122, 69, 0.3), transparent 58%),
-    radial-gradient(circle at 66% 62%, rgba(242, 165, 65, 0.18), transparent 60%);
+    radial-gradient(circle at 40% 40%, rgba(212, 175, 106, 0.3), transparent 58%),
+    radial-gradient(circle at 66% 62%, rgba(192, 138, 91, 0.18), transparent 60%);
 }
 [data-theme="gold"] .welcome-grid {
   background-image:
@@ -250,13 +250,13 @@
 [data-theme="gold"] .welcome-mark {
   color: var(--ink);
   background: var(--card);
-  border-color: rgba(255, 122, 69, 0.35);
-  box-shadow: 0 10px 36px rgba(255, 122, 69, 0.22);
+  border-color: rgba(212, 175, 106, 0.35);
+  box-shadow: 0 10px 36px rgba(212, 175, 106, 0.22);
 }
 [data-theme="gold"] .wordmark { font-weight: 900; }
-[data-theme="gold"] .wordmark-rule { background: linear-gradient(90deg, transparent, rgba(255, 122, 69, 0.6), transparent); }
+[data-theme="gold"] .wordmark-rule { background: linear-gradient(90deg, transparent, rgba(212, 175, 106, 0.6), transparent); }
 [data-theme="gold"] .welcome-features li { background: var(--card); box-shadow: none; }
-[data-theme="gold"] .welcome-feature-icon { background: var(--accent-soft); border-color: rgba(242, 165, 65, 0.3); color: var(--accent); }
+[data-theme="gold"] .welcome-feature-icon { background: var(--accent-soft); border-color: rgba(192, 138, 91, 0.3); color: var(--accent); }
 [data-theme="gold"] .welcome-cta { background: linear-gradient(0deg, var(--bg) 62%, rgba(20, 10, 16, 0)); }
 
 /* ---------- Language toggle ---------- */
