@@ -479,6 +479,18 @@ input, select, textarea { font: inherit; color: inherit; }
 .hero.has-photo .hero-top-row {
   position: absolute; inset-inline: 18px; inset-block-start: 18px; z-index: 2;
 }
+/* Proven with real measurements, not inferred: hero-content and hero-top-row
+   rendered with the identical top edge on a real device — `justify-content:
+   flex-end` only has room to push hero-content down when its content is
+   shorter than the card's 260px min-height, and a long enough description
+   (wrapping over more lines at a narrow width) makes it taller than that,
+   leaving zero space to push into. A fixed margin-top, unlike flex-end
+   alone, guarantees this clearance unconditionally — short content still
+   gets pushed toward the bottom same as before, tall content is simply
+   never allowed to start above this line, regardless of how much room
+   flex-end actually has to work with. 60px clears hero-top-row's own
+   18px inset + 42px height with a little breathing room. */
+.hero.has-photo .hero-content { margin-top: 60px; }
 
 /* A CSS background on a plain div, not an <img> — an <img> in this exact
    spot (absolutely positioned, right under the share/weather icons) turned
