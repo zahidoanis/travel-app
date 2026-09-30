@@ -1580,6 +1580,37 @@ input, select, textarea { font: inherit; color: inherit; }
 .starter:hover { border-color: var(--accent); color: var(--text); }
 .starter:disabled { opacity: 0.5; pointer-events: none; }
 
+/* The agent's follow-up suggestions: compact chips on the agent's side of
+   the thread, under its latest reply. */
+.chat-suggest {
+  display: flex; flex-wrap: wrap; gap: 6px; max-width: 92%;
+  align-self: flex-end; margin-top: -4px;
+}
+[dir="ltr"] .chat-suggest { align-self: flex-start; }
+.chat-suggest .starter { padding: 7px 12px; border-radius: var(--r-pill); font-size: 12.5px; }
+
+/* A place the agent named — opens PlaceSheet. Inline, so it wraps with the
+   sentence around it rather than breaking the line. */
+.place-link {
+  display: inline; padding: 0 2px; margin: 0;
+  background: none; border: none; font: inherit;
+  color: var(--accent); font-weight: 600;
+  text-decoration: underline; text-decoration-thickness: 1.5px; text-underline-offset: 3px;
+  cursor: pointer;
+}
+.place-link svg { display: inline; vertical-align: -1px; margin-inline-end: 2px; }
+
+.place-map {
+  position: relative; height: 220px; border-radius: var(--r-lg);
+  overflow: hidden; border: 1px solid var(--border); background: var(--card-2);
+}
+.place-map-msg {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  color: var(--muted); font-size: 13px; text-align: center; padding: 16px;
+}
+.place-days { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+.place-days .pill { flex: none; padding: 7px 13px; }
+
 /* ---------- Booking ---------- */
 
 .contact-row {

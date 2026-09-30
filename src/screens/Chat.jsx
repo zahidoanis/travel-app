@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import TopBar from '../components/TopBar'
-import { AlertTriangle, Bot, Mic, Paperclip, Send, Sparkles } from '../components/Icons'
+import PlaceSheet from '../components/PlaceSheet'
+import { AlertTriangle, Bot, MapPin, Mic, Paperclip, Send, Sparkles } from '../components/Icons'
 import { useTrip } from '../TripProvider'
 import { hasAI, aiMode, aiModel } from '../lib/gemini'
 import { useSpeech } from '../lib/speech'
@@ -15,18 +16,31 @@ import { t } from '../i18n'
 // Rather than fight that instruction-following gap, both shapes are just
 // handled here — whichever one shows up, it renders as a real link either
 // way, no sanitizing needed beyond what React already escapes by default.
-const LINK_RE = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s]+)/g
+//
+// A third shape is the agent's own place markup, [[shown name|Place, City,
+// Country]] (see systemPrompt): it becomes a button that opens the place on
+// a map, ready to add to a day.
+const LINK_RE = /\[\[([^\]|]+)\|([^\]]+)\]\]|\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s]+)/g
 
-function linkify(text) {
+function linkify(text, onPlace) {
   const nodes = []
   let last = 0
   let key = 0
   LINK_RE.lastIndex = 0
   for (let m = LINK_RE.exec(text); m; m = LINK_RE.exec(text)) {
     if (m.index > last) nodes.push(text.slice(last, m.index))
-    const [, label, mdUrl, bareUrl] = m
-    const url = mdUrl ?? bareUrl
-    nodes.push(<a key={key++} href={url} target="_blank" rel="noopener noreferrer">{label ?? url}</a>)
+    const [, placeLabel, placeQuery, label, mdUrl, bareUrl] = m
+    if (placeLabel) {
+      const place = { label: placeLabel.trim(), query: placeQuery.trim() }
+      nodes.push(
+        <button key={key++} className="place-link" onClick={() => onPlace(place)}>
+          <MapPin size={12} />{place.label}
+        </button>
+      )
+    } else {
+      const url = mdUrl ?? bareUrl
+      nodes.push(<a key={key++} href={url} target="_blank" rel="noopener noreferrer">{label ?? url}</a>)
+    }
     last = LINK_RE.lastIndex
   }
   if (last < text.length) nodes.push(text.slice(last))
@@ -52,6 +66,7 @@ export default function Chat() {
     chatTyping: typing, chatError: error, sendChatMessage, retryChatMessage,
   } = useTrip()
 
+  const [place, setPlace] = useState(null)
   const endRef = useRef(null)
   const speech = useSpeech({ onResult: (said) => sendChatMessage(said) })
 
@@ -103,8 +118,19 @@ export default function Chat() {
             </div>
           )}
 
-          {messages.map((m) => (
-            <div key={m.id} className={`bubble ${m.role} msg-in`}>{linkify(m.text)}</div>
+          {messages.map((m, i) => (
+            <div key={m.id} style={{ display: 'contents' }}>
+              <div className={`bubble ${m.role} msg-in`}>{linkify(m.text, setPlace)}</div>
+              {/* Only the latest reply's follow-ups — older ones answer a
+                  moment in the conversation that has already passed. */}
+              {m.role === 'ai' && i === messages.length - 1 && !typing && m.suggestions?.length > 0 && (
+                <div className="chat-suggest msg-in">
+                  {m.suggestions.map((s) => (
+                    <button key={s} className="starter" onClick={() => sendChatMessage(s)}>{s}</button>
+                  ))}
+                </div>
+              )}
+            </div>
           ))}
 
           {typing && (
@@ -159,6 +185,8 @@ export default function Chat() {
           <Send size={16} />
         </button>
       </div>
+
+      <PlaceSheet place={place} onClose={() => setPlace(null)} />
     </>
   )
 }

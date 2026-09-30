@@ -640,9 +640,14 @@ export function TripProvider({ children }) {
 
       const actions = []
       const text = []
+      // Follow-ups the agent offers ("SUGGEST: a | b | c") — shown as tap
+      // targets under its reply, never as text.
+      let suggestions = []
       for (const l of full.split('\n')) {
         const m = l.match(ACTION_LINE)
-        if (m && trip) actions.push({ kind: m[1].toUpperCase(), args: m[2] })
+        const s = l.match(/^\s*SUGGEST\s*:\s*(.*)$/i)
+        if (s) suggestions = s[1].split('|').map((x) => x.trim()).filter(Boolean).slice(0, 3)
+        else if (m && trip) actions.push({ kind: m[1].toUpperCase(), args: m[2] })
         else text.push(l)
       }
       // Markdown asterisks showed up literally in the bubble.
@@ -656,6 +661,7 @@ export function TripProvider({ children }) {
           id: `a${Date.now()}`, role: 'ai',
           // The app's own account of what happened — never the model's.
           text: report.join('\n') + (done ? `\n\n${t('אפשר לראות את זה במסך "מסלול הטיול".')}` : ''),
+          suggestions,
         }])
       } else {
         // A claim of having changed the itinerary with no action behind it is
@@ -665,6 +671,7 @@ export function TripProvider({ children }) {
           text: CLAIM.test(say)
             ? `${say}\n\n⚠ ${t('לא שיניתי כלום בלו"ז. כדי שאשנה, כתבו למשל "הוסף את זה ליום 1".')}`
             : say,
+          suggestions,
         }])
       }
     } catch (err) {

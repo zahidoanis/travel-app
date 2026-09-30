@@ -563,4 +563,14 @@ export default {
   "יש לי כבר מסלול ב-Google Maps": "I already have a route in Google Maps",
   "מייבא את המסלול…": "Importing the route…",
   "יוצר את הטיול…": "Creating the trip…",
+
+  // Place sheet (a place the agent mentioned in the chat)
+  "לא הצלחתי לאתר את המקום על המפה": "Couldn't find this place on the map",
+  "להוסיף ליום": "Add to day",
+  "בחר יום": "Choose a day",
+  "{n} עצירות ביום הזה": "{n} stops on this day",
+  "נמצא ביום {n}": "On day {n}",
+  "הוסף ליום {n}": "Add to day {n}",
+  "פתח ב-Google Maps": "Open in Google Maps",
+  "ייתכן שזה לא המקום המדויק — כדאי לבדוק את הכתובת לפני שמוסיפים.": "This may not be the exact place — check the address before adding it.",
 }
