@@ -468,7 +468,7 @@ input, select, textarea { font: inherit; color: inherit; }
 }
 
 .hero-photo {
-  position: absolute; inset: 0; z-index: 0;
+  position: absolute; inset: 0; z-index: 0; pointer-events: none;
   width: 100%; height: 100%; object-fit: cover;
   opacity: 0; transition: opacity 0.5s var(--ease);
 }
@@ -496,18 +496,9 @@ input, select, textarea { font: inherit; color: inherit; }
 .hero.has-photo .hero-icon,
 .hero.has-photo .icon-btn.boxed {
   background: rgba(255,255,255,0.16);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
   border-color: rgba(255,255,255,0.3); color: #fff;
 }
-/* backdrop-filter was here (blur(10px), both prefixes) — dropped as a live
-   test: some Android/Chrome builds are known to let an element with
-   backdrop-filter swallow touch events instead of passing them through to
-   itself, especially absolutely-positioned + over a transitioning photo
-   layer, which matches this exactly. The share icon over a hero photo was
-   reported completely unresponsive to taps (confirmed via direct telemetry
-   — the tap never even reached its onClick), while every other control on
-   the same screen worked. If removing this fixes it, put the blur back only
-   for browsers that don't choke on it; if not, revert — this isn't a
-   confirmed cause yet, just the strongest untested lead. */
 
 .timeline-card {
   width: 218px; border-radius: var(--r-lg); padding: 12px;
