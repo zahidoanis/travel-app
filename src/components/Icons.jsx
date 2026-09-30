@@ -102,6 +102,14 @@ export const Sparkles = make(
     <path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z" />
   </>
 )
+/** The AI tab's mark — a large four-point sparkle with curved, pinched
+ *  sides and a small one above it, drawn to match the reference Zahid chose. */
+export const AiSpark = make(
+  <>
+    <path d="M10 6.5Q10.9 13.1 17.5 14Q10.9 14.9 10 21.5Q9.1 14.9 2.5 14Q9.1 13.1 10 6.5Z" />
+    <path d="M18 2.5Q18.45 5.55 21.5 6Q18.45 6.45 18 9.5Q17.55 6.45 14.5 6Q17.55 5.55 18 2.5Z" />
+  </>
+)
 export const Star = make(
   <path
     d="m12 3.6 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 17l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9L12 3.6Z"

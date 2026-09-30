@@ -1,4 +1,4 @@
-import { Calendar, MapIcon, Bot, Wallet, Route, Utensils, Plane, Bed, Layers, Printer, Ticket } from './Icons'
+import { Calendar, MapIcon, AiSpark, Wallet, Route, Utensils, Plane, Bed, Layers, Printer, Ticket } from './Icons'
 import { t } from '../i18n'
 
 /** The desktop rail shows everything; the bottom bar keeps a subset.
@@ -16,7 +16,7 @@ export const RAIL_ONLY = [
 export const TABS = [
   { id: 'home', label: t('בית/לו"ז'), Icon: Calendar },
   { id: 'map', label: t('מפה'), Icon: MapIcon },
-  { id: 'chat', label: t("צ'אט AI"), Icon: Bot },
+  { id: 'chat', label: t("צ'אט AI"), Icon: AiSpark },
   { id: 'days', label: t('מסלול'), Icon: Route },
   { id: 'reservations', label: t('הזמנות'), Icon: Ticket },
   { id: 'finance', label: t('פיננסים'), Icon: Wallet },
