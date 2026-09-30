@@ -81,11 +81,50 @@ export function placePhoto(name) {
  *
  * @returns {Promise<{url: string, width: number, height: number} | null>}
  */
-export function heroPhoto(name, width = 1200) {
+const COMMONS_API = 'https://commons.wikimedia.org/w/api.php'
+
+// Not a photo you'd put behind a greeting: collages, heraldry, maps, logos,
+// ultra-wide panoramas (cropped to a card they show a sliver of sky), and
+// non-photo formats.
+const NOT_A_HERO = /montage|collage|composite|mosaic|coat.of.arms|flag|map|locator|seal|logo|emblem|panorama|\.svg|\.png|\.tiff?/i
+
+/**
+ * One strong single photo of the city from Wikimedia Commons, by relevance.
+ * The country goes in the query on purpose: "Rome skyline" alone ranks
+ * Rome, Georgia (USA) first. Verified on Baku, Paris, Prague, Rome, Bangkok,
+ * Tbilisi and Budapest — each came back with a real skyline/landmark shot.
+ * 1280 is one of Wikimedia's standard thumbnail widths; arbitrary widths are
+ * refused ("Use thumbnail sizes listed…").
+ */
+async function commonsHero(city, country) {
+  try {
+    const params = new URLSearchParams({
+      action: 'query', format: 'json', origin: '*',
+      generator: 'search', gsrnamespace: '6', gsrlimit: '10',
+      gsrsearch: `${city} ${country} skyline`.replace(/\s+/g, ' ').trim(),
+      prop: 'imageinfo', iiprop: 'url|size', iiurlwidth: '1280',
+    })
+    const res = await fetch(`${COMMONS_API}?${params}`)
+    if (!res.ok) return null
+    const pages = Object.values((await res.json())?.query?.pages ?? {}).sort((a, b) => a.index - b.index)
+    for (const p of pages) {
+      const info = p.imageinfo?.[0]
+      if (!info?.thumburl || NOT_A_HERO.test(p.title)) continue
+      const ratio = info.width / info.height
+      if (info.width < 1200 || ratio < 0.6 || ratio > 1.8) continue
+      return { url: info.thumburl, width: info.thumbwidth, height: info.thumbheight }
+    }
+    return null
+  } catch {
+    return null // the Wikipedia lead image (or nothing) is still shown
+  }
+}
+
+export function heroPhoto(name, width = 1200, country = '') {
   const title = titleOf(name ?? '')
   if (title.length < 2) return Promise.resolve(null)
 
-  const key = `${title}@${width}`
+  const key = `${title}@${width}@${country}`
   if (heroCache.has(key)) return Promise.resolve(heroCache.get(key))
   if (heroInflight.has(key)) return heroInflight.get(key)
 
@@ -102,7 +141,14 @@ export function heroPhoto(name, width = 1200) {
       const page = Object.values(data?.query?.pages ?? {})[0]
       const thumb = page?.thumbnail
 
-      const usable = thumb ? { url: thumb.source, width: thumb.width, height: thumb.height } : null
+      let usable = thumb ? { url: thumb.source, width: thumb.width, height: thumb.height } : null
+      // Many city articles lead with a collage — Baku's is literally
+      // "Baku_Montage.jpg", four photos in a grid, which reads as clutter
+      // behind a greeting. Only then (or with no lead image at all) look for
+      // one strong photo on Commons; a collage still beats nothing.
+      if (!usable || NOT_A_HERO.test(page?.pageimage ?? thumb?.source ?? '')) {
+        usable = (await commonsHero(title, country)) ?? usable
+      }
       heroCache.set(key, usable)
       return usable
     } catch (err) {

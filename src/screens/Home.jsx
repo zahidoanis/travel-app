@@ -74,7 +74,10 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
     let cancelled = false
     setHeroPhoto(null)
     setHeroPhotoLoaded(false)
-    fetchHeroPhoto(TRIP.cityEn ?? TRIP.city).then((hit) => {
+    // English country disambiguates the photo search ("Rome" alone finds
+    // Rome, Georgia) — known for any city picked from the curated list.
+    const countryEn = CITIES.find((c) => c.en === TRIP.cityEn || c.he === TRIP.city)?.countryEn ?? ''
+    fetchHeroPhoto(TRIP.cityEn ?? TRIP.city, 1200, countryEn).then((hit) => {
       if (cancelled || !hit) return
       setHeroPhoto(hit)
       // Preloaded off-DOM, purely to know when it's safe to fade the CSS
@@ -154,6 +157,13 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
       <TopBar variant="home" />
 
       <div className="pad">
+        {/* The night theme's masthead — greeting over a big city name, above
+            the photo card. Hidden in the classic theme (styles.css), which
+            keeps its greeting inside the card as before. */}
+        <div className="home-masthead">
+          <p className="home-greet">{forecast ? `${GREETING[forecast.now.period]},` : t('שלום!')}</p>
+          <h1 className="home-city">{TRIP.city}<span className="home-dot">.</span></h1>
+        </div>
         <section className={`hero ${heroPhoto ? 'has-photo' : ''}`}>
           {heroPhoto && (
             <>

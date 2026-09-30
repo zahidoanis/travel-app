@@ -436,6 +436,10 @@ input, select, textarea { font: inherit; color: inherit; }
 
 /* ---------- Home ---------- */
 
+/* The night theme's masthead above the hero card (Home.jsx); the classic
+   theme keeps its greeting inside the card, so it stays hidden here. */
+.home-masthead { display: none; }
+
 .hero {
   position: relative; overflow: hidden;
   border-radius: var(--r-xl); padding: 18px;
