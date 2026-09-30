@@ -9,6 +9,7 @@ import {
 import { onUser, hasFirebase } from './lib/firebase'
 import { invitedTripId } from './lib/share'
 import { geocode } from './lib/geocode'
+import { importedStops } from './lib/mapImport'
 import { hasAI, systemPrompt, streamReply } from './lib/gemini'
 import { fetchForecast, fetchClimateAverage } from './lib/weather'
 import { CITIES } from './cities'
@@ -888,7 +889,7 @@ export function TripProvider({ children }) {
 
   /* ---- trip lifecycle ---- */
 
-  const completeOnboarding = async (answers) => {
+  const completeOnboarding = async ({ imported, ...answers }) => {
     setSyncing(true)
 
     // Picking a destination from the city search or a popular-destination
@@ -919,6 +920,22 @@ export function TripProvider({ children }) {
     }
 
     const { id, code } = await createTrip(located)
+
+    // A trip imported from Google Maps arrives with its days already
+    // planned. Saved before the trip is set as current, so the "nothing
+    // stored for today — generate it" effect finds them and leaves them be.
+    if (imported?.days?.length) {
+      const byDay = await importedStops(imported, located.from)
+      const bucket = located.parties?.[0]?.id
+      await Promise.all(
+        Object.entries(byDay).map(([day, list]) =>
+          saveRoute(id, bucket, { day: Number(day), city: located.destination, stops: list })
+        )
+      )
+      setOwnDays(Object.fromEntries(Object.entries(byDay).map(([d, list]) => [Number(d), list])))
+      breadcrumb('lifecycle', `imported ${Object.keys(byDay).length} days from Google Maps`)
+    }
+
     const ownerId = user?.uid ?? 'local'
     const created = { ...located, id, code, ownerId, memberIds: [ownerId] }
     setRaw(created)

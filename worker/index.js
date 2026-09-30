@@ -152,6 +152,16 @@ export default {
       })
     }
 
+    // Google Maps import. The browser can't read Google's KML export itself
+    // (no CORS), so this fetches it and hands back plain JSON.
+    if (request.method === 'GET' && url.pathname === '/mymap') {
+      const result = await importGoogleMap(url.searchParams.get('url') ?? '')
+      return json(result.body, result.status, {
+        ...cors,
+        'Cache-Control': result.status === 200 ? 'public, max-age=300' : 'no-store',
+      })
+    }
+
     // Liveness probe. Reveals nothing secret — only how many keys are
     // present — so deployment can be verified without spending Gemini quota.
     if (request.method === 'GET') {
@@ -698,4 +708,109 @@ async function fromNominatim(params, env) {
   } catch {
     return null
   }
+}
+
+/* ---------- Google Maps import ---------- */
+
+// Only ever fetches Google — this must never become an open proxy.
+const GOOGLE_HOST = /(^|\.)google\.[a-z.]{2,6}$|^maps\.app\.goo\.gl$|^goo\.gl$/i
+
+/**
+ * A pasted Google Maps link -> { kind, title, layers: [{ name, places }] }.
+ *
+ * Two shapes are readable without an API key:
+ *   - My Maps (`/maps/d/...?mid=`, or the same map opened inside Google Maps,
+ *     `...!6m1!1s<mid>`): Google serves a public map as KML, with its layers,
+ *     place names, descriptions and exact coordinates. Verified on a real
+ *     5-layer Lisbon trip.
+ *   - Directions (`/maps/dir/A/B/C`): the stops are in the path, and their
+ *     coordinates, in order, in the `data=` blob.
+ * Saved lists have no public export at all, so they get a clear "unsupported".
+ */
+async function importGoogleMap(raw) {
+  let link
+  try {
+    link = new URL(raw.trim())
+  } catch {
+    return { status: 400, body: { error: 'bad-url' } }
+  }
+  if (!GOOGLE_HOST.test(link.hostname)) return { status: 400, body: { error: 'not-google' } }
+
+  // Short links (maps.app.goo.gl/...) are redirects to the full URL. Followed
+  // by hand so every hop can be checked against GOOGLE_HOST.
+  for (let hop = 0; hop < 5 && /goo\.gl$/i.test(link.hostname); hop++) {
+    const res = await fetch(link.toString(), { redirect: 'manual' })
+    const next = res.headers.get('Location')
+    if (!next) break
+    link = new URL(next, link)
+    if (!GOOGLE_HOST.test(link.hostname)) return { status: 400, body: { error: 'not-google' } }
+  }
+
+  const full = decodeURIComponent(link.toString())
+  const mid = link.searchParams.get('mid') ?? full.match(/!6m1!1s([\w-]{20,})/)?.[1]
+  if (mid) return myMap(mid)
+
+  const dir = link.pathname.match(/\/maps\/dir\/(.+)$/)?.[1]
+  if (dir) return directions(dir, full)
+
+  return { status: 422, body: { error: 'unsupported' } }
+}
+
+async function myMap(mid) {
+  const res = await fetch(`https://www.google.com/maps/d/kml?mid=${encodeURIComponent(mid)}&forcekml=1`)
+  const text = await res.text()
+  // A private or deleted map answers with an HTML error page, not KML.
+  if (!res.ok || !text.includes('<kml')) return { status: 404, body: { error: 'private-or-missing' } }
+
+  const doc = text.match(/<Document>([\s\S]*)<\/Document>/)?.[1] ?? text
+  const folders = [...doc.matchAll(/<Folder>([\s\S]*?)<\/Folder>/g)].map((m) => m[1])
+  const layers = (folders.length ? folders : [doc])
+    .map((f) => ({ name: kmlText(f.match(/<name>([\s\S]*?)<\/name>/)?.[1]), places: placemarks(f) }))
+    .filter((l) => l.places.length > 0)
+
+  if (layers.length === 0) return { status: 422, body: { error: 'empty' } }
+  const title = kmlText(doc.replace(/<Folder>[\s\S]*<\/Folder>/g, '').match(/<name>([\s\S]*?)<\/name>/)?.[1])
+  return { status: 200, body: { kind: 'mymap', title, layers } }
+}
+
+/** Point placemarks only — a layer's drawn route line is geometry, not a stop. */
+function placemarks(xml) {
+  return [...xml.matchAll(/<Placemark>([\s\S]*?)<\/Placemark>/g)]
+    .map((m) => m[1])
+    .filter((p) => p.includes('<Point>'))
+    .map((p) => {
+      const [lng, lat] = (p.match(/<coordinates>\s*([^<]+)<\/coordinates>/)?.[1] ?? '').trim().split(',').map(Number)
+      return {
+        name: kmlText(p.match(/<name>([\s\S]*?)<\/name>/)?.[1]),
+        desc: kmlText(p.match(/<description>([\s\S]*?)<\/description>/)?.[1]).slice(0, 300),
+        lat, lng,
+      }
+    })
+    .filter((p) => p.name && Number.isFinite(p.lat) && Number.isFinite(p.lng))
+}
+
+/** Unwraps CDATA, drops the HTML Google puts in descriptions, decodes entities. */
+function kmlText(s = '') {
+  return s
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'").replace(/&amp;/g, '&')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function directions(path, full) {
+  const names = path
+    .split('/')
+    .filter((seg) => seg && !seg.startsWith('@') && !seg.startsWith('data='))
+    .map((seg) => decodeURIComponent(seg.replace(/\+/g, ' ')).trim())
+    .filter(Boolean)
+  // Each waypoint's coordinates, in order: "!2m2!1d<lng>!2d<lat>".
+  const coords = [...full.matchAll(/!2m2!1d(-?[\d.]+)!2d(-?[\d.]+)/g)].map((m) => ({ lng: Number(m[1]), lat: Number(m[2]) }))
+  const exact = coords.length === names.length
+  const places = names.map((name, i) => ({ name, desc: '', ...(exact ? coords[i] : { lat: null, lng: null }) }))
+  if (places.length === 0) return { status: 422, body: { error: 'empty' } }
+  return { status: 200, body: { kind: 'directions', title: '', layers: [{ name: '', places }] } }
 }

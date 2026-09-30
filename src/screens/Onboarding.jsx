@@ -9,6 +9,7 @@ import { search, geocode } from '../lib/geocode'
 import { CITIES, searchCities } from '../cities'
 import { breadcrumb, watchdog } from '../lib/telemetry'
 import DateRangeCalendar from '../components/DateRangeCalendar'
+import MapImportSheet from '../components/MapImportSheet'
 import { t, tn } from '../i18n'
 import { lang } from '../i18n'
 
@@ -315,10 +316,40 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
     }
   }
 
-  const next = () => {
-    if (!canAdvance) return
-    if (step < STEPS.length - 1) setStep(step + 1)
-    else onDone({ ...answers, nights, travellers })
+  /* ---- Google Maps import ---- */
+  const [importOpen, setImportOpen] = useState(false)
+  const [finishing, setFinishing] = useState(false)
+
+  // The map already answers "where", "when" and "where do you sleep" —
+  // fill those in and move on to the dates, so they can be checked.
+  const applyImport = (plan) => {
+    set({
+      imported: plan,
+      ...(plan.destination ? {
+        destination: plan.destination,
+        country: plan.country,
+        destinationEn: plan.destinationEn,
+        lat: plan.lat,
+        lng: plan.lng,
+      } : {}),
+      ...(plan.from && plan.to > plan.from ? { from: plan.from, to: plan.to } : {}),
+      ...(plan.hotel ? { stays: [plan.hotel] } : {}),
+    })
+    setImportOpen(false)
+    if (plan.destination) setStep(1)
+  }
+
+  const next = async () => {
+    if (!canAdvance || finishing) return
+    if (step < STEPS.length - 1) return setStep(step + 1)
+    // Creating an imported trip waits on the agent filling in times for
+    // every stop — several seconds with nothing to show otherwise.
+    setFinishing(true)
+    try {
+      await onDone({ ...answers, nights, travellers })
+    } finally {
+      setFinishing(false)
+    }
   }
 
   // Editing is not linear the way first-time onboarding is — someone who
@@ -418,6 +449,30 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                   </ul>
                 )}
               </div>
+
+              {!editMode && (
+                answers.imported ? (
+                  <div className="choice on row" style={{ marginTop: 14, gap: 10, alignItems: 'center', cursor: 'default' }}>
+                    <Check size={18} />
+                    <span className="grow" style={{ textAlign: 'start' }}>
+                      <span className="choice-title" style={{ marginTop: 0 }}>
+                        {t('יובא מ-Google Maps: {title}', { title: answers.imported.title || answers.destination })}
+                      </span>
+                      <span className="choice-sub">
+                        <span className="num">{answers.imported.days.length}</span> {t('ימים')} ·{' '}
+                        <span className="num">{answers.imported.days.reduce((n, d) => n + d.places.length, 0)}</span> {t('עצירות')}
+                      </span>
+                    </span>
+                    <button className="icon-btn" onClick={() => set({ imported: undefined })} aria-label={t('בטל ייבוא')}>
+                      <X size={16} />
+                    </button>
+                  </div>
+                ) : (
+                  <button className="btn btn-ghost btn-block" style={{ marginTop: 14 }} onClick={() => setImportOpen(true)}>
+                    <MapPin size={16} /> {t('יש לי כבר מסלול ב-Google Maps')}
+                  </button>
+                )
+              )}
 
               <span className="label" style={{ marginTop: 18 }}>{t('יעדים פופולריים')}</span>
               <div className="dest-grid">
@@ -1076,9 +1131,11 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
             {current.blocker(answers)}
           </p>
         )}
-        <button className="btn btn-primary btn-block" onClick={next} disabled={!canAdvance}>
-          {step < STEPS.length - 1 ? t('הבא') : editMode ? t('שמור שינויים') : t('בוא נתחיל')}
-          <ArrowLeft size={18} />
+        <button className="btn btn-primary btn-block" onClick={next} disabled={!canAdvance || finishing}>
+          {finishing
+            ? (answers.imported ? t('מייבא את המסלול…') : t('יוצר את הטיול…'))
+            : step < STEPS.length - 1 ? t('הבא') : editMode ? t('שמור שינויים') : t('בוא נתחיל')}
+          {!finishing && <ArrowLeft size={18} />}
         </button>
         {editMode && step < STEPS.length - 1 && (
           <button
@@ -1091,6 +1148,8 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
           </button>
         )}
       </div>
+
+      <MapImportSheet open={importOpen} onClose={() => setImportOpen(false)} onImport={applyImport} />
     </>
   )
 }
