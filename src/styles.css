@@ -473,9 +473,16 @@ input, select, textarea { font: inherit; color: inherit; }
   position: absolute; inset-inline: 18px; inset-block-start: 18px; z-index: 2;
 }
 
+/* A CSS background on a plain div, not an <img> — an <img> in this exact
+   spot (absolutely positioned, right under the share/weather icons) turned
+   out to intercept taps on at least one real Android/Chrome phone even with
+   pointer-events: none set, most likely its own built-in long-press image
+   handling (save/open/search image) running independently of normal DOM
+   event dispatch. A background-image has no such element-level gesture
+   layer to begin with — nothing to disable, because there's no <img> there. */
 .hero-photo {
   position: absolute; inset: 0; z-index: 0; pointer-events: none;
-  width: 100%; height: 100%; object-fit: cover;
+  background-size: cover; background-position: center;
   opacity: 0; transition: opacity 0.5s var(--ease);
 }
 .hero-photo.on { opacity: 1; }

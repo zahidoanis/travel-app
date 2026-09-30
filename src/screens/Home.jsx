@@ -73,7 +73,18 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
     setHeroPhoto(null)
     setHeroPhotoLoaded(false)
     fetchHeroPhoto(TRIP.cityEn ?? TRIP.city).then((hit) => {
-      if (!cancelled) setHeroPhoto(hit)
+      if (cancelled || !hit) return
+      setHeroPhoto(hit)
+      // Preloaded off-DOM, purely to know when it's safe to fade the CSS
+      // background-image in — this used to be a rendered <img>'s own onLoad,
+      // but a real <img> sitting over tappable icons turned out to eat taps
+      // on at least one Android/Chrome phone (its built-in long-press/
+      // save-image handling runs underneath normal DOM event dispatch, so
+      // `pointer-events: none` didn't reliably stop it). A CSS background on
+      // a plain <div> has no such gesture layer at all.
+      const img = new Image()
+      img.onload = () => { if (!cancelled) setHeroPhotoLoaded(true) }
+      img.src = hit.url
     })
     return () => { cancelled = true }
   }, [TRIP?.id, TRIP?.cityEn, TRIP?.city])
@@ -144,12 +155,10 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
         <section className={`hero ${heroPhoto ? 'has-photo' : ''}`}>
           {heroPhoto && (
             <>
-              <img
-                src={heroPhoto.url}
-                alt=""
+              <div
                 aria-hidden="true"
                 className={`hero-photo ${heroPhotoLoaded ? 'on' : ''}`}
-                onLoad={() => setHeroPhotoLoaded(true)}
+                style={{ backgroundImage: `url(${heroPhoto.url})` }}
               />
               {/* Warm at golden hour, cool and dim at night — the same
                   reading the temperature line already gives, painted onto
