@@ -211,6 +211,13 @@ export function planFromMap(data, uiLang = 'he') {
 
 const plainName = (name) => name.split(',')[0].trim()
 
+/** How many days the imported plan covers, gaps included. */
+export function importSpan(imported) {
+  const first = imported.days[0]?.date
+  const last = imported.days.at(-1)?.date
+  return first && last ? Math.round((new Date(last) - new Date(first)) / 86400000) + 1 : imported.days.length
+}
+
 /**
  * The imported days -> { [dayNumber]: stops }, in the app's stop shape.
  *
@@ -220,9 +227,15 @@ const plainName = (name) => name.split(',')[0].trim()
  * fails), stops still arrive: 90 minutes apart from 09:00, named as Google
  * named them.
  */
-export async function importedStops(imported, fromISO) {
+export async function importedStops(imported) {
+  // Day numbers come from each layer's distance to the map's OWN first date,
+  // never from the trip's start date. Measured against the trip's start,
+  // picking different dates in onboarding (the map's were in the past, so
+  // the calendar made that the only option) turned every offset negative,
+  // and the clamp below piled all four days onto day 1.
+  const first = imported.days[0]?.date
   const days = imported.days.map((d, i) => {
-    const n = d.date && fromISO ? Math.round((new Date(d.date) - new Date(fromISO)) / 86400000) + 1 : i + 1
+    const n = d.date && first ? Math.round((new Date(d.date) - new Date(first)) / 86400000) + 1 : i + 1
     return { n: Math.max(1, n), places: d.places }
   })
 

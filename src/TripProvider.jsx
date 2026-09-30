@@ -9,10 +9,11 @@ import {
 import { onUser, hasFirebase } from './lib/firebase'
 import { invitedTripId } from './lib/share'
 import { geocode } from './lib/geocode'
-import { importedStops } from './lib/mapImport'
+import { importedStops, importSpan } from './lib/mapImport'
 import { hasAI, systemPrompt, streamReply } from './lib/gemini'
 import { fetchForecast, fetchClimateAverage } from './lib/weather'
 import { CITIES } from './cities'
+import { placeNames } from './lib/placeNames'
 import { breadcrumb, record } from './lib/telemetry'
 import { t } from './i18n'
 
@@ -71,13 +72,15 @@ function toTrip(raw) {
     ? Math.min(totalDays, Math.max(1, Math.floor((Date.now() - from) / 86400000) + 1))
     : 1
 
+  const { city, country, cityEn } = placeNames(raw)
+
   return {
     id: raw.id,
     code: raw.code ?? '',
     ownerId: raw.ownerId ?? null,
-    city: raw.destination,
-    cityEn: raw.destinationEn ?? raw.destination,
-    country: raw.country ?? '',
+    city,
+    cityEn,
+    country,
     lat: raw.lat ?? null,
     lng: raw.lng ?? null,
     // The effective (possibly widened) range — not raw.from/raw.to
@@ -919,13 +922,22 @@ export function TripProvider({ children }) {
       }
     }
 
+    // Dates picked shorter than the imported plan would hide its last days
+    // off the end of the trip — stretch the return date to fit them.
+    if (imported?.days?.length && located.from) {
+      const minTo = new Date(`${located.from}T00:00:00Z`)
+      minTo.setUTCDate(minTo.getUTCDate() + importSpan(imported) - 1)
+      const iso = minTo.toISOString().slice(0, 10)
+      if (!located.to || located.to < iso) located = { ...located, to: iso }
+    }
+
     const { id, code } = await createTrip(located)
 
     // A trip imported from Google Maps arrives with its days already
     // planned. Saved before the trip is set as current, so the "nothing
     // stored for today — generate it" effect finds them and leaves them be.
     if (imported?.days?.length) {
-      const byDay = await importedStops(imported, located.from)
+      const byDay = await importedStops(imported)
       const bucket = located.parties?.[0]?.id
       await Promise.all(
         Object.entries(byDay).map(([day, list]) =>

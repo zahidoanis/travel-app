@@ -7,6 +7,7 @@ import { signInWithGoogle, signOutUser, hasFirebase } from '../lib/firebase'
 import { breadcrumb } from '../lib/telemetry'
 import { initials } from '../lib/text'
 import { inviteUrl, shareTrip } from '../lib/share'
+import { placeNames } from '../lib/placeNames'
 import { t } from '../i18n'
 import LangToggle from './LangToggle'
 
@@ -102,7 +103,7 @@ export default function AccountSheet({ open, onClose }) {
     // Link rides as its own `url` field, not inline in `text` — see
     // share.js's inviteText comment for why: that's what gets WhatsApp to
     // unfurl it into a real preview card instead of a bare line of text.
-    shareTrip(t('הצטרפו אליי לטיול ל{city}! 🗺️', { city: tr.destination }), inviteUrl(tr.id))
+    shareTrip(t('הצטרפו אליי לטיול ל{city}! 🗺️', { city: placeNames(tr).city }), inviteUrl(tr.id))
   }
 
   const confirmDelete = async () => {
@@ -229,7 +230,7 @@ export default function AccountSheet({ open, onClose }) {
                         style={{ textAlign: 'start' }}
                         onClick={() => { switchTrip(tr.id); onClose() }}
                       >
-                        <span className="choice-title" style={{ marginTop: 0 }}>{tr.destination}</span>
+                        <span className="choice-title" style={{ marginTop: 0 }}>{placeNames(tr).city}</span>
                         <span className="choice-sub num">{tr.from} → {tr.to}</span>
                       </button>
                       {tr.id === trip?.id && <Check size={16} />}
@@ -237,7 +238,7 @@ export default function AccountSheet({ open, onClose }) {
                         className="icon-btn"
                         style={{ width: 32, height: 32 }}
                         onClick={() => shareTripRow(tr)}
-                        aria-label={t('שתף את הטיול ל{city}', { city: tr.destination })}
+                        aria-label={t('שתף את הטיול ל{city}', { city: placeNames(tr).city })}
                       >
                         <Share size={14} />
                       </button>
@@ -245,7 +246,7 @@ export default function AccountSheet({ open, onClose }) {
                         className="icon-btn"
                         style={{ width: 32, height: 32 }}
                         onClick={() => editTripRow(tr)}
-                        aria-label={t('ערוך את הטיול ל{city}', { city: tr.destination })}
+                        aria-label={t('ערוך את הטיול ל{city}', { city: placeNames(tr).city })}
                       >
                         <Pencil size={14} />
                       </button>
@@ -257,7 +258,7 @@ export default function AccountSheet({ open, onClose }) {
                           className="icon-btn"
                           style={{ width: 32, height: 32 }}
                           onClick={() => { setDeleteError(null); setDeletingTrip(tr) }}
-                          aria-label={t('מחק את הטיול ל{city}', { city: tr.destination })}
+                          aria-label={t('מחק את הטיול ל{city}', { city: placeNames(tr).city })}
                         >
                           <X size={15} />
                         </button>
@@ -292,7 +293,7 @@ export default function AccountSheet({ open, onClose }) {
       {deletingTrip && (
         <>
           <p className="sub" style={{ marginBottom: 20 }}>
-            {t('למחוק את הטיול ל')}<strong>{deletingTrip.destination}</strong>?{' '}
+            {t('למחוק את הטיול ל')}<strong>{placeNames(deletingTrip).city}</strong>?{' '}
             {t('הפעולה מוחקת אותו')} <strong>{t('לצמיתות עבור כל מי שבטיול')}</strong>{t(', ולא ניתן לבטל אותה.')}
           </p>
           {deleteError && (
