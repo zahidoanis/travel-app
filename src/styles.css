@@ -297,7 +297,7 @@ input, select, textarea { font: inherit; color: inherit; }
 .topbar {
   position: sticky; top: 0; z-index: 20;
   display: flex; align-items: center; justify-content: space-between;
-  gap: 12px; padding: 14px 18px 10px;
+  gap: 12px; padding: calc(14px + env(safe-area-inset-top)) 18px 10px;
   background: linear-gradient(180deg, var(--bg-2) 62%, rgba(20,18,31,0));
 }
 .topbar.floating { background: linear-gradient(180deg, rgba(10,11,18,0.92), rgba(10,11,18,0)); }
