@@ -1630,13 +1630,14 @@ input, select, textarea { font: inherit; color: inherit; }
 .place-card-add { display: inline-flex; align-items: center; gap: 3px; font-size: 11.5px; font-weight: 600; color: var(--accent); }
 
 /* What the agent remembers about the group. */
-.memory-chip {
-  align-self: center; display: inline-flex; align-items: center; gap: 5px;
-  margin-top: -6px; padding: 4px 11px; border-radius: var(--r-pill);
+.memory-note {
+  display: flex; align-items: center; gap: 6px; width: 100%;
+  margin-top: 10px; padding: 7px 10px; border-radius: var(--r-sm);
   background: var(--tint); border: 1px solid var(--border);
-  font-size: 11.5px; color: var(--muted);
+  font: inherit; font-size: 12.5px; color: var(--text-2); text-align: start;
 }
-.memory-chip:hover { color: var(--text-2); border-color: var(--border-strong); }
+.memory-note svg { flex: none; color: var(--accent); }
+.memory-note:hover { border-color: var(--border-strong); }
 .memory-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
 .memory-list li { padding: 8px 8px 8px 14px; gap: 8px; font-size: 14px; }
 

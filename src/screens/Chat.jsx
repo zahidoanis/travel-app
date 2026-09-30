@@ -4,9 +4,9 @@ import PlaceSheet from '../components/PlaceSheet'
 import PlacePhoto from '../components/PlacePhoto'
 import Sheet from '../components/Sheet'
 import { normaliseCategory } from '../lib/itinerary'
-import { AlertTriangle, Bookmark, Bot, MapPin, Mic, Paperclip, Plus, Send, Sparkles, X } from '../components/Icons'
+import { AlertTriangle, Bookmark, Bot, MapPin, Mic, Paperclip, Plus, Send, X } from '../components/Icons'
 import { useTrip } from '../TripProvider'
-import { hasAI, aiMode, aiModel } from '../lib/gemini'
+import { hasAI } from '../lib/gemini'
 import { useSpeech } from '../lib/speech'
 import { t } from '../i18n'
 
@@ -78,6 +78,9 @@ function PlaceCards({ text, onOpen }) {
   )
 }
 
+/** Where TripProvider appends "📌 saved to memory: …" to a reply. */
+const MEMORY_NOTE = /\s*📌\s*/
+
 /** Openers, so an empty thread still shows what the agent is for. */
 const STARTERS = [
   t('מה כדאי לעשות היום אם יורד גשם?'),
@@ -128,28 +131,13 @@ export default function Chat() {
         <TopBar />
 
         <div className="chat-thread">
-          <span className={`ai-status ${hasAI ? 'live' : ''}`}>
-            {hasAI ? (
-              <>
-                <Sparkles size={12} />
-                {t('סוכן פעיל')} · {aiModel}
-                {aiMode === 'direct' && ` · ${t('מצב פיתוח')}`}
-              </>
-            ) : (
-              <>
-                <Bot size={12} />
-                {t('הסוכן אינו מחובר')}
-              </>
-            )}
-          </span>
-
-          {hasAI && (
-            <button className="memory-chip" onClick={() => setMemoryOpen(true)}>
-              <Bookmark size={12} />
-              {memory.length > 0
-                ? t('הסוכן זוכר {n} דברים עליכם', { n: memory.length })
-                : t('מה הסוכן זוכר עליכם')}
-            </button>
+          {/* Only when something is wrong — "active · gemini-3.6-flash" was a
+              developer's readout, meaningless to a traveller. */}
+          {!hasAI && (
+            <span className="ai-status">
+              <Bot size={12} />
+              {t('הסוכן אינו מחובר')}
+            </span>
           )}
 
           {empty && (
@@ -174,7 +162,18 @@ export default function Chat() {
 
           {visible.map((m) => (
             <div key={m.id} style={{ display: 'contents' }}>
-              <div className={`bubble ${m.role} msg-in`}>{linkify(m.text, setPlace)}</div>
+              <div className={`bubble ${m.role} msg-in`}>
+                {linkify(m.role === 'ai' ? m.text.split(MEMORY_NOTE)[0] : m.text, setPlace)}
+                {/* The "saved to memory" note is the way into the memory list —
+                    it appears exactly when memory becomes relevant, instead of
+                    a permanent button at the top of the chat. */}
+                {m.role === 'ai' && MEMORY_NOTE.test(m.text) && (
+                  <button className="memory-note" onClick={() => setMemoryOpen(true)}>
+                    <Bookmark size={12} />
+                    <span>{m.text.split(MEMORY_NOTE)[1]}</span>
+                  </button>
+                )}
+              </div>
               {m.role === 'ai' && !m.streaming && <PlaceCards text={m.text} onOpen={setPlace} />}
               {/* Only the latest reply's follow-ups — older ones answer a
                   moment in the conversation that has already passed. */}
