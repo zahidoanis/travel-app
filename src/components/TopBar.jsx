@@ -2,6 +2,7 @@ import { Bell, MapPin, Check, Cloud, User } from './Icons'
 import { useTrip } from '../TripProvider'
 import { initials } from '../lib/text'
 import { t } from '../i18n'
+import LangToggle from './LangToggle'
 
 /**
  * Three variants, matching the screens:
@@ -69,6 +70,7 @@ export default function TopBar({ variant = 'centered', floating = false }) {
         </div>
         <div className="row" style={{ gap: 8 }}>
           <SyncBadge state={syncState} day={trip} onSave={openAccount} />
+          <LangToggle compact />
           {account}
         </div>
       </header>
@@ -84,6 +86,7 @@ export default function TopBar({ variant = 'centered', floating = false }) {
           {label}
         </div>
         <div className="row" style={{ gap: 10 }}>
+          <LangToggle compact />
           {account}
           <span className="brand">TripAI</span>
         </div>
@@ -96,6 +99,7 @@ export default function TopBar({ variant = 'centered', floating = false }) {
       {pin}
       {label}
       <div className="row" style={{ gap: 8 }}>
+        <LangToggle compact />
         {bell}
         {account}
       </div>
