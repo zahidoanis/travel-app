@@ -15,7 +15,7 @@ export const THEME = 'gold'
 
 // Status-bar / browser-chrome colour per theme — a light bar above a dark app
 // (or the reverse) reads as a seam at the top of the phone.
-const CHROME = { gold: '#140A10', night: '#08070E', classic: '#FAFAFB' }
+const CHROME = { gold: '#2B2124', night: '#08070E', classic: '#FAFAFB' }
 
 if (typeof document !== 'undefined') {
   document.documentElement.dataset.theme = THEME
