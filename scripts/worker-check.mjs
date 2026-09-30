@@ -12,7 +12,7 @@ if (!url) {
   process.exit(1)
 }
 
-const ALLOWED = 'https://travel-ai-6de47.web.app'
+const ALLOWED = 'https://tripai-app.web.app'
 const STRANGER = 'https://evil.example.com'
 
 console.log(`\nworker: ${url}\n`)

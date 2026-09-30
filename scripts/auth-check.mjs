@@ -88,7 +88,7 @@ line(
 const domains = cfg?.authorizedDomains ?? []
 console.log(`\n  authorised domains: ${domains.join(', ') || '(none)'}`)
 
-const needed = [`${project}.web.app`, `${project}.firebaseapp.com`, 'localhost']
+const needed = [`${project}.web.app`, `${project}.firebaseapp.com`, 'tripai-app.web.app', 'localhost']
 const missing = needed.filter((d) => !domains.includes(d))
 if (missing.length) console.log(`  ✖ missing: ${missing.join(', ')}`)
 
