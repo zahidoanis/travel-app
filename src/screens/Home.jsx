@@ -12,6 +12,7 @@ import { geocode } from '../lib/geocode'
 import { CITIES } from '../cities'
 import WeatherSheet from '../components/WeatherSheet'
 import NoteSheet from '../components/NoteSheet'
+import { record } from '../lib/telemetry'
 
 /** "מגיעים ב-25.8 בשעה 14:30 · עוזבים ב-28.8" — the tooltip on a family's
  *  pill, built from whichever of arriveAt/departAt were actually set. */
@@ -166,7 +167,16 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
             <div className="hero-icon" aria-hidden="true">{heroWeatherIcon}</div>
             <button
               className="icon-btn boxed"
-              onClick={() => setShareOpen(true)}
+              onClick={() => {
+                // Temporary diagnostic — the share sheet was reported not
+                // opening on one Android/Chrome phone with no error, no
+                // freeze and no render crash anywhere in the telemetry log,
+                // which rules out a JS exception. This settles the one
+                // remaining question directly: does the tap even reach this
+                // handler at all. Remove once that's answered.
+                record({ kind: 'debug', level: 'info', message: 'DIAG: share icon tapped (home hero)' })
+                setShareOpen(true)
+              }}
               aria-label="שתף את המסלול"
             >
               <Share size={17} />
