@@ -7,6 +7,7 @@
  * integration; nothing here costs anything.
  */
 
+import { t } from '../i18n'
 /** Public URL of the app, with the invite code attached. */
 export function inviteUrl(tripId) {
   const base =
@@ -41,12 +42,12 @@ export function invitedTripId() {
 export function inviteText(trip, stops, tripId) {
   const lines = stops.map((s) => `${s.time} · ${s.he}`)
   return [
-    `הצטרפו אליי לטיול ב${trip.city}! 🗺️`,
+    t('הצטרפו אליי לטיול ב{city}! 🗺️', { city: trip.city }),
     '',
-    `יום ${trip.day} מתוך ${trip.totalDays}:`,
+    t('יום {day} מתוך {total}:', { day: trip.day, total: trip.totalDays }),
     ...lines,
     '',
-    `המסלול מתעדכן אצל כולם בזמן אמת — קוד הצטרפות: ${tripId}`,
+    t('המסלול מתעדכן אצל כולם בזמן אמת — קוד הצטרפות: {code}', { code: tripId }),
   ].join('\n')
 }
 

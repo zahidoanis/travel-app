@@ -1,6 +1,7 @@
 import { Bell, MapPin, Check, Cloud, User } from './Icons'
 import { useTrip } from '../TripProvider'
 import { initials } from '../lib/text'
+import { t } from '../i18n'
 
 /**
  * Three variants, matching the screens:
@@ -29,7 +30,7 @@ export default function TopBar({ variant = 'centered', floating = false }) {
   )
 
   const bell = (
-    <button className="icon-btn bell" onClick={openNotifications} aria-label="התראות">
+    <button className="icon-btn bell" onClick={openNotifications} aria-label={t('התראות')}>
       <Bell size={19} />
       {unreadCount > 0 ? <span className="bell-dot" aria-hidden="true" /> : null}
     </button>
@@ -47,7 +48,7 @@ export default function TopBar({ variant = 'centered', floating = false }) {
     <button
       className="icon-btn account-btn"
       onClick={openAccount}
-      aria-label={signedIn ? 'החשבון שלך' : 'שמור טיול או התחל טיול נוסף'}
+      aria-label={signedIn ? t('החשבון שלך') : t('שמור טיול או התחל טיול נוסף')}
     >
       {signedIn && user.photo ? (
         <img src={user.photo} alt="" className="topbar-photo" />
@@ -116,18 +117,18 @@ export default function TopBar({ variant = 'centered', floating = false }) {
 function SyncBadge({ state, day, onSave }) {
   if (state === 'saving') {
     return (
-      <span className="badge badge-live" title="שומר שינויים">
+      <span className="badge badge-live" title={t('שומר שינויים')}>
         <span className="typing"><i /><i /><i /></span>
-        שומר
+        {t('שומר')}
       </span>
     )
   }
 
   if (state === 'synced') {
     return (
-      <span className="badge badge-live" style={{ color: 'var(--emerald)' }} title="נשמר בענן">
+      <span className="badge badge-live" style={{ color: 'var(--emerald)' }} title={t('נשמר בענן')}>
         <Check size={11} />
-        {day ? <>יום <span className="num">{day.day}</span>/<span className="num">{day.totalDays}</span></> : 'מסונכרן'}
+        {day ? <>{t('יום')} <span className="num">{day.day}</span>/<span className="num">{day.totalDays}</span></> : t('מסונכרן')}
       </span>
     )
   }
@@ -139,11 +140,11 @@ function SyncBadge({ state, day, onSave }) {
     <button
       className="badge badge-live"
       style={{ color: 'var(--amber)' }}
-      title="הטיול קיים על מכשיר זה בלבד — לחץ כדי לשמור אותו"
+      title={t('הטיול קיים על מכשיר זה בלבד — לחץ כדי לשמור אותו')}
       onClick={onSave}
     >
       <Cloud size={12} />
-      שמור את הטיול
+      {t('שמור את הטיול')}
     </button>
   )
 }

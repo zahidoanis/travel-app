@@ -925,7 +925,7 @@ export function TripProvider({ children }) {
     // invisible in "הטיולים שלך" until the next sign-in or reload — even
     // though it saved correctly. Prepending here keeps the list honest
     // without a second round trip to fetch what was just created locally.
-    setTrips((list) => [created, ...list.filter((t) => t.id !== id)])
+    setTrips((list) => [created, ...list.filter((x) => x.id !== id)])
     setSyncing(false)
     breadcrumb('lifecycle', `trip created: ${answers.destination}`)
   }
@@ -971,10 +971,10 @@ export function TripProvider({ children }) {
     // much there for everyone else, then reappear next time it reloads.
     if (!ok && hasFirebase) return { ok: false }
 
-    setTrips((list) => list.filter((t) => t.id !== tripId))
+    setTrips((list) => list.filter((x) => x.id !== tripId))
 
     if (trip?.id === tripId) {
-      const next = trips.find((t) => t.id !== tripId)
+      const next = trips.find((x) => x.id !== tripId)
       if (next) {
         await switchTrip(next.id)
       } else {

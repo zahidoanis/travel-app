@@ -464,7 +464,7 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                     aria-label="שעת המראה ביציאה"
                   >
                     <option value="">בחר שעה</option>
-                    {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+                    {TIME_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
                   </select>
                 </label>
                 <label className="date-cell">
@@ -476,7 +476,7 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                     aria-label="שעת המראה בחזרה"
                   >
                     <option value="">בחר שעה</option>
-                    {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+                    {TIME_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
                   </select>
                 </label>
               </div>
@@ -641,7 +641,7 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                               aria-label={`שעת הגעה של ${p.name}`}
                             >
                               <option value="">בחר שעה</option>
-                              {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+                              {TIME_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
                             </select>
                           </label>
                           <label className="date-cell">
@@ -655,7 +655,7 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                               aria-label={`שעת עזיבה של ${p.name}`}
                             >
                               <option value="">בחר שעה</option>
-                              {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+                              {TIME_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
                             </select>
                           </label>
                         </div>

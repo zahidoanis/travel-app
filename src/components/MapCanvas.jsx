@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { CATEGORIES } from '../data'
 import { buildStaticMapUrl, hasMapsKey } from '../lib/staticMap'
 import { PROVIDERS, TILE_SIZE, project, tileRange, tilesIn } from '../lib/tiles'
+import { t } from '../i18n'
 
 /**
  * Fallback viewport used to decide how many tiles to fetch, before the real
@@ -240,7 +241,7 @@ export default function MapCanvas({
       <div className="map-canvas">
         <img
           src={googleUrl}
-          alt={`מפת המסלול, ${stops.length} עצירות, ממוקדת על ${active.he}`}
+          alt={t('מפת המסלול, {n} עצירות, ממוקדת על {place}', { n: stops.length, place: active.he })}
           width={640}
           height={640}
           loading="lazy"
@@ -269,13 +270,13 @@ export default function MapCanvas({
           transition: drag.current?.moved ? 'none' : undefined,
         }}
         role="img"
-        aria-label={`מפת המסלול, ${stops.length} עצירות, ממוקדת על ${active.he}`}
+        aria-label={t('מפת המסלול, {n} עצירות, ממוקדת על {place}', { n: stops.length, place: active.he })}
       >
-        {tiles.map((t) => (
+        {tiles.map((tile) => (
           <img
-            key={`${t.x}/${t.y}`}
+            key={`${tile.x}/${tile.y}`}
             className="map-tile"
-            src={src.url(z, t.x, t.y, true)}
+            src={src.url(z, tile.x, tile.y, true)}
             width={TILE_SIZE}
             height={TILE_SIZE}
             alt=""
@@ -283,8 +284,8 @@ export default function MapCanvas({
             draggable="false"
             onError={(e) => { e.currentTarget.style.visibility = 'hidden' }}
             style={{
-              insetInlineStart: `calc(50% + ${t.x * TILE_SIZE - anchor.x}px)`,
-              top: `calc(${FOCUS_Y} + ${t.y * TILE_SIZE - anchor.y}px)`,
+              insetInlineStart: `calc(50% + ${tile.x * TILE_SIZE - anchor.x}px)`,
+              top: `calc(${FOCUS_Y} + ${tile.y * TILE_SIZE - anchor.y}px)`,
             }}
           />
         ))}
@@ -325,7 +326,7 @@ export default function MapCanvas({
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onPinClick?.(s.id)}
-                aria-label={`${s.he}, עצירה ${i + 1}`}
+                aria-label={t('{place}, עצירה {n}', { place: s.he, n: i + 1 })}
               >
                 {on && (
                   <circle cx={s.x} cy={s.y} r="24" fill={color} opacity="0.18">
@@ -353,7 +354,7 @@ export default function MapCanvas({
           {hotelsLocal.map((h) => (
             // Not a stop — nothing to select, so no click handler or pin
             // affordances, just a marker that is always on the map.
-            <g key={h.label ?? h.name} role="img" aria-label={`מלון: ${h.name}`}>
+            <g key={h.label ?? h.name} role="img" aria-label={t('מלון: {name}', { name: h.name })}>
               {/* Unlike a stop's pulse, this glow never turns off — a hotel
                   is a point on the map that matters regardless of which
                   stop happens to be active. */}
@@ -381,7 +382,7 @@ export default function MapCanvas({
             // Google Maps' own convention for "this device, right now" — kept
             // visually distinct from the green live-shared dots above, which
             // are other people (or this device on a much slower cadence).
-            <g role="img" aria-label="המיקום שלך">
+            <g role="img" aria-label={t('המיקום שלך')}>
               <circle cx={myLocationLocal.x} cy={myLocationLocal.y} r="13" fill="#4285F4" opacity="0.25">
                 <animate attributeName="r" values="10;18;10" dur="1.6s" repeatCount="indefinite" />
                 <animate attributeName="opacity" values="0.35;0.06;0.35" dur="1.6s" repeatCount="indefinite" />
@@ -391,7 +392,7 @@ export default function MapCanvas({
           )}
 
           {peopleLocal.map((p) => (
-            <g key={p.id} role="img" aria-label={`מיקום חי: ${p.name ?? 'מישהו'}`}>
+            <g key={p.id} role="img" aria-label={t('מיקום חי: {name}', { name: p.name ?? t('מישהו') })}>
               <circle cx={p.x} cy={p.y} r="16" fill="var(--emerald, #10B981)" opacity="0.28">
                 <animate attributeName="r" values="12;20;12" dur="1.8s" repeatCount="indefinite" />
                 <animate attributeName="opacity" values="0.4;0.08;0.4" dur="1.8s" repeatCount="indefinite" />
@@ -405,7 +406,7 @@ export default function MapCanvas({
                   {(p.name ?? '?').trim().charAt(0)}
                 </text>
               </g>
-              <PinLabel x={p.x} y={p.y - 19} text={p.name ?? 'מישהו'} color="var(--emerald, #10B981)" />
+              <PinLabel x={p.x} y={p.y - 19} text={p.name ?? t('מישהו')} color="var(--emerald, #10B981)" />
             </g>
           ))}
         </svg>

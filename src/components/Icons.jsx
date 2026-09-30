@@ -75,8 +75,14 @@ export const CloudSun = make(
     <path d="M6 20h10a3.5 3.5 0 0 0 0-7 5 5 0 0 0-9.7 1.2A3 3 0 0 0 6 20Z" />
   </>
 )
-export const ArrowRight = make(<path d="M5 12h14M13 6l6 6-6 6" />)
-export const ArrowLeft = make(<path d="M19 12H5M11 18l-6-6 6-6" />)
+// Directional arrows mirror in LTR (see .dir-flip in styles.css). The app was
+// drawn RTL-first, so every ArrowLeft in it means "forward/next" and every
+// ArrowRight means "back/previous" — in English those meanings point the
+// other way, and mirroring keeps them correct without touching call sites.
+const ArrowRightBase = make(<path d="M5 12h14M13 6l6 6-6 6" />)
+const ArrowLeftBase = make(<path d="M19 12H5M11 18l-6-6 6-6" />)
+export const ArrowRight = ({ className = '', ...rest }) => <ArrowRightBase className={`dir-flip ${className}`} {...rest} />
+export const ArrowLeft = ({ className = '', ...rest }) => <ArrowLeftBase className={`dir-flip ${className}`} {...rest} />
 export const Check = make(<path d="m4.5 12.5 5 5 10-11" />)
 export const X = make(<path d="M18 6 6 18M6 6l12 12" />)
 export const Plus = make(<path d="M12 5v14M5 12h14" />)

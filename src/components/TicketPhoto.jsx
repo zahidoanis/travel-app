@@ -4,6 +4,7 @@ import { Ticket, X } from './Icons'
 import { loadTicketPhoto, saveTicketPhoto, deleteTicketPhoto } from '../lib/db'
 import { hasFirebase } from '../lib/firebase'
 import { record } from '../lib/telemetry'
+import { t } from '../i18n'
 
 /**
  * A photo of the real ticket — boarding pass, attraction voucher, whatever
@@ -77,7 +78,7 @@ export default function TicketPhoto({ tripId, ticketId }) {
       setPhoto(dataUrl)
     } catch (err) {
       record({ kind: 'db', message: `ticket photo: ${err?.message ?? err}`, stack: err?.stack })
-      window.alert('לא הצלחתי לקרוא את התמונה. נסו צילום מסך של הכרטיס, או תמונה בפורמט JPG/PNG.')
+      window.alert(t('לא הצלחתי לקרוא את התמונה. נסו צילום מסך של הכרטיס, או תמונה בפורמט JPG/PNG.'))
     } finally {
       setBusy(false)
     }
@@ -102,7 +103,7 @@ export default function TicketPhoto({ tripId, ticketId }) {
         <button
           className="icon-btn" style={{ width: 30, height: 30, padding: 0, overflow: 'hidden' }}
           onClick={() => setViewing(true)}
-          aria-label="הצג את הכרטיס"
+          aria-label={t('הצג את הכרטיס')}
         >
           <img src={photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         </button>
@@ -110,7 +111,7 @@ export default function TicketPhoto({ tripId, ticketId }) {
         <label
           className="icon-btn"
           style={{ width: 30, height: 30, position: 'relative', cursor: busy ? 'default' : 'pointer' }}
-          aria-label="צרף תמונה של הכרטיס"
+          aria-label={t('צרף תמונה של הכרטיס')}
         >
           {busy ? <span className="typing"><i /><i /><i /></span> : <Ticket size={14} />}
           <input
@@ -123,12 +124,12 @@ export default function TicketPhoto({ tripId, ticketId }) {
         </label>
       )}
 
-      <Sheet open={viewing} title="הכרטיס שלך" onClose={() => setViewing(false)}>
+      <Sheet open={viewing} title={t('הכרטיס שלך')} onClose={() => setViewing(false)}>
         {photo && (
           <img src={photo} alt="" style={{ width: '100%', borderRadius: 'var(--r-md)', marginBottom: 16 }} />
         )}
         <button className="btn btn-ghost btn-block" onClick={remove}>
-          <X size={16} /> הסר תמונה
+          <X size={16} /> {t('הסר תמונה')}
         </button>
       </Sheet>
     </>

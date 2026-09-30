@@ -7,36 +7,37 @@
  * that failed to load, which is a bad way to find out something is broken.
  */
 
+import { t } from './i18n'
 /** Stop categories drive both the pin colour on the map and the card accent. */
 export const CATEGORIES = {
-  museum: { label: 'מוזיאון', color: '#6D4AC8' },
-  food: { label: 'מסעדה', color: '#D14B68' },
-  walking: { label: 'הליכה', color: '#0E8E9B' },
-  landmark: { label: 'אתר', color: '#B5842A' },
+  museum: { label: t('מוזיאון'), color: '#6D4AC8' },
+  food: { label: t('מסעדה'), color: '#D14B68' },
+  walking: { label: t('הליכה'), color: '#0E8E9B' },
+  landmark: { label: t('אתר'), color: '#B5842A' },
 }
 
 export const TRAVEL_STYLES = [
-  { id: 'chill', emoji: '🏖️', title: 'בטן גב', sub: 'רגוע, בלי לחץ' },
-  { id: 'adventure', emoji: '🧗', title: 'הרפתקאות', sub: 'אקסטרים ואקשן' },
-  { id: 'culture', emoji: '🏛️', title: 'תרבות והיסטוריה', sub: 'מוזיאונים ואתרים' },
-  { id: 'food', emoji: '🍜', title: 'אוכל וקולינריה', sub: 'שווקים ומסעדות' },
-  { id: 'nature', emoji: '🌿', title: 'טבע', sub: 'שבילים, פארקים ונופים' },
-  { id: 'kids', emoji: '🧒', title: 'טיול עם ילדים', sub: 'קצב נוח ואטרקציות מתאימות' },
+  { id: 'chill', emoji: '🏖️', title: t('בטן גב'), sub: t('רגוע, בלי לחץ') },
+  { id: 'adventure', emoji: '🧗', title: t('הרפתקאות'), sub: t('אקסטרים ואקשן') },
+  { id: 'culture', emoji: '🏛️', title: t('תרבות והיסטוריה'), sub: t('מוזיאונים ואתרים') },
+  { id: 'food', emoji: '🍜', title: t('אוכל וקולינריה'), sub: t('שווקים ומסעדות') },
+  { id: 'nature', emoji: '🌿', title: t('טבע'), sub: t('שבילים, פארקים ונופים') },
+  { id: 'kids', emoji: '🧒', title: t('טיול עם ילדים'), sub: t('קצב נוח ואטרקציות מתאימות') },
 ]
 
 /** Cuisine preferences, asked during onboarding and used to filter
  *  restaurant recommendations. */
 export const CUISINES = [
-  { id: 'local', label: 'מטבח מקומי', emoji: '📍' },
-  { id: 'italian', label: 'איטלקי', emoji: '🍝' },
-  { id: 'asian', label: 'אסייתי', emoji: '🍜' },
-  { id: 'seafood', label: 'דגים ופירות ים', emoji: '🦞' },
-  { id: 'meat', label: 'בשרים', emoji: '🥩' },
-  { id: 'vegan', label: 'צמחוני / טבעוני', emoji: '🌱' },
-  { id: 'kosher', label: 'כשר', emoji: '✡️' },
-  { id: 'street', label: 'אוכל רחוב', emoji: '🌮' },
-  { id: 'fine', label: 'שף / מסעדות יוקרה', emoji: '🍷' },
-  { id: 'cafe', label: 'בתי קפה ומאפיות', emoji: '☕' },
+  { id: 'local', label: t('מטבח מקומי'), emoji: '📍' },
+  { id: 'italian', label: t('איטלקי'), emoji: '🍝' },
+  { id: 'asian', label: t('אסייתי'), emoji: '🍜' },
+  { id: 'seafood', label: t('דגים ופירות ים'), emoji: '🦞' },
+  { id: 'meat', label: t('בשרים'), emoji: '🥩' },
+  { id: 'vegan', label: t('צמחוני / טבעוני'), emoji: '🌱' },
+  { id: 'kosher', label: t('כשר'), emoji: '✡️' },
+  { id: 'street', label: t('אוכל רחוב'), emoji: '🌮' },
+  { id: 'fine', label: t('שף / מסעדות יוקרה'), emoji: '🍷' },
+  { id: 'cafe', label: t('בתי קפה ומאפיות'), emoji: '☕' },
 ]
 
 /** Colours handed out to travel parties as they are created. */
@@ -67,14 +68,14 @@ export const TIME_OPTIONS = Array.from({ length: 48 }, (_, i) => {
 
 /** Suggested destinations on the first onboarding question. */
 export const DESTINATIONS = [
-  { id: 'paris', city: 'פריז', en: 'Paris', country: 'צרפת', emoji: '🗼' },
-  { id: 'rome', city: 'רומא', en: 'Rome', country: 'איטליה', emoji: '🏛️' },
-  { id: 'prague', city: 'פראג', en: 'Prague', country: 'צ׳כיה', emoji: '🏰' },
-  { id: 'athens', city: 'אתונה', en: 'Athens', country: 'יוון', emoji: '🏺' },
-  { id: 'barcelona', city: 'ברצלונה', en: 'Barcelona', country: 'ספרד', emoji: '🎨' },
-  { id: 'bangkok', city: 'בנגקוק', en: 'Bangkok', country: 'תאילנד', emoji: '🛕' },
-  { id: 'dubai', city: 'דובאי', en: 'Dubai', country: 'איחוד האמירויות', emoji: '🌇' },
-  { id: 'london', city: 'לונדון', en: 'London', country: 'אנגליה', emoji: '☂️' },
+  { id: 'paris', city: t('פריז'), en: 'Paris', country: t('צרפת'), emoji: '🗼' },
+  { id: 'rome', city: t('רומא'), en: 'Rome', country: t('איטליה'), emoji: '🏛️' },
+  { id: 'prague', city: t('פראג'), en: 'Prague', country: t('צ׳כיה'), emoji: '🏰' },
+  { id: 'athens', city: t('אתונה'), en: 'Athens', country: t('יוון'), emoji: '🏺' },
+  { id: 'barcelona', city: t('ברצלונה'), en: 'Barcelona', country: t('ספרד'), emoji: '🎨' },
+  { id: 'bangkok', city: t('בנגקוק'), en: 'Bangkok', country: t('תאילנד'), emoji: '🛕' },
+  { id: 'dubai', city: t('דובאי'), en: 'Dubai', country: t('איחוד האמירויות'), emoji: '🌇' },
+  { id: 'london', city: t('לונדון'), en: 'London', country: t('אנגליה'), emoji: '☂️' },
 ]
 
 /** Indicative rates against ILS. In production these come from a rates API. */

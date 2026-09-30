@@ -6,6 +6,7 @@ import {
 import { useTrip } from '../TripProvider'
 import { search } from '../lib/geocode'
 import { breadcrumb } from '../lib/telemetry'
+import { t } from '../i18n'
 
 /**
  * Booking a table or a ticket.
@@ -75,13 +76,13 @@ export default function BookingSheet({ open, place, kind = 'food', onClose }) {
         {loading && (
           <div className="row" style={{ gap: 9 }}>
             <span className="typing"><i /><i /><i /></span>
-            <span className="tiny">מאתר פרטי קשר...</span>
+            <span className="tiny">{t('מאתר פרטי קשר...')}</span>
           </div>
         )}
 
         {!loading && !hasContact && (
           <p className="tiny" style={{ margin: 0 }}>
-            אין פרטי קשר ל{place.name} ב-OpenStreetMap. אפשר להגיע אליהם דרך המפה.
+            {t('אין פרטי קשר ל{name} ב-OpenStreetMap. אפשר להגיע אליהם דרך המפה.', { name: place.name })}
           </p>
         )}
 
@@ -91,7 +92,7 @@ export default function BookingSheet({ open, place, kind = 'food', onClose }) {
               <a className="contact-row" href={`tel:${details.phone.replace(/\s/g, '')}`}>
                 <span className="contact-icon"><Phone size={15} /></span>
                 <span className="grow">
-                  <strong>התקשר להזמנה</strong>
+                  <strong>{t('התקשר להזמנה')}</strong>
                   <span className="tiny ltr">{details.phone}</span>
                 </span>
               </a>
@@ -101,7 +102,7 @@ export default function BookingSheet({ open, place, kind = 'food', onClose }) {
               <a className="contact-row" href={details.website} target="_blank" rel="noreferrer">
                 <span className="contact-icon"><Globe size={15} /></span>
                 <span className="grow">
-                  <strong>האתר הרשמי</strong>
+                  <strong>{t('האתר הרשמי')}</strong>
                   <span className="tiny ltr">{details.website.replace(/^https?:\/\//, '').slice(0, 34)}</span>
                 </span>
               </a>
@@ -111,7 +112,7 @@ export default function BookingSheet({ open, place, kind = 'food', onClose }) {
               <div className="contact-row" style={{ pointerEvents: 'none' }}>
                 <span className="contact-icon"><Clock size={15} /></span>
                 <span className="grow">
-                  <strong>שעות פתיחה</strong>
+                  <strong>{t('שעות פתיחה')}</strong>
                   <span className="tiny ltr">{details.hours}</span>
                 </span>
               </div>
@@ -121,10 +122,10 @@ export default function BookingSheet({ open, place, kind = 'food', onClose }) {
       </div>
 
       {/* The reservation itself */}
-      <span className="label">פרטי ההזמנה</span>
+      <span className="label">{t('פרטי ההזמנה')}</span>
       <div className="date-grid" style={{ marginBottom: 11 }}>
         <label className="date-cell">
-          <span className="label"><Calendar size={12} /> תאריך</span>
+          <span className="label"><Calendar size={12} /> {t('תאריך')}</span>
           <input
             type="date"
             className="field"
@@ -135,7 +136,7 @@ export default function BookingSheet({ open, place, kind = 'food', onClose }) {
           />
         </label>
         <label className="date-cell">
-          <span className="label"><Clock size={12} /> שעה</span>
+          <span className="label"><Clock size={12} /> {t('שעה')}</span>
           <input type="time" className="field" value={time} onChange={(e) => setTime(e.target.value)} />
         </label>
       </div>
@@ -143,17 +144,17 @@ export default function BookingSheet({ open, place, kind = 'food', onClose }) {
       <div className="party-row" style={{ marginBottom: 18 }}>
         <span className="contact-icon"><Users size={15} /></span>
         <span className="grow" style={{ fontSize: 13.5, fontWeight: 600 }}>
-          {kind === 'food' ? 'כמה סועדים' : 'כמה משתתפים'}
+          {kind === 'food' ? t('כמה סועדים') : t('כמה משתתפים')}
         </span>
         <span className="stepper">
-          <button onClick={() => setParty((n) => Math.max(1, n - 1))} aria-label="פחות">−</button>
+          <button onClick={() => setParty((n) => Math.max(1, n - 1))} aria-label={t('פחות')}>−</button>
           <span className="num">{party}</span>
-          <button onClick={() => setParty((n) => Math.min(20, n + 1))} aria-label="עוד">+</button>
+          <button onClick={() => setParty((n) => Math.min(20, n + 1))} aria-label={t('עוד')}>+</button>
         </span>
       </div>
 
       {/* Where the booking actually happens */}
-      <span className="label">להזמין דרך</span>
+      <span className="label">{t('להזמין דרך')}</span>
       <div className="row" style={{ gap: 9, marginBottom: 18 }}>
         <a
           className="btn btn-ghost btn-sm grow"
@@ -172,20 +173,19 @@ export default function BookingSheet({ open, place, kind = 'food', onClose }) {
             rel="noreferrer"
           >
             <Ticket size={14} />
-            כרטיסים
+            {t('כרטיסים')}
           </a>
         )}
       </div>
 
       <button className="btn btn-primary btn-block" onClick={keep} disabled={!date || saved}>
-        {saved ? <><Check size={17} /> נשמר</> : <>שמור את ההזמנה במסלול</>}
+        {saved ? <><Check size={17} /> {t('נשמר')}</> : <>{t('שמור את ההזמנה במסלול')}</>}
       </button>
 
       <div className="row" style={{ alignItems: 'flex-start', gap: 9, marginTop: 14 }}>
         <span style={{ color: 'var(--muted)' }}><Info size={14} /></span>
         <p className="tiny" style={{ margin: 0 }}>
-          האפליקציה לא מבצעת את ההזמנה — אין ממשק הזמנות חינמי. היא נותנת לך את
-          הטלפון והאתר האמיתיים, ושומרת את הפרטים אצלך במסלול.
+          {t('האפליקציה לא מבצעת את ההזמנה — אין ממשק הזמנות חינמי. היא נותנת לך את הטלפון והאתר האמיתיים, ושומרת את הפרטים אצלך במסלול.')}
         </p>
       </div>
     </Sheet>

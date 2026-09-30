@@ -7,6 +7,8 @@ import { signInWithGoogle, signOutUser, hasFirebase } from '../lib/firebase'
 import { breadcrumb } from '../lib/telemetry'
 import { initials } from '../lib/text'
 import { inviteUrl, shareTrip } from '../lib/share'
+import { t } from '../i18n'
+import LangToggle from './LangToggle'
 
 /**
  * Saving the trip to an account.
@@ -86,8 +88,8 @@ export default function AccountSheet({ open, onClose }) {
 
   // Editing a trip other than the one currently open has to load it first —
   // the wizard reads straight off the active trip's stored answers.
-  const editTripRow = async (t) => {
-    if (t.id !== trip?.id) await switchTrip(t.id)
+  const editTripRow = async (tr) => {
+    if (tr.id !== trip?.id) await switchTrip(tr.id)
     openEdit('where')
     onClose()
   }
@@ -96,11 +98,11 @@ export default function AccountSheet({ open, onClose }) {
   // Home — that needs today's stops loaded, which a trip elsewhere in this
   // list isn't. Just the destination and the join link, which is already
   // everything a recipient needs to get in.
-  const shareTripRow = (t) => {
+  const shareTripRow = (tr) => {
     // Link rides as its own `url` field, not inline in `text` — see
     // share.js's inviteText comment for why: that's what gets WhatsApp to
     // unfurl it into a real preview card instead of a bare line of text.
-    shareTrip(`הצטרפו אליי לטיול ל${t.destination}! 🗺️`, inviteUrl(t.id))
+    shareTrip(t('הצטרפו אליי לטיול ל{city}! 🗺️', { city: tr.destination }), inviteUrl(tr.id))
   }
 
   const confirmDelete = async () => {
@@ -109,7 +111,7 @@ export default function AccountSheet({ open, onClose }) {
     setDeleting(false)
 
     if (!result.ok) {
-      setDeleteError('המחיקה נכשלה — רק מי שיצר את הטיול יכול למחוק אותו.')
+      setDeleteError(t('המחיקה נכשלה — רק מי שיצר את הטיול יכול למחוק אותו.'))
       return
     }
 
@@ -122,22 +124,21 @@ export default function AccountSheet({ open, onClose }) {
 
   return (
     <>
-    <Sheet open={open} title={signedIn ? 'החשבון שלך' : 'שמור את הטיול'} onClose={onClose}>
+    <Sheet open={open} title={signedIn ? t('החשבון שלך') : t('שמור את הטיול')} onClose={onClose}>
       {!hasFirebase && (
         <>
           <p className="sub" style={{ marginBottom: 18 }}>
-            אחסון בענן אינו מוגדר. הטיול נשמר על המכשיר הזה בלבד.
+            {t('אחסון בענן אינו מוגדר. הטיול נשמר על המכשיר הזה בלבד.')}
           </p>
           <button className="btn btn-ghost btn-block" onClick={editTrip} disabled={!trip} style={{ marginBottom: 10 }}>
-            ערוך פרטי טיול
+            {t('ערוך פרטי טיול')}
           </button>
           <button className="btn btn-primary btn-block" onClick={planAnother}>
             <Plus size={16} />
-            תכנן טיול נוסף
+            {t('תכנן טיול נוסף')}
           </button>
           <p className="tiny" style={{ marginTop: 10 }}>
-            הטיול הנוכחי לא נמחק, אבל בלי חיבור לענן אין רשימה שממנה אפשר
-            לחזור אליו.
+            {t('הטיול הנוכחי לא נמחק, אבל בלי חיבור לענן אין רשימה שממנה אפשר לחזור אליו.')}
           </p>
         </>
       )}
@@ -145,13 +146,12 @@ export default function AccountSheet({ open, onClose }) {
       {hasFirebase && !signedIn && (
         <>
           <p className="sub" style={{ marginBottom: 18 }}>
-            כרגע הטיול קיים <strong>רק על המכשיר הזה</strong>. התחברות שומרת אותו
-            בענן, כך שתוכל לפתוח אותו מהטלפון ומהמחשב — ולהמשיך בדיוק מאותה נקודה.
+            {t('כרגע הטיול קיים')} <strong>{t('רק על המכשיר הזה')}</strong>{t('. התחברות שומרת אותו בענן, כך שתוכל לפתוח אותו מהטלפון ומהמחשב — ולהמשיך בדיוק מאותה נקודה.')}
           </p>
 
           <button className="btn btn-primary btn-block" onClick={connect} disabled={busy}>
             {busy ? <span className="typing"><i /><i /><i /></span> : <GoogleMark />}
-            המשך עם Google
+            {t('המשך עם Google')}
           </button>
 
           {error && (
@@ -161,22 +161,20 @@ export default function AccountSheet({ open, onClose }) {
           <div className="row" style={{ alignItems: 'flex-start', gap: 9, marginTop: 16 }}>
             <span style={{ color: 'var(--muted)' }}><Info size={14} /></span>
             <p className="tiny" style={{ margin: 0 }}>
-              שום דבר ממה שכבר תכננת לא יאבד — החשבון הנוכחי משודרג, לא מוחלף.
-              אנחנו לא מקבלים גישה לגוגל שלך מעבר לשם ולכתובת המייל.
+              {t('שום דבר ממה שכבר תכננת לא יאבד — החשבון הנוכחי משודרג, לא מוחלף. אנחנו לא מקבלים גישה לגוגל שלך מעבר לשם ולכתובת המייל.')}
             </p>
           </div>
 
           <div style={{ borderTop: '1px solid var(--border)', marginTop: 20, paddingTop: 18 }}>
             <button className="btn btn-ghost btn-block" onClick={editTrip} disabled={!trip} style={{ marginBottom: 10 }}>
-              ערוך פרטי טיול
+              {t('ערוך פרטי טיול')}
             </button>
             <button className="btn btn-ghost btn-block" onClick={planAnother}>
               <Plus size={16} />
-              תכנן טיול נוסף בלי להתחבר
+              {t('תכנן טיול נוסף בלי להתחבר')}
             </button>
             <p className="tiny" style={{ marginTop: 10 }}>
-              בלי להתחבר, הטיול הנוכחי לא יופיע יותר ברשימה — ההתחברות למעלה
-              היא הדרך היחידה לשמור גישה לשניהם.
+              {t('בלי להתחבר, הטיול הנוכחי לא יופיע יותר ברשימה — ההתחברות למעלה היא הדרך היחידה לשמור גישה לשניהם.')}
             </p>
           </div>
         </>
@@ -194,72 +192,72 @@ export default function AccountSheet({ open, onClose }) {
                 </span>
               )}
               <span className="grow col" style={{ gap: 2, minWidth: 0 }}>
-                <strong style={{ fontSize: 14.5, fontWeight: 600 }}>{user.name || 'מחובר'}</strong>
+                <strong style={{ fontSize: 14.5, fontWeight: 600 }}>{user.name || t('מחובר')}</strong>
                 <span className="tiny stay-address">{user.email}</span>
               </span>
               <span className="badge" style={{ color: 'var(--emerald)' }}>
-                <Check size={11} /> מסונכרן
+                <Check size={11} /> {t('מסונכרן')}
               </span>
             </div>
           </div>
 
           {merged && (
             <p className="tiny" style={{ color: 'var(--emerald)', marginBottom: 16 }}>
-              המכשיר הזה חובר לחשבון הקיים שלך — הטיולים שלך כאן.
+              {t('המכשיר הזה חובר לחשבון הקיים שלך — הטיולים שלך כאן.')}
             </p>
           )}
 
           {/* First actions in the sheet, not last — these are what people
               come back for once they already have a trip saved. */}
           <button className="btn btn-ghost btn-block" onClick={editTrip} disabled={!trip} style={{ marginBottom: 10 }}>
-            ערוך פרטי טיול
+            {t('ערוך פרטי טיול')}
           </button>
           <button className="btn btn-primary btn-block" onClick={planAnother} style={{ marginBottom: 20 }}>
             <Plus size={16} />
-            טיול נוסף
+            {t('טיול נוסף')}
           </button>
 
           {trips.length > 0 && (
             <>
-              <span className="label"><Users size={13} /> הטיולים שלך</span>
+              <span className="label"><Users size={13} /> {t('הטיולים שלך')}</span>
               <div className="col" style={{ gap: 8, marginBottom: 18 }}>
-                {trips.map((t) => (
-                  <div key={t.id} className={`choice ${t.id === trip?.id ? 'on' : ''}`} style={{ padding: 13 }}>
+                {trips.map((tr) => (
+                  <div key={tr.id} className={`choice ${tr.id === trip?.id ? 'on' : ''}`} style={{ padding: 13 }}>
                     <span className="between" style={{ gap: 8 }}>
                       <button
                         className="grow"
                         style={{ textAlign: 'start' }}
-                        onClick={() => { switchTrip(t.id); onClose() }}
+                        onClick={() => { switchTrip(tr.id); onClose() }}
                       >
-                        <span className="choice-title" style={{ marginTop: 0 }}>{t.destination}</span>
-                        <span className="choice-sub num">{t.from} → {t.to}</span>
+                        <span className="choice-title" style={{ marginTop: 0 }}>{tr.destination}</span>
+                        <span className="choice-sub num">{tr.from} → {tr.to}</span>
                       </button>
-                      {t.id === trip?.id && <Check size={16} />}
+                      {tr.id === trip?.id && <Check size={16} />}
                       <button
                         className="icon-btn"
                         style={{ width: 32, height: 32 }}
-                        onClick={() => shareTripRow(t)}
-                        aria-label={`שתף את הטיול ל${t.destination}`}
+                        onClick={() => shareTripRow(tr)}
+                        aria-label={t('שתף את הטיול ל{city}', { city: tr.destination })}
                       >
                         <Share size={14} />
                       </button>
                       <button
                         className="icon-btn"
                         style={{ width: 32, height: 32 }}
-                        onClick={() => editTripRow(t)}
-                        aria-label={`ערוך את הטיול ל${t.destination}`}
+                        onClick={() => editTripRow(tr)}
+                        aria-label={t('ערוך את הטיול ל{city}', { city: tr.destination })}
                       >
                         <Pencil size={14} />
                       </button>
                       {/* firebase.rules restricts deletion to whoever created
                           the trip — showing this to every member would just
                           be an button that fails for most people who tap it. */}
-                      {t.ownerId === user.uid && (
+                      {tr.ownerId === user.uid && (
                         <button
                           className="icon-btn"
                           style={{ width: 32, height: 32 }}
-                          onClick={() => { setDeleteError(null); setDeletingTrip(t) }}
-                          aria-label={`מחק את הטיול ל${t.destination}`}
+                          onClick={() => { setDeleteError(null); setDeletingTrip(tr) }}
+                          aria-label={t('מחק את הטיול ל{city}', { city: tr.destination })}
                         >
                           <X size={15} />
                         </button>
@@ -273,26 +271,29 @@ export default function AccountSheet({ open, onClose }) {
 
           <button className="btn btn-ghost btn-block" onClick={disconnect} disabled={busy}>
             <X size={16} />
-            התנתק מהמכשיר הזה
+            {t('התנתק מהמכשיר הזה')}
           </button>
           <p className="tiny" style={{ marginTop: 10 }}>
-            הטיולים יישארו בחשבון. התחברות חוזרת תחזיר אותם.
+            {t('הטיולים יישארו בחשבון. התחברות חוזרת תחזיר אותם.')}
           </p>
         </>
       )}
+
+      <div style={{ marginTop: 22, display: 'flex', justifyContent: 'center' }}>
+        <LangToggle />
+      </div>
     </Sheet>
 
     <Sheet
       open={deletingTrip !== null}
-      title="מחיקת טיול"
+      title={t('מחיקת טיול')}
       onClose={() => { if (!deleting) { setDeletingTrip(null); setDeleteError(null) } }}
     >
       {deletingTrip && (
         <>
           <p className="sub" style={{ marginBottom: 20 }}>
-            למחוק את הטיול ל<strong>{deletingTrip.destination}</strong>?
-            הפעולה מוחקת אותו <strong>לצמיתות עבור כל מי שבטיול</strong>,
-            ולא ניתן לבטל אותה.
+            {t('למחוק את הטיול ל')}<strong>{deletingTrip.destination}</strong>?{' '}
+            {t('הפעולה מוחקת אותו')} <strong>{t('לצמיתות עבור כל מי שבטיול')}</strong>{t(', ולא ניתן לבטל אותה.')}
           </p>
           {deleteError && (
             <p className="tiny" style={{ color: 'var(--rose)', marginBottom: 14 }}>{deleteError}</p>
@@ -303,7 +304,7 @@ export default function AccountSheet({ open, onClose }) {
               onClick={() => { setDeletingTrip(null); setDeleteError(null) }}
               disabled={deleting}
             >
-              ביטול
+              {t('ביטול')}
             </button>
             <button
               className="btn btn-block grow"
@@ -311,7 +312,7 @@ export default function AccountSheet({ open, onClose }) {
               onClick={confirmDelete}
               disabled={deleting}
             >
-              {deleting ? <span className="typing"><i /><i /><i /></span> : 'מחק לצמיתות'}
+              {deleting ? <span className="typing"><i /><i /><i /></span> : t('מחק לצמיתות')}
             </button>
           </div>
         </>

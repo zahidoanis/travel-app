@@ -1,6 +1,7 @@
 import Sheet from './Sheet'
 import { Route, Note, Users, Bell } from './Icons'
 import { useTrip } from '../TripProvider'
+import { t } from '../i18n'
 
 const ICON = { stop: Route, note: Note, join: Users }
 
@@ -10,11 +11,11 @@ function timeAgo(createdAt) {
   const ms = (createdAt?.seconds ?? 0) * 1000
   if (!ms) return ''
   const mins = Math.max(0, Math.round((Date.now() - ms) / 60000))
-  if (mins < 1) return 'הרגע'
-  if (mins < 60) return `לפני ${mins} דק׳`
+  if (mins < 1) return t('הרגע')
+  if (mins < 60) return t('לפני {n} דק׳', { n: mins })
   const hours = Math.round(mins / 60)
-  if (hours < 24) return `לפני ${hours} שע׳`
-  return `לפני ${Math.round(hours / 24)} ימים`
+  if (hours < 24) return t('לפני {n} שע׳', { n: hours })
+  return t('לפני {n} ימים', { n: Math.round(hours / 24) })
 }
 
 /**
@@ -28,12 +29,12 @@ export default function NotificationsSheet() {
   const { activity, notificationsOpen, closeNotifications } = useTrip()
 
   return (
-    <Sheet open={notificationsOpen} title="מה קרה בטיול" onClose={closeNotifications}>
+    <Sheet open={notificationsOpen} title={t('מה קרה בטיול')} onClose={closeNotifications}>
       {activity.length === 0 ? (
         <div className="row" style={{ alignItems: 'flex-start', gap: 9 }}>
           <span style={{ color: 'var(--muted)' }}><Bell size={15} /></span>
           <p className="tiny" style={{ margin: 0 }}>
-            כאן יופיעו עדכונים מהטיול — עצירות שנוספו, הערות, ומי הצטרף.
+            {t('כאן יופיעו עדכונים מהטיול — עצירות שנוספו, הערות, ומי הצטרף.')}
           </p>
         </div>
       ) : (

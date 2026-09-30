@@ -917,7 +917,6 @@ input, select, textarea { font: inherit; color: inherit; }
   font-size: 10.5px; font-weight: 500; color: var(--muted-2);
   padding: 4px 12px; border-radius: var(--r-pill);
   background: var(--tint); border: 1px solid var(--border);
-  direction: rtl;
 }
 .ai-status.live { color: var(--lav); border-color: rgba(124,92,255,0.3); background: var(--accent-soft); }
 
@@ -1009,6 +1008,27 @@ input, select, textarea { font: inherit; color: inherit; }
   from { opacity: 0; transform: translateX(-14px); }
   to   { opacity: 1; transform: none; }
 }
+/* Next step slides in from the reading-forward side in either direction. */
+[dir="ltr"] .step-body { animation-name: step-in-ltr; }
+@keyframes step-in-ltr {
+  from { opacity: 0; transform: translateX(14px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.lang-toggle {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12.5px; font-weight: 600; color: var(--muted);
+  padding: 6px 12px; border-radius: var(--r-pill);
+  background: var(--card); border: 1px solid var(--border);
+}
+.lang-toggle:hover { color: var(--text); border-color: var(--border-strong); }
+.welcome-lang {
+  position: absolute; z-index: 3;
+  inset-block-start: calc(14px + env(safe-area-inset-top)); inset-inline-end: 16px;
+}
+
+/* Directional arrow icons (Icons.jsx) were drawn for RTL — mirror in LTR. */
+[dir="ltr"] .dir-flip { transform: scaleX(-1); }
 
 /* Bare inputs that sit inside a bordered row rather than carrying their own. */
 .field-bare {

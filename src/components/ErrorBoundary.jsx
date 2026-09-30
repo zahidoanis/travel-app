@@ -1,6 +1,7 @@
 import { Component } from 'react'
 import { record, breadcrumb } from '../lib/telemetry'
 import { AlertTriangle, RefreshCw } from './Icons'
+import { t } from '../i18n'
 
 /**
  * Catches render crashes so one broken screen doesn't blank the whole app.
@@ -45,9 +46,9 @@ export default class ErrorBoundary extends Component {
             <AlertTriangle size={22} />
           </div>
 
-          <h2 className="h2" style={{ marginBottom: 8 }}>משהו השתבש כאן</h2>
+          <h2 className="h2" style={{ marginBottom: 8 }}>{t('משהו השתבש כאן')}</h2>
           <p className="sub" style={{ marginBottom: 6 }}>
-            התקלה נרשמה ביומן האבחון ואפשר לתחקר אותה מאוחר יותר.
+            {t('התקלה נרשמה ביומן האבחון ואפשר לתחקר אותה מאוחר יותר.')}
           </p>
           <p className="tiny" style={{ marginBottom: 18, direction: 'ltr', opacity: 0.7 }}>
             {this.state.error?.message}
@@ -55,7 +56,7 @@ export default class ErrorBoundary extends Component {
 
           <button className="btn btn-primary btn-block" onClick={this.reset}>
             <RefreshCw size={16} />
-            נסה שוב
+            {t('נסה שוב')}
           </button>
         </div>
       </div>

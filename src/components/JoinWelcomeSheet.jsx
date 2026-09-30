@@ -4,6 +4,7 @@ import { Route, Wallet, Users, Check, Plus } from './Icons'
 import { useTrip } from '../TripProvider'
 import { TIME_OPTIONS } from '../data'
 import DateRangeCalendar from './DateRangeCalendar'
+import { t, tn } from '../i18n'
 
 /**
  * Shown once, right after joining someone else's trip by link or by code.
@@ -65,9 +66,9 @@ export default function JoinWelcomeSheet() {
 
   if (stage === 'pick') {
     return (
-      <Sheet open={justJoined} title="איזו משפחה אתם?" onClose={close}>
+      <Sheet open={justJoined} title={t('איזו משפחה אתם?')} onClose={close}>
         <p className="sub" style={{ marginBottom: 16 }}>
-          הצטרפתם לטיול ל{trip.city}! נשאר רק לדעת עם מי אנחנו.
+          {t('הצטרפתם לטיול ל{city}! נשאר רק לדעת עם מי אנחנו.', { city: trip.city })}
         </p>
         <div className="col" style={{ gap: 8, marginBottom: 16 }}>
           {families.map((f) => (
@@ -80,9 +81,9 @@ export default function JoinWelcomeSheet() {
               <span className="row" style={{ gap: 10 }}>
                 <i className="dot" style={{ background: f.color }} />
                 <span className="grow" style={{ textAlign: 'start' }}>
-                  <span className="choice-title" style={{ marginTop: 0 }}>{f.name || 'הנוסעים שלהם'}</span>
+                  <span className="choice-title" style={{ marginTop: 0 }}>{f.name || t('הנוסעים שלהם')}</span>
                   <span className="choice-sub tiny">
-                    <span className="num">{f.members.length}</span> נוסעים
+                    <span className="num">{f.members.length}</span> {tn(f.members.length, 'נוסע', 'נוסעים')}
                   </span>
                 </span>
               </span>
@@ -91,7 +92,7 @@ export default function JoinWelcomeSheet() {
         </div>
         <button className="btn btn-ghost btn-block" onClick={() => setStage('newFamily')}>
           <Plus size={16} />
-          אני משפחה חדשה
+          {t('אני משפחה חדשה')}
         </button>
       </Sheet>
     )
@@ -99,25 +100,25 @@ export default function JoinWelcomeSheet() {
 
   if (stage === 'newFamily') {
     return (
-      <Sheet open={justJoined} title="המשפחה שלכם" onClose={close}>
+      <Sheet open={justJoined} title={t('המשפחה שלכם')} onClose={close}>
         <p className="sub" style={{ marginBottom: 16 }}>
-          הפרטים האלה שלכם בלבד — כולל מתי אתם בפועל מגיעים ועוזבים.
+          {t('הפרטים האלה שלכם בלבד — כולל מתי אתם בפועל מגיעים ועוזבים.')}
         </p>
 
-        <span className="label">שם המשפחה</span>
+        <span className="label">{t('שם המשפחה')}</span>
         <input
           className="field" style={{ marginBottom: 14 }}
           value={name} onChange={(e) => setName(e.target.value)}
-          placeholder="לדוגמה: כהן"
-          aria-label="שם המשפחה"
+          placeholder={t('לדוגמה: כהן')}
+          aria-label={t('שם המשפחה')}
         />
 
-        <span className="label">משתתפים (מופרדים בפסיק)</span>
+        <span className="label">{t('משתתפים (מופרדים בפסיק)')}</span>
         <input
           className="field" style={{ marginBottom: 14 }}
           value={membersText} onChange={(e) => setMembersText(e.target.value)}
-          placeholder="דנה, יוסי, נועה"
-          aria-label="שמות המשתתפים"
+          placeholder={t('דנה, יוסי, נועה')}
+          aria-label={t('שמות המשתתפים')}
         />
 
         <div style={{ marginBottom: 14 }}>
@@ -134,71 +135,70 @@ export default function JoinWelcomeSheet() {
 
         <div className="date-grid" style={{ marginBottom: 18 }}>
           <label className="date-cell">
-            <span className="label">שעת הגעה</span>
+            <span className="label">{t('שעת הגעה')}</span>
             <select
               className="field"
               value={arriveAt.split('T')[1] ?? ''}
               onChange={(e) => setArriveAt(`${arriveAt.split('T')[0] || trip.from}T${e.target.value || '00:00'}`)}
-              aria-label="שעת הגעה"
+              aria-label={t('שעת הגעה')}
             >
-              <option value="">בחר שעה</option>
-              {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+              <option value="">{t('בחר שעה')}</option>
+              {TIME_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
             </select>
           </label>
           <label className="date-cell">
-            <span className="label">שעת עזיבה</span>
+            <span className="label">{t('שעת עזיבה')}</span>
             <select
               className="field"
               value={departAt.split('T')[1] ?? ''}
               onChange={(e) => setDepartAt(`${departAt.split('T')[0] || trip.to}T${e.target.value || '00:00'}`)}
-              aria-label="שעת עזיבה"
+              aria-label={t('שעת עזיבה')}
             >
-              <option value="">בחר שעה</option>
-              {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+              <option value="">{t('בחר שעה')}</option>
+              {TIME_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
             </select>
           </label>
         </div>
 
         <button className="btn btn-primary btn-block" onClick={createFamily} disabled={!name.trim() || saving}>
-          {saving ? <span className="typing"><i /><i /><i /></span> : <><Check size={17} /> המשך</>}
+          {saving ? <span className="typing"><i /><i /><i /></span> : <><Check size={17} /> {t('המשך')}</>}
         </button>
       </Sheet>
     )
   }
 
   return (
-    <Sheet open={justJoined} title={`הצטרפת לטיול ל${trip.city}!`} onClose={close}>
+    <Sheet open={justJoined} title={t('הצטרפת לטיול ל{city}!', { city: trip.city })} onClose={close}>
       <p className="sub" style={{ marginBottom: 18 }}>
         {families.length > 1
-          ? 'כל משפחה מתכננת את הימים שלה בנפרד — אפשר לעבור בין המשפחות ולערוך את כולן, ולסמן ימים שנמצאים ביחד כ"יחד" כדי לתכנן אותם על אותו לו"ז משותף.'
-          : 'זה מסלול אחד משותף — לא עותק אישי. כל שינוי שמישהו עושה מופיע אצל כולם באותו רגע.'}
+          ? t('כל משפחה מתכננת את הימים שלה בנפרד — אפשר לעבור בין המשפחות ולערוך את כולן, ולסמן ימים שנמצאים ביחד כ"יחד" כדי לתכנן אותם על אותו לו"ז משותף.')
+          : t('זה מסלול אחד משותף — לא עותק אישי. כל שינוי שמישהו עושה מופיע אצל כולם באותו רגע.')}
       </p>
 
       <div className="col" style={{ gap: 12, marginBottom: 22 }}>
         <div className="row" style={{ gap: 11, alignItems: 'flex-start' }}>
           <span className="contact-icon"><Route size={15} /></span>
           <span className="tiny" style={{ lineHeight: 1.6 }}>
-            אפשר לערוך את הלו"ז — להוסיף עצירות, לשנות סדר — בדיוק כמו כל
-            חבר אחר בטיול.
+            {t('אפשר לערוך את הלו"ז — להוסיף עצירות, לשנות סדר — בדיוק כמו כל חבר אחר בטיול.')}
           </span>
         </div>
         <div className="row" style={{ gap: 11, alignItems: 'flex-start' }}>
           <span className="contact-icon"><Wallet size={15} /></span>
           <span className="tiny" style={{ lineHeight: 1.6 }}>
-            הוצאות ורשימת הערות משותפות לכל הטיול, לא לפי משפחה.
+            {t('הוצאות ורשימת הערות משותפות לכל הטיול, לא לפי משפחה.')}
           </span>
         </div>
         <div className="row" style={{ gap: 11, alignItems: 'flex-start' }}>
           <span className="contact-icon"><Users size={15} /></span>
           <span className="tiny" style={{ lineHeight: 1.6 }}>
-            מי כבר הצטרף אפשר לראות בכפתור השיתוף במסך הבית.
+            {t('מי כבר הצטרף אפשר לראות בכפתור השיתוף במסך הבית.')}
           </span>
         </div>
       </div>
 
       <button className="btn btn-primary btn-block" onClick={close}>
         <Check size={17} />
-        הבנתי, בואו נתחיל
+        {t('הבנתי, בואו נתחיל')}
       </button>
     </Sheet>
   )

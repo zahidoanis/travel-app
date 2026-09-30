@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { ArrowLeft, ArrowRight } from './Icons'
+import { t, lang, locale } from '../i18n'
 
-const WEEKDAYS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש']
+const WEEKDAYS = lang === 'he' ? ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'] : ['S', 'M', 'T', 'W', 'T', 'F', 'S'] // i18n-ignore
 
 const iso = (y, m, d) => `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
 
@@ -48,7 +49,7 @@ export default function DateRangeCalendar({ from, to, min, onChange }) {
   const daysInMonth = new Date(view.y, view.m + 1, 0).getDate()
   const leading = new Date(view.y, view.m, 1).getDay()
   const today = todayISO()
-  const label = new Date(view.y, view.m, 1).toLocaleDateString('he-IL', { month: 'long', year: 'numeric' })
+  const label = new Date(view.y, view.m, 1).toLocaleDateString(locale, { month: 'long', year: 'numeric' })
 
   const cells = [
     ...Array.from({ length: leading }, (_, i) => ({ empty: true, key: `e${i}` })),
@@ -66,12 +67,12 @@ export default function DateRangeCalendar({ from, to, min, onChange }) {
           className="icon-btn"
           onClick={prevMonth}
           disabled={atFloor}
-          aria-label="חודש קודם"
+          aria-label={t('חודש קודם')}
         >
           <ArrowRight size={16} />
         </button>
         <strong className="cal-title">{label}</strong>
-        <button type="button" className="icon-btn" onClick={nextMonth} aria-label="חודש הבא">
+        <button type="button" className="icon-btn" onClick={nextMonth} aria-label={t('חודש הבא')}>
           <ArrowLeft size={16} />
         </button>
       </div>

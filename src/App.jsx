@@ -23,6 +23,7 @@ import { initTelemetry, breadcrumb, attachSink } from './lib/telemetry'
 import { hasFirebase } from './lib/firebase'
 import { pushDiagnostics } from './lib/db'
 import { initials } from './lib/text'
+import { t, dir } from './i18n'
 
 initTelemetry()
 
@@ -48,8 +49,8 @@ function Shell() {
   const [saveError, setSaveError] = useState(null)
   useEffect(() => {
     if (!saveError) return
-    const t = setTimeout(() => setSaveError(null), 5000)
-    return () => clearTimeout(t)
+    const timer = setTimeout(() => setSaveError(null), 5000)
+    return () => clearTimeout(timer)
   }, [saveError])
 
   const go = (next) => {
@@ -79,7 +80,7 @@ function Shell() {
   if (loading) {
     return (
       <div className="shell">
-        <div className="app" dir="rtl">
+        <div className="app" dir={dir}>
           <div className="boot">
             <span className="boot-mark">Trip<span className="boot-ai">AI</span></span>
             <span className="typing"><i /><i /><i /></span>
@@ -136,13 +137,13 @@ function Shell() {
       if (ok || !hasFirebase) {
         closeEdit()
       } else {
-        setSaveError('השמירה נכשלה. בדוק חיבור לאינטרנט ונסה שוב.')
+        setSaveError(t('השמירה נכשלה. בדוק חיבור לאינטרנט ונסה שוב.'))
       }
     }
 
     return (
       <div className="shell">
-        <div className="app" dir="rtl">
+        <div className="app" dir={dir}>
           {saveError && (
             <div className="toast">
               <div
@@ -173,7 +174,7 @@ function Shell() {
 
   return (
     <div className="shell">
-      <div className="app" dir="rtl">
+      <div className="app" dir={dir}>
         {/* skipWelcome means this is a returning user planning a second
             trip, not a first visit — the marketing screen would be noise. */}
         {onboarding && !started && !skipWelcome ? (
@@ -188,7 +189,7 @@ function Shell() {
           </ErrorBoundary>
         ) : (
           <>
-            <aside className="rail" aria-label="ניווט ראשי">
+            <aside className="rail" aria-label={t('ניווט ראשי')}>
               <span className="rail-brand">TripAI</span>
               {[...TABS, ...RAIL_ONLY].map(({ id, label, Icon }) => (
                 <button
@@ -211,7 +212,7 @@ function Shell() {
                     <User size={19} />
                   )}
                 </span>
-                <span>{user && !user.anonymous ? (user.name?.split(' ')[0] || 'החשבון') : 'שמור טיול'}</span>
+                <span>{user && !user.anonymous ? (user.name?.split(' ')[0] || t('החשבון')) : t('שמור טיול')}</span>
               </button>
             </aside>
 

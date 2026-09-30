@@ -1,19 +1,20 @@
 import { useState } from 'react'
 import Sheet from './Sheet'
 import { Info } from './Icons'
+import { t, locale } from '../i18n'
 
 /** "היום" / "מחר" / a weekday name — a plain date reads slower once you're
  *  already looking at "the next 7 days". */
 function dayLabel(dateStr, index) {
-  if (index === 0) return 'היום'
-  if (index === 1) return 'מחר'
+  if (index === 0) return t('היום')
+  if (index === 1) return t('מחר')
   const [y, m, d] = dateStr.split('-').map(Number)
-  return new Date(y, m - 1, d).toLocaleDateString('he-IL', { weekday: 'long' })
+  return new Date(y, m - 1, d).toLocaleDateString(locale, { weekday: 'long' })
 }
 
 function dayDate(dateStr) {
   const [y, m, d] = dateStr.split('-').map(Number)
-  return new Date(y, m - 1, d).toLocaleDateString('he-IL', { day: 'numeric', month: 'long' })
+  return new Date(y, m - 1, d).toLocaleDateString(locale, { day: 'numeric', month: 'long' })
 }
 
 /** "2026-08-22T14:00" -> "14:00", already in the destination's own zone. */
@@ -33,12 +34,11 @@ export default function WeatherSheet({ open, onClose, forecast, climate, city })
 
   if (climate) {
     return (
-      <Sheet open={open} title={`מזג האוויר ב${city}`} onClose={onClose}>
+      <Sheet open={open} title={t('מזג האוויר ב{city}', { city })} onClose={onClose}>
         <div className="row" style={{ alignItems: 'flex-start', gap: 9, marginBottom: 18 }}>
           <span style={{ color: 'var(--cyan)' }}><Info size={15} /></span>
           <p className="tiny" style={{ margin: 0 }}>
-            הטיול רחוק מכדי שתהיה תחזית אמיתית — זה ממוצע של מזג האוויר סביב
-            התאריכים האלה ב-{climate.years} השנים האחרונות, לא תחזית.
+            {t('הטיול רחוק מכדי שתהיה תחזית אמיתית — זה ממוצע של מזג האוויר סביב התאריכים האלה ב-{years} השנים האחרונות, לא תחזית.', { years: climate.years })}
           </p>
         </div>
 
@@ -51,32 +51,32 @@ export default function WeatherSheet({ open, onClose, forecast, climate, city })
             </span>
           </div>
           <p className="tiny" style={{ marginTop: 10 }}>
-            <span className="num">{climate.rainChance}%</span> מהימים סביב התאריכים האלה היה גשם
+            <span className="num">{climate.rainChance}%</span> {t('מהימים סביב התאריכים האלה היה גשם')}
           </p>
         </div>
 
-        <p className="tiny" style={{ marginTop: 14 }}>נתוני מזג אוויר: Open-Meteo.</p>
+        <p className="tiny" style={{ marginTop: 14 }}>{t('נתוני מזג אוויר: Open-Meteo.')}</p>
       </Sheet>
     )
   }
 
   return (
-    <Sheet open={open} title={`מזג האוויר ב${city}`} onClose={onClose}>
+    <Sheet open={open} title={t('מזג האוויר ב{city}', { city })} onClose={onClose}>
       {!forecast ? (
         <div className="row" style={{ alignItems: 'flex-start', gap: 9 }}>
           <span style={{ color: 'var(--amber)' }}><Info size={15} /></span>
           <p className="tiny" style={{ margin: 0 }}>
-            התחזית לא נטענה. בדוק חיבור לאינטרנט ונסה שוב.
+            {t('התחזית לא נטענה. בדוק חיבור לאינטרנט ונסה שוב.')}
           </p>
         </div>
       ) : (
         <>
           <div className="segmented" style={{ marginBottom: 18 }}>
             <button className={tab === 'today' ? 'on' : ''} onClick={() => setTab('today')}>
-              היום
+              {t('היום')}
             </button>
             <button className={tab === 'week' ? 'on' : ''} onClick={() => setTab('week')}>
-              השבוע
+              {t('השבוע')}
             </button>
           </div>
 
@@ -92,7 +92,7 @@ export default function WeatherSheet({ open, onClose, forecast, climate, city })
                 ))}
               </div>
             ) : (
-              <p className="tiny">אין עוד שעות נותרות היום.</p>
+              <p className="tiny">{t('אין עוד שעות נותרות היום.')}</p>
             )
           )}
 
@@ -116,7 +116,7 @@ export default function WeatherSheet({ open, onClose, forecast, climate, city })
             </div>
           )}
 
-          <p className="tiny" style={{ marginTop: 14 }}>נתוני מזג אוויר: Open-Meteo.</p>
+          <p className="tiny" style={{ marginTop: 14 }}>{t('נתוני מזג אוויר: Open-Meteo.')}</p>
         </>
       )}
     </Sheet>

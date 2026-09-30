@@ -4,6 +4,7 @@ import { WhatsApp, Check, Users, Link as LinkIcon } from './Icons'
 import { headCount } from '../data'
 import { useTrip } from '../TripProvider'
 import { inviteText, inviteUrl, shareTrip, copyText } from '../lib/share'
+import { t, tn } from '../i18n'
 
 export default function ShareSheet({ open, stops, onClose }) {
   const { trip: TRIP, families: FAMILIES } = useTrip()
@@ -13,6 +14,7 @@ export default function ShareSheet({ open, stops, onClose }) {
 
   const text = inviteText(TRIP, stops, TRIP.id)
   const url = inviteUrl(TRIP.id)
+  const joinedCount = headCount(FAMILIES.filter((f) => f.joined).map((f) => f.id), FAMILIES)
 
   const copy = async () => {
     if (await copyText(url)) {
@@ -22,9 +24,9 @@ export default function ShareSheet({ open, stops, onClose }) {
   }
 
   return (
-    <Sheet open={open} title="שתף את המסלול" onClose={onClose}>
+    <Sheet open={open} title={t('שתף את המסלול')} onClose={onClose}>
       <p className="sub" style={{ marginBottom: 16 }}>
-        כל מי שיצטרף רואה את אותו מסלול, ועדכונים מופיעים אצל כולם.
+        {t('כל מי שיצטרף רואה את אותו מסלול, ועדכונים מופיעים אצל כולם.')}
       </p>
 
       {/* Message preview — text and url ship as separate fields (see
@@ -53,7 +55,7 @@ export default function ShareSheet({ open, stops, onClose }) {
         onClick={() => shareTrip(text, url)}
       >
         <WhatsApp size={19} />
-        שלח בוואטסאפ
+        {t('שלח בוואטסאפ')}
       </button>
 
       {/* One thing to share, not two — the "code" that used to sit beside
@@ -63,14 +65,14 @@ export default function ShareSheet({ open, stops, onClose }) {
           bare code, so the link alone covers every way of sharing this. */}
       <button className="btn btn-ghost btn-block" style={{ marginBottom: 22 }} onClick={copy}>
         {copied ? <Check size={16} /> : <LinkIcon size={16} />}
-        {copied ? 'הקישור הועתק' : 'העתק קישור'}
+        {copied ? t('הקישור הועתק') : t('העתק קישור')}
       </button>
 
       <div className="row" style={{ gap: 8, marginBottom: 12 }}>
         <span style={{ color: 'var(--lav)' }}><Users size={17} /></span>
-        <h3 className="h3">מי כבר בטיול</h3>
+        <h3 className="h3">{t('מי כבר בטיול')}</h3>
         <span className="badge" style={{ marginInlineStart: 'auto' }}>
-          <span className="num">{headCount(FAMILIES.filter((f) => f.joined).map((f) => f.id), FAMILIES)}</span> נוסעים
+          <span className="num">{joinedCount}</span> {tn(joinedCount, 'נוסע', 'נוסעים')}
         </span>
       </div>
 
@@ -81,17 +83,17 @@ export default function ShareSheet({ open, stops, onClose }) {
               {f.short}
             </span>
             <span className="grow col" style={{ gap: 2 }}>
-              <strong style={{ fontSize: 13.5, fontWeight: 600 }}>{f.name || 'הנוסעים שלנו'}</strong>
+              <strong style={{ fontSize: 13.5, fontWeight: 600 }}>{f.name || t('הנוסעים שלנו')}</strong>
               <span className="tiny">
-                <span className="num">{f.members.length}</span> נוסעים
+                <span className="num">{f.members.length}</span> {tn(f.members.length, 'נוסע', 'נוסעים')}
               </span>
             </span>
             {f.joined ? (
               <span className="badge badge-live" style={{ color: 'var(--emerald)' }}>
-                <i className="dot" /> הצטרף
+                <i className="dot" /> {t('הצטרף')}
               </span>
             ) : (
-              <span className="tiny">ממתין</span>
+              <span className="tiny">{t('ממתין')}</span>
             )}
           </div>
         ))}

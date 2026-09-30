@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import Sheet from './Sheet'
 import { Check, X } from './Icons'
+import { t } from '../i18n'
 
 /**
  * Add or edit one note. Same sheet either way — `isNew` only changes the
@@ -23,25 +24,25 @@ export default function NoteSheet({ open, isNew, initialText, onClose, onSave, o
   }
 
   return (
-    <Sheet open={open} title={isNew ? 'הערה חדשה' : 'עריכת הערה'} onClose={onClose}>
+    <Sheet open={open} title={isNew ? t('הערה חדשה') : t('עריכת הערה')} onClose={onClose}>
       <textarea
         className="field"
         rows={3}
         style={{ resize: 'vertical', lineHeight: 1.6 }}
         value={text}
         onChange={(e) => setText(e.target.value)}
-        placeholder="לדוגמה: הנהג ממתין ליד יציאה 3, טלפון 050-1234567"
+        placeholder={t('לדוגמה: הנהג ממתין ליד יציאה 3, טלפון 050-1234567')}
         autoFocus
       />
       <div className="row" style={{ gap: 9, marginTop: 16 }}>
         {!isNew && (
-          <button className="btn btn-ghost" onClick={onDelete} aria-label="מחק הערה">
+          <button className="btn btn-ghost" onClick={onDelete} aria-label={t('מחק הערה')}>
             <X size={17} />
           </button>
         )}
         <button className="btn btn-primary btn-block grow" onClick={save} disabled={!text.trim()}>
           <Check size={17} />
-          שמור
+          {t('שמור')}
         </button>
       </div>
     </Sheet>

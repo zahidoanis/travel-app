@@ -81,9 +81,9 @@ export default function Finance() {
   const rate = useMemo(() => {
     if (!rates) return null
     const f = rates.rates[from]
-    const t = rates.rates[to]
+    const toRate = rates.rates[to]
     // rates are per 1 ILS, so ILS-per-unit is the reciprocal.
-    return f && t ? t / f : null
+    return f && toRate ? toRate / f : null
   }, [rates, from, to])
 
   const converted = useMemo(() => {

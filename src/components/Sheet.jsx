@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { X } from './Icons'
+import { t } from '../i18n'
 
 /** Bottom sheet modal. Closes on Escape and on scrim click. */
 export default function Sheet({ open, title, onClose, children }) {
@@ -19,7 +20,7 @@ export default function Sheet({ open, title, onClose, children }) {
         <div className="grabber" />
         <div className="between" style={{ marginBottom: 18 }}>
           <h2 className="h2">{title}</h2>
-          <button className="icon-btn" onClick={onClose} aria-label="סגור">
+          <button className="icon-btn" onClick={onClose} aria-label={t('סגור')}>
             <X size={17} />
           </button>
         </div>
