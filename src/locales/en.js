@@ -573,4 +573,14 @@ export default {
   "הוסף ליום {n}": "Add to day {n}",
   "פתח ב-Google Maps": "Open in Google Maps",
   "ייתכן שזה לא המקום המדויק — כדאי לבדוק את הכתובת לפני שמוסיפים.": "This may not be the exact place — check the address before adding it.",
+  "הוסף ליום": "Add to a day",
+
+  // Agent memory
+  "הסוכן זוכר {n} דברים עליכם": "The agent remembers {n} things about you",
+  "מה הסוכן זוכר עליכם": "What the agent remembers about you",
+  "מה הסוכן זוכר": "What the agent remembers",
+  "דברים שסיפרתם בשיחה — הסוכן מתחשב בהם בכל המלצה ובכל יום שהוא בונה. כל מי שבטיול רואה אותם.": "Things you mentioned in the chat — the agent takes them into account in every suggestion and every day it plans. Everyone on the trip can see them.",
+  "עדיין כלום. ספרו לסוכן למשל שאתם צמחוניים, או מה גילאי הילדים, והוא יזכור.": "Nothing yet. Tell the agent, say, that you're vegetarian or how old the kids are, and it will remember.",
+  "שכח את זה": "Forget this",
+  "שמרתי לזיכרון: {facts}": "Saved to memory: {facts}",
 }

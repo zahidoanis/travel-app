@@ -90,6 +90,8 @@ export async function fetchForecast(lat, lng) {
       tempC: Math.round(c.temperature_2m),
       isDay: c.is_day === 1,
       period: periodFor(hour),
+      // Local wall-clock time at the destination, "HH:MM".
+      localTime: String(c.time).slice(11, 16),
       icon: ICON[c.weather_code] ?? (c.is_day ? '🌤️' : '🌙'),
     }
 

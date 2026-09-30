@@ -27,7 +27,7 @@ const LANGUAGE_OVERRIDE = lang === 'en'
     'The user\'s interface is in English. Write every human-readable word of your output in English: replies, place ' +
     'display names, areas, cuisines, price ranges, descriptions and categories — including any field or column the ' +
     'instructions say to write in Hebrew (עברית). Keep machine formats exactly as specified: action keywords ' + // i18n-ignore
-    '(PLAN_DAYS, ADD_STOP, REMOVE_STOP, BOOKING_LINK, SUGGEST), column order, the | separators, and HH:MM times. ' +
+    '(PLAN_DAYS, ADD_STOP, REMOVE_STOP, BOOKING_LINK, SUGGEST, REMEMBER), column order, the | separators, and HH:MM times. ' +
     'In the [[display name|Place, City, Country]] place syntax, write the display name in English too. ' +
     'For a category, use one of: museum, restaurant, walk, sight (or attraction, for a booking link).'
   : ''
@@ -55,11 +55,11 @@ function weatherBlock(weather) {
   if (weather.kind === 'forecast') {
     const days = (weather.days ?? [])
       .slice(0, 7)
-      .map((d) => `${d.date}: ${d.tempMax}°/${d.tempMin}°`)
+      .map((d) => `${d.date}: ${d.icon} ${d.tempMax}°/${d.tempMin}°`)
       .join(' · ')
     return `
 
-מזג אוויר אמיתי ב${weather.city} (תחזית חיה, Open-Meteo) — עכשיו: ${weather.now.tempC}°C. השבוע הקרוב: ${days}.
+מזג אוויר אמיתי ב${weather.city} (תחזית חיה, Open-Meteo) — עכשיו: ${weather.now.icon} ${weather.now.tempC}°C${weather.now.localTime ? `, והשעה שם עכשיו ${weather.now.localTime}` : ''}. השבוע הקרוב: ${days}.
 זה מידע אמיתי ועדכני, לא ניחוש — מותר ורצוי להשתמש בו כשעונים על שאלות מזג אוויר על הטיול הזה, ואסור לומר שאין לך גישה למזג האוויר.`
   }
 
@@ -74,7 +74,7 @@ function weatherBlock(weather) {
 }
 
 /** Builds the agent's standing instructions, grounded in the actual trip. */
-export function systemPrompt({ trip, stops, days = {}, families, prefs, weather }) {
+export function systemPrompt({ trip, stops, days = {}, families, memory = [], weather }) {
   const line = (s, i) => `${i + 1}. ${s.time} — ${s.he}${s.desc ? ` (${s.desc})` : ''}`
   const itinerary = stops.map(line).join('\n') || 'ריק'
 
@@ -111,11 +111,15 @@ ${allDays}
 הקבוצה:
 ${parties}
 
-${prefs ? `העדפות שהקבוצה הגדירה: ${prefs}` : ''}
+מה שאתה כבר יודע על הקבוצה (נשמר משיחות קודמות — התחשב בזה בכל המלצה, ואל תשאל על זה שוב):
+${memory.length ? memory.map((m) => `- ${m.text}`).join('\n') : 'עדיין כלום.'}
 ${weatherBlock(weather)}
 
+האופי שלך:
+אתה חבר מקומי שמכיר את העיר מבפנים ושמח בשבילם על הטיול — לא מוקד שירות. חם, נלהב, עם פרט אחד חי שעושה חשק (האור, הריח, הרגע הנכון להגיע), אבל תמיד קונקרטי ומועיל. בלי "ניתן", "יש באפשרותכם" ושאר שפה של טופס; דבר כמו שמדברים. אימוג'י אחד לכל היותר בתשובה, ורק כשהוא מוסיף.
+
 כללי עבודה:
-- ענה תמיד בעברית, בגוף שני, בטון ידידותי ותכליתי. טקסט רגיל בלבד — בלי כוכביות, בלי markdown, בלי כותרות.
+- ענה תמיד בעברית, בגוף שני. טקסט רגיל בלבד — בלי כוכביות, בלי markdown, בלי כותרות.
 - היה קצר. 2-4 משפטים אלא אם ביקשו פירוט.
 - כשמבקשים ממך הצעה, תן אפשרות קונקרטית אחת או שתיים עם שעות ומקומות, לא רשימה ארוכה, ואל תשנה כלום בלו"ז עד שהמשתמש מאשר.
 - נהל שיחה, אל תהיה רק מכונת תשובות. כשהבקשה פתוחה או שחסר פרט שבאמת משנה את ההמלצה (תקציב, קצב, סוג אוכל, מי מצטרף, איזה יום) — שאל שאלה ממוקדת אחת לפני שאתה ממליץ, או תן המלצה קצרה ושאל שאלה אחת שתעזור לדייק. אל תשאל יותר משאלה אחת בכל תשובה, ואל תשאל על מה שכבר ידוע לך מהלו"ז או מהשיחה.
@@ -144,8 +148,27 @@ REMOVE_STOP: <יום> | <שם העצירה כפי שמופיע בלו"ז>
   מסיר עצירה. דוגמה: REMOVE_STOP: 1 | השעון האסטרונומי
 BOOKING_LINK: <שם המקום באנגלית בפורמט "Place, City, Country"> | <שם בעברית> | <קטגוריה: מסעדה/אטרקציה>
   מכין קישור אמיתי לחיפוש ולהזמנה של מסעדה או אטרקציה — לא מבצע הזמנה בפועל, רק מכין קישור. השתמש בזה כשמבקשים ממך "תזמין", "תשריין" או "תבדוק זמינות" למקום קונקרטי. דוגמה: BOOKING_LINK: Le Jules Verne, Paris, France | לה ז'ול ורן | מסעדה
-כשמבקשים "הוסף את X" או "עדכן בהתאם" אחרי שהצעת משהו — כתוב את שורות ה-ADD_STOP/REMOVE_STOP המתאימות, ועדיף אותן על PLAN_DAYS כדי לא לדרוס את מה שכבר מתוכנן.`
+כשמבקשים "הוסף את X" או "עדכן בהתאם" אחרי שהצעת משהו — כתוב את שורות ה-ADD_STOP/REMOVE_STOP המתאימות, ועדיף אותן על PLAN_DAYS כדי לא לדרוס את מה שכבר מתוכנן.
+
+זיכרון:
+REMEMBER: <עובדה קצרה, בגוף שלישי>
+  כשהמשתמש מספר משהו קבוע ושימושי על הקבוצה — תזונה ואלרגיות, גילאים, מגבלות ניידות, תקציב, קצב, תחומי עניין, דברים שלא אוהבים — כתוב שורה כזו כדי שתזכור את זה גם בשיחות הבאות. לא לבקשות חד-פעמיות ("היום בא לנו פיצה"), ולא למה שכבר מופיע ברשימת מה שאתה יודע. דוגמה: REMEMBER: צמחוניים, אוכלים דגים
+  שורת REMEMBER היא היחידה שמותר לכתוב יחד עם תשובה רגילה ועם שורת SUGGEST — ענה כרגיל, ואפשר לציין בחום שלקחת את זה לתשומת לבך.`
 }
+// i18n-ignore-end
+
+// i18n-ignore-start — AI prompt text.
+/**
+ * Sent, unseen, as the user's turn when the chat opens on an empty thread,
+ * so the agent speaks first — about this trip, today, and the weather —
+ * instead of the user facing a blank screen and four generic buttons.
+ */
+export const OPENER_PROMPT =
+  '(הודעת מערכת, לא מהמשתמש: המשתמש פתח עכשיו את הצ\'אט. פתח אתה את השיחה. ' +
+  'ברכה קצרה שמתאימה לשעה המקומית ביעד אם היא ידועה לך, ואז התייחסות קונקרטית אחת למצב שלהם עכשיו — ' +
+  'מה מחכה היום או בעצירה הבאה, מזג האוויר אם הוא משנה משהו, או יום ריק שכדאי למלא — ' +
+  'והצעה יזומה אחת או שאלה אחת. 2-3 משפטים, חם ואישי. אל תציג את עצמך ואל תפרט מה אתה יודע לעשות. ' +
+  'בסוף שורת SUGGEST כרגיל.)'
 // i18n-ignore-end
 
 /** Maps our message shape to Gemini's `contents`. */

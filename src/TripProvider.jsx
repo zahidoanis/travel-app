@@ -10,7 +10,7 @@ import { onUser, hasFirebase } from './lib/firebase'
 import { invitedTripId } from './lib/share'
 import { geocode } from './lib/geocode'
 import { importedStops, importSpan } from './lib/mapImport'
-import { hasAI, systemPrompt, streamReply } from './lib/gemini'
+import { hasAI, systemPrompt, streamReply, OPENER_PROMPT } from './lib/gemini'
 import { fetchForecast, fetchClimateAverage } from './lib/weather'
 import { CITIES } from './cities'
 import { placeNames } from './lib/placeNames'
@@ -97,6 +97,8 @@ function toTrip(raw) {
     notes: raw.notes ?? [],
     expenses: raw.expenses ?? [],
     reservations: raw.reservations ?? [],
+    // What the chat agent has learned about the group (REMEMBER lines).
+    memory: raw.memory ?? [],
     memberIds: raw.memberIds ?? [],
   }
 }
@@ -613,29 +615,83 @@ export function TripProvider({ children }) {
     return report
   }
 
-  const askAgent = async (history) => {
+  // Only the model's prose — never the machine lines around it — may reach
+  // the screen while a reply streams in. A line still being written is held
+  // back while it could turn out to be one ("A" may yet become ADD_STOP),
+  // and a half-written [[place|…]] is cut until it closes.
+  const MACHINE = ['PLAN_DAYS', 'ADD_STOP', 'REMOVE_STOP', 'BOOKING_LINK', 'SUGGEST', 'REMEMBER']
+  const MACHINE_LINE = /^\s*(SUGGEST|REMEMBER)\s*:/i
+  const visibleSoFar = (full) => {
+    const lines = full.split('\n')
+    const partial = lines.pop() ?? ''
+    const shown = lines.filter((l) => !ACTION_LINE.test(l) && !MACHINE_LINE.test(l))
+    const head = partial.trimStart().toUpperCase()
+    const maybeMachine = head.length > 0 && MACHINE.some((k) =>
+      head.includes(':') ? head.split(':')[0].trim() === k : k.startsWith(head)
+    )
+    if (!maybeMachine) shown.push(partial)
+    let text = shown.join('\n').replace(/\*\*/g, '')
+    const open = text.lastIndexOf('[[')
+    if (open > text.lastIndexOf(']]')) text = text.slice(0, open)
+    return text.trim()
+  }
+
+  /** Adds what the agent learned (REMEMBER lines) to the trip, skipping
+   *  anything it already knows. Returns the facts actually added. */
+  const rememberFacts = async (facts) => {
+    const known = new Set((trip?.memory ?? []).map((m) => m.text.trim().toLowerCase()))
+    const fresh = [...new Set(facts.map((f) => f.trim()).filter(Boolean))]
+      .filter((f) => !known.has(f.toLowerCase()))
+      .slice(0, 5)
+    if (fresh.length === 0) return []
+    const now = Date.now()
+    await updateTrip({
+      memory: [...(trip.memory ?? []), ...fresh.map((text, i) => ({ id: `m${now}-${i}`, text, at: now }))],
+    })
+    breadcrumb('action', `agent remembered ${fresh.length} fact(s)`)
+    return fresh
+  }
+
+  const forgetMemory = (id) => updateTrip({ memory: (trip?.memory ?? []).filter((m) => m.id !== id) })
+
+  const askAgent = async (history, { opener = false } = {}) => {
     const controller = new AbortController()
     chatAbort.current = controller
     setChatError(null)
     setChatTyping(true)
+    const id = `a${Date.now()}`
 
+    // The opener always gets the weather — "it's going to rain tomorrow" is
+    // exactly the kind of thing worth opening with.
     const lastMine = [...history].reverse().find((m) => m.role === 'me')
-    const weather = WEATHER_TRIGGER.test(lastMine?.text ?? '')
+    const weather = opener || WEATHER_TRIGGER.test(lastMine?.text ?? '')
       ? await fetchTripWeather(trip).catch(() => null)
       : null
 
-    const system = systemPrompt({ trip, stops, days, families, weather })
+    const system = systemPrompt({ trip, stops, days, families, memory: trip.memory, weather })
 
     try {
-      // Buffered rather than shown chunk-by-chunk: action lines have to be
-      // caught before anything renders, which means knowing the whole reply.
+      // Streamed onto the screen as it arrives — waiting 6-12 seconds on
+      // three dots and then getting the whole answer at once felt like a
+      // form being processed, not a conversation. visibleSoFar() keeps the
+      // machine lines out of sight; they're acted on once the reply is done.
       let full = ''
+      let placed = false
       await streamReply({
         messages: history,
         system,
         searchContext: `${trip.city}, ${trip.country}`,
         signal: controller.signal,
-        onChunk: (delta) => { full += delta },
+        onChunk: (delta) => {
+          full += delta
+          const text = visibleSoFar(full)
+          if (!text) return
+          const first = !placed
+          placed = true
+          setChatMessages((m) => first
+            ? [...m, { id, role: 'ai', text, streaming: true }]
+            : m.map((x) => (x.id === id ? { ...x, text } : x)))
+        },
       })
 
       const actions = []
@@ -643,43 +699,71 @@ export function TripProvider({ children }) {
       // Follow-ups the agent offers ("SUGGEST: a | b | c") — shown as tap
       // targets under its reply, never as text.
       let suggestions = []
+      const remember = []
       for (const l of full.split('\n')) {
         const m = l.match(ACTION_LINE)
         const s = l.match(/^\s*SUGGEST\s*:\s*(.*)$/i)
+        const r = l.match(/^\s*REMEMBER\s*:\s*(.*)$/i)
         if (s) suggestions = s[1].split('|').map((x) => x.trim()).filter(Boolean).slice(0, 3)
+        else if (r) remember.push(r[1])
         else if (m && trip) actions.push({ kind: m[1].toUpperCase(), args: m[2] })
         else text.push(l)
       }
       // Markdown asterisks showed up literally in the bubble.
       const say = text.join('\n').replace(/\*\*/g, '').trim()
 
+      const noted = remember.length > 0 ? await rememberFacts(remember) : []
+      const note = noted.length > 0 ? `\n\n📌 ${t('שמרתי לזיכרון: {facts}', { facts: noted.join(' · ') })}` : ''
+
+      let finalText
       if (actions.length > 0) {
         breadcrumb('action', `chat actions: ${actions.map((a) => a.kind).join(',')}`)
         const report = await runChatActions(actions)
         const done = report.some((r) => r.startsWith('✓'))
-        setChatMessages((m) => [...m, {
-          id: `a${Date.now()}`, role: 'ai',
-          // The app's own account of what happened — never the model's.
-          text: report.join('\n') + (done ? `\n\n${t('אפשר לראות את זה במסך "מסלול הטיול".')}` : ''),
-          suggestions,
-        }])
+        // The app's own account of what happened — never the model's.
+        finalText = report.join('\n') + (done ? `\n\n${t('אפשר לראות את זה במסך "מסלול הטיול".')}` : '')
       } else {
         // A claim of having changed the itinerary with no action behind it is
         // the model talking as if it had done something — say so.
-        setChatMessages((m) => [...m, {
-          id: `a${Date.now()}`, role: 'ai',
-          text: CLAIM.test(say)
-            ? `${say}\n\n⚠ ${t('לא שיניתי כלום בלו"ז. כדי שאשנה, כתבו למשל "הוסף את זה ליום 1".')}`
-            : say,
-          suggestions,
-        }])
+        finalText = CLAIM.test(say)
+          ? `${say}\n\n⚠ ${t('לא שיניתי כלום בלו"ז. כדי שאשנה, כתבו למשל "הוסף את זה ליום 1".')}`
+          : say
       }
+      finalText = (finalText + note).trim()
+
+      setChatMessages((m) => {
+        const rest = m.filter((x) => x.id !== id)
+        return finalText ? [...rest, { id, role: 'ai', text: finalText, suggestions }] : rest
+      })
     } catch (err) {
-      if (err?.name !== 'AbortError') setChatError(err.message)
+      if (err?.name === 'AbortError') return
+      if (opener) {
+        // A failed greeting is not worth an error card — the empty chat with
+        // its starter questions is a perfectly good fallback.
+        setChatMessages([])
+      } else {
+        setChatMessages((m) => m.map((x) => (x.id === id ? { ...x, streaming: false } : x)))
+        setChatError(err.message)
+      }
     } finally {
       setChatTyping(false)
       chatAbort.current = null
     }
+  }
+
+  /**
+   * The agent speaks first when the chat opens on an empty thread, once per
+   * trip per session. The prompt that asks it to is a real user turn in the
+   * history (Gemini needs the conversation to start with one) but marked
+   * hidden, so it's never drawn.
+   */
+  const openerFor = useRef(null)
+  const openChat = () => {
+    if (!hasAI || !trip || chatTyping || chatMessages.length > 0 || openerFor.current === trip.id) return
+    openerFor.current = trip.id
+    const history = [{ id: `u${Date.now()}`, role: 'me', text: OPENER_PROMPT, hidden: true }]
+    setChatMessages(history)
+    askAgent(history, { opener: true })
   }
 
   const sendChatMessage = (overrideText) => {
@@ -784,6 +868,7 @@ export function TripProvider({ children }) {
       families: planningFamily ? [planningFamily] : families,
       already,
       instructions,
+      memory: trip.memory,
     })
 
     if (fresh.length > 0) {
@@ -1126,7 +1211,7 @@ export function TripProvider({ children }) {
     closeNotifications: () => setNotificationsOpen(false),
     presence, sharingLocation, toggleLocationSharing,
     chatMessages, chatDraft, setChatDraft, chatTyping, chatError,
-    sendChatMessage, retryChatMessage,
+    sendChatMessage, retryChatMessage, openChat, forgetMemory,
   }
 
   return <TripContext.Provider value={value}>{children}</TripContext.Provider>

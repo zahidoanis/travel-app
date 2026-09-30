@@ -32,7 +32,7 @@ export function normaliseCategory(word = '') {
 /**
  * @returns {Promise<{stops: Array, source: 'ai'|'fallback', warning?: string}>}
  */
-export async function buildItinerary({ trip, families, already = [], instructions = '', signal }) {
+export async function buildItinerary({ trip, families, already = [], instructions = '', memory = [], signal }) {
   if (!hasAI) {
     return { stops: [], source: 'fallback', warning: t('סוכן ה-AI אינו מחובר') }
   }
@@ -63,6 +63,8 @@ export async function buildItinerary({ trip, families, already = [], instruction
           ? `כבר מתוכננים בימים אחרים של אותו טיול — אל תציע אותם שוב: ${already.join(', ')}\n` // i18n-ignore
           : '') +
         (instructions ? `הנחיות מפורשות מהמשתמש — חובה לכבד אותן: ${instructions}\n` : '') + // i18n-ignore
+        // What the chat agent has learned about this group (REMEMBER lines).
+        (memory.length ? `מה שידוע על הקבוצה — התחשב בזה: ${memory.map((m) => m.text).join('; ')}\n` : '') + // i18n-ignore
         '\nתכנן יום אחד, מ-09:00 עד הערב, עם מרחקי הליכה סבירים בין העצירות.', // i18n-ignore
     })
 

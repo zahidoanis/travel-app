@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import TopBar from '../components/TopBar'
 import PlaceSheet from '../components/PlaceSheet'
-import { AlertTriangle, Bot, MapPin, Mic, Paperclip, Send, Sparkles } from '../components/Icons'
+import PlacePhoto from '../components/PlacePhoto'
+import Sheet from '../components/Sheet'
+import { normaliseCategory } from '../lib/itinerary'
+import { AlertTriangle, Bookmark, Bot, MapPin, Mic, Paperclip, Plus, Send, Sparkles, X } from '../components/Icons'
 import { useTrip } from '../TripProvider'
 import { hasAI, aiMode, aiModel } from '../lib/gemini'
 import { useSpeech } from '../lib/speech'
@@ -47,6 +50,34 @@ function linkify(text, onPlace) {
   return nodes
 }
 
+/**
+ * The places a reply named, as cards with a photo under the bubble — the
+ * inline links stay too, this is the at-a-glance version. Photos come from
+ * Wikipedia, so landmarks get one and most restaurants keep the tinted
+ * placeholder; either way the card opens PlaceSheet to add it to a day.
+ */
+function PlaceCards({ text, onOpen }) {
+  const places = []
+  for (const m of text.matchAll(/\[\[([^\]|]+)\|([^\]]+)\]\]/g)) {
+    const place = { label: m[1].trim(), query: m[2].trim() }
+    if (!places.some((p) => p.query === place.query)) places.push(place)
+  }
+  if (places.length === 0) return null
+  return (
+    <div className="place-cards msg-in">
+      {places.slice(0, 4).map((p) => (
+        <button key={p.query} className="place-card" onClick={() => onOpen(p)}>
+          <PlacePhoto name={p.query} cat={normaliseCategory(`${p.label} ${p.query}`)} className="place-card-img" />
+          <span className="place-card-body">
+            <strong>{p.label}</strong>
+            <span className="place-card-add"><Plus size={12} /> {t('הוסף ליום')}</span>
+          </span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
 /** Openers, so an empty thread still shows what the agent is for. */
 const STARTERS = [
   t('מה כדאי לעשות היום אם יורד גשם?'),
@@ -64,9 +95,16 @@ export default function Chat() {
   const {
     chatMessages: messages, chatDraft: draft, setChatDraft: setDraft,
     chatTyping: typing, chatError: error, sendChatMessage, retryChatMessage,
+    openChat, trip, forgetMemory,
   } = useTrip()
 
   const [place, setPlace] = useState(null)
+  const [memoryOpen, setMemoryOpen] = useState(false)
+  const memory = trip?.memory ?? []
+
+  // The agent opens the conversation itself — once per trip per session;
+  // openChat() is a no-op on a thread that already has anything in it.
+  useEffect(() => { openChat() }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const endRef = useRef(null)
   const speech = useSpeech({ onResult: (said) => sendChatMessage(said) })
 
@@ -75,7 +113,14 @@ export default function Chat() {
   }, [messages, typing])
 
   const shown = speech.listening && speech.interim ? speech.interim : draft
-  const empty = messages.length === 0
+  // The opener's prompt is a hidden user turn — part of the history the
+  // agent sees, never drawn.
+  const visible = messages.filter((m) => !m.hidden)
+  const empty = visible.length === 0 && !typing
+  const last = visible.at(-1)
+  // Dots only until the first words arrive; after that the reply itself is
+  // what's moving.
+  const waiting = typing && !(last?.role === 'ai' && last.streaming)
 
   return (
     <>
@@ -98,6 +143,15 @@ export default function Chat() {
             )}
           </span>
 
+          {hasAI && (
+            <button className="memory-chip" onClick={() => setMemoryOpen(true)}>
+              <Bookmark size={12} />
+              {memory.length > 0
+                ? t('הסוכן זוכר {n} דברים עליכם', { n: memory.length })
+                : t('מה הסוכן זוכר עליכם')}
+            </button>
+          )}
+
           {empty && (
             <div className="chat-empty">
               <div className="ai-avatar" style={{ width: 44, height: 44, borderRadius: 14 }}>
@@ -118,12 +172,13 @@ export default function Chat() {
             </div>
           )}
 
-          {messages.map((m, i) => (
+          {visible.map((m) => (
             <div key={m.id} style={{ display: 'contents' }}>
               <div className={`bubble ${m.role} msg-in`}>{linkify(m.text, setPlace)}</div>
+              {m.role === 'ai' && !m.streaming && <PlaceCards text={m.text} onOpen={setPlace} />}
               {/* Only the latest reply's follow-ups — older ones answer a
                   moment in the conversation that has already passed. */}
-              {m.role === 'ai' && i === messages.length - 1 && !typing && m.suggestions?.length > 0 && (
+              {m.role === 'ai' && m === last && !typing && m.suggestions?.length > 0 && (
                 <div className="chat-suggest msg-in">
                   {m.suggestions.map((s) => (
                     <button key={s} className="starter" onClick={() => sendChatMessage(s)}>{s}</button>
@@ -133,7 +188,7 @@ export default function Chat() {
             </div>
           ))}
 
-          {typing && (
+          {waiting && (
             <div className="bubble ai msg-in" style={{ padding: '10px 15px' }}>
               <span className="typing"><i /><i /><i /></span>
             </div>
@@ -187,6 +242,26 @@ export default function Chat() {
       </div>
 
       <PlaceSheet place={place} onClose={() => setPlace(null)} />
+
+      <Sheet open={memoryOpen} onClose={() => setMemoryOpen(false)} title={t('מה הסוכן זוכר')}>
+        <p className="sub" style={{ marginTop: -6, marginBottom: 14 }}>
+          {t('דברים שסיפרתם בשיחה — הסוכן מתחשב בהם בכל המלצה ובכל יום שהוא בונה. כל מי שבטיול רואה אותם.')}
+        </p>
+        {memory.length === 0 ? (
+          <p className="tiny">{t('עדיין כלום. ספרו לסוכן למשל שאתם צמחוניים, או מה גילאי הילדים, והוא יזכור.')}</p>
+        ) : (
+          <ul className="memory-list">
+            {memory.map((m) => (
+              <li key={m.id} className="card row">
+                <span className="grow">{m.text}</span>
+                <button className="icon-btn" onClick={() => forgetMemory(m.id)} aria-label={t('שכח את זה')}>
+                  <X size={15} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Sheet>
     </>
   )
 }
