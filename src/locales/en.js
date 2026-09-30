@@ -581,4 +581,8 @@ export default {
   "עדיין כלום. ספרו לסוכן למשל שאתם צמחוניים, או מה גילאי הילדים, והוא יזכור.": "Nothing yet. Tell the agent, say, that you're vegetarian or how old the kids are, and it will remember.",
   "שכח את זה": "Forget this",
   "שמרתי לזיכרון: {facts}": "Saved to memory: {facts}",
+
+  // Calendar header
+  "בחר חודש": "Choose a month",
+  "בחר שנה": "Choose a year",
 }

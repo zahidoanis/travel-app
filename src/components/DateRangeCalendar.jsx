@@ -26,9 +26,16 @@ const todayISO = () => new Date().toISOString().slice(0, 10)
 export default function DateRangeCalendar({ from, to, min, onChange }) {
   const seed = from || min || todayISO()
   const [view, setView] = useState(() => monthKey(seed))
+  // Which grid is showing. Tapping the month or the year in the header
+  // jumps straight there — a trip eight months out used to mean eight taps
+  // on the arrow.
+  const [mode, setMode] = useState('days') // days | months | years
 
   const { y: minY, m: minM } = monthKey(min || seed)
   const atFloor = view.y === minY && view.m === minM
+  const monthBefore = (y, m) => Boolean(min) && (y < minY || (y === minY && m < minM))
+  const firstYear = min ? minY : view.y - 2
+  const years = Array.from({ length: 12 }, (_, i) => firstYear + i)
 
   const prevMonth = () => {
     if (atFloor) return
@@ -49,7 +56,7 @@ export default function DateRangeCalendar({ from, to, min, onChange }) {
   const daysInMonth = new Date(view.y, view.m + 1, 0).getDate()
   const leading = new Date(view.y, view.m, 1).getDay()
   const today = todayISO()
-  const label = new Date(view.y, view.m, 1).toLocaleDateString(locale, { month: 'long', year: 'numeric' })
+  const monthName = (m) => new Date(2000, m, 1).toLocaleDateString(locale, { month: 'long' })
 
   const cells = [
     ...Array.from({ length: leading }, (_, i) => ({ empty: true, key: `e${i}` })),
@@ -66,17 +73,71 @@ export default function DateRangeCalendar({ from, to, min, onChange }) {
           type="button"
           className="icon-btn"
           onClick={prevMonth}
-          disabled={atFloor}
+          disabled={atFloor || mode !== 'days'}
           aria-label={t('חודש קודם')}
         >
           <ArrowRight size={16} />
         </button>
-        <strong className="cal-title">{label}</strong>
-        <button type="button" className="icon-btn" onClick={nextMonth} aria-label={t('חודש הבא')}>
+        <span className="cal-title">
+          <button
+            type="button"
+            className={`cal-title-btn ${mode === 'months' ? 'on' : ''}`}
+            onClick={() => setMode(mode === 'months' ? 'days' : 'months')}
+            aria-label={t('בחר חודש')}
+          >
+            {monthName(view.m)}
+          </button>
+          <button
+            type="button"
+            className={`cal-title-btn num ${mode === 'years' ? 'on' : ''}`}
+            onClick={() => setMode(mode === 'years' ? 'days' : 'years')}
+            aria-label={t('בחר שנה')}
+          >
+            {view.y}
+          </button>
+        </span>
+        <button type="button" className="icon-btn" onClick={nextMonth} disabled={mode !== 'days'} aria-label={t('חודש הבא')}>
           <ArrowLeft size={16} />
         </button>
       </div>
 
+      {mode === 'months' && (
+        <div className="cal-picker">
+          {Array.from({ length: 12 }, (_, m) => (
+            <button
+              key={m}
+              type="button"
+              className={`cal-pick ${m === view.m ? 'on' : ''}`}
+              disabled={monthBefore(view.y, m)}
+              onClick={() => { setView({ y: view.y, m }); setMode('days') }}
+            >
+              {monthName(m)}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {mode === 'years' && (
+        <div className="cal-picker">
+          {years.map((y) => (
+            <button
+              key={y}
+              type="button"
+              className={`cal-pick num ${y === view.y ? 'on' : ''}`}
+              onClick={() => {
+                // Keep the month, unless that month of this year is already
+                // in the past — then the first month that isn't.
+                setView({ y, m: monthBefore(y, view.m) ? minM : view.m })
+                setMode('months')
+              }}
+            >
+              {y}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {mode === 'days' && (<>
       <div className="cal-grid cal-weekdays">
         {WEEKDAYS.map((w) => (
           <span key={w}>{w}</span>
@@ -118,6 +179,7 @@ export default function DateRangeCalendar({ from, to, min, onChange }) {
           )
         })}
       </div>
+      </>)}
     </div>
   )
 }

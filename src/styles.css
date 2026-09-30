@@ -1105,7 +1105,25 @@ input, select, textarea { font: inherit; color: inherit; }
   display: flex; align-items: center; justify-content: space-between;
   margin-bottom: 10px;
 }
-.cal-title { font-size: 14.5px; font-weight: 600; }
+.cal-title { display: inline-flex; gap: 4px; font-size: 14.5px; font-weight: 600; }
+/* Month and year in the header are buttons — tap to jump instead of paging. */
+.cal-title-btn {
+  padding: 4px 9px; border-radius: var(--r-sm);
+  background: none; border: 1px solid transparent;
+  font: inherit; color: var(--text);
+  text-decoration: underline dotted var(--muted-2); text-underline-offset: 4px;
+}
+.cal-title-btn:hover { background: var(--tint); }
+.cal-title-btn.on { background: var(--accent-soft); border-color: var(--accent); text-decoration: none; }
+.cal-picker { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 4px 0; }
+.cal-pick {
+  padding: 13px 4px; border-radius: var(--r-md);
+  background: var(--tint); border: 1px solid var(--border);
+  font-size: 14px; font-weight: 500; color: var(--text-2);
+}
+.cal-pick:hover { border-color: var(--border-strong); color: var(--text); }
+.cal-pick.on { background: linear-gradient(180deg, var(--ink-2), var(--ink)); color: var(--on-ink, #fff); border-color: transparent; font-weight: 600; }
+.cal-pick:disabled { opacity: 0.4; pointer-events: none; }
 .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
 .cal-weekdays {
   margin-bottom: 4px;
