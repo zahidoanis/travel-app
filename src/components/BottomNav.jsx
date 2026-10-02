@@ -24,12 +24,14 @@ export const TABS = [
 
 export default function BottomNav({ tab, onChange }) {
   return (
-    <nav className="nav" role="tablist" aria-label={t('ניווט ראשי')}>
+    // Navigation between screens, not a tab widget: role="tab" promises
+    // arrow-key movement and a tabpanel per tab, neither of which exists
+    // here, and a screen reader announces the mismatch.
+    <nav className="nav" aria-label={t('ניווט ראשי')}>
       {TABS.map(({ id, label, Icon }) => (
         <button
           key={id}
-          role="tab"
-          aria-selected={tab === id}
+          aria-current={tab === id ? 'page' : undefined}
           className={`nav-item ${tab === id ? 'active' : ''}`}
           onClick={() => onChange(id)}
         >

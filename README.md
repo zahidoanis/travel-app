@@ -437,4 +437,5 @@ SPA (בלעדיו רענון בנתיב פנימי מחזיר 404), cache immuta
 | [FIREBASE-SETUP.md](FIREBASE-SETUP.md) | הקמת פרויקט Firebase — קונסולה, Firestore, Anonymous Auth. |
 | [DEPLOY.md](DEPLOY.md) | פריסה ל-Firebase Hosting, שלב אחר שלב. |
 | [MAPS.md](MAPS.md) | חיבור מפתח Google Maps, אם תרצה אותו במקום האריחים החינמיים. |
+| [LEGAL.md](LEGAL.md) | מדיניות פרטיות, תנאי שימוש, נגישות ואבטחה — ומה חובה לעשות לפני שעולים לאוויר. |
 | [prompts/google-static-maps-design.md](prompts/google-static-maps-design.md) | הנחיות העיצוב המקוריות. |

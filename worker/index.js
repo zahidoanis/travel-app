@@ -52,16 +52,22 @@ const FALLBACK_MODELS = [
   'gemini-3.1-flash-lite',
 ]
 
-/** Only these origins may call the proxy. Set ALLOWED_ORIGINS in wrangler.toml. */
-function corsHeaders(request, env) {
+/** Whether the request names an origin on the allowlist (ALLOWED_ORIGINS in wrangler.toml). */
+function originAllowed(request, env) {
   const origin = request.headers.get('Origin') ?? ''
   const allowed = (env.ALLOWED_ORIGINS ?? '')
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean)
 
-  // With nothing configured, fall back to same-origin only (no CORS headers).
-  const ok = allowed.length === 0 ? false : allowed.includes(origin)
+  // With nothing configured, nobody is allowed.
+  return allowed.length === 0 ? false : allowed.includes(origin)
+}
+
+/** Only these origins may call the proxy. Set ALLOWED_ORIGINS in wrangler.toml. */
+function corsHeaders(request, env) {
+  const origin = request.headers.get('Origin') ?? ''
+  const ok = originAllowed(request, env)
 
   return {
     ...(ok ? { 'Access-Control-Allow-Origin': origin } : {}),
@@ -86,6 +92,23 @@ export default {
     // starts. Doing the lookup here satisfies their policy and gives us one
     // place to hold the contact address they ask for.
     const url = new URL(request.url)
+
+    // Everything that spends a quota — the model, the geocoders, the map
+    // import — is refused outright unless the request names an allowed
+    // origin. The CORS headers above never did this: they only stop a
+    // browser on another site from *reading* the answer. The request itself
+    // still ran, so any script that could reach this URL was spending the
+    // Gemini quota, and a call with no Origin at all (curl, a server) was
+    // never checked in the first place. An Origin header can be forged
+    // outside a browser, so this is a raised bar rather than a lock — but it
+    // is what the allowlist was always described as doing. The liveness
+    // probe below stays open: it spends nothing and reveals nothing.
+    const spendsQuota =
+      request.method === 'POST' || url.pathname === '/geocode' || url.pathname === '/mymap'
+    if (spendsQuota && !originAllowed(request, env)) {
+      return json({ error: { code: 403, message: 'origin not allowed' } }, 403, cors)
+    }
+
     if (request.method === 'GET' && url.pathname === '/geocode') {
       const q = url.searchParams.get('q')
       if (!q) return json({ error: { message: 'missing q' } }, 400, cors)

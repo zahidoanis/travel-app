@@ -16,6 +16,28 @@
       ],
       "headers": [
         {
+          "comment": "Security headers on everything the site itself serves. The source excludes /__/ — Firebase's own reserved pages, which include the Google sign-in popup and iframe — so a policy written for this app can never be applied to pages it does not control. script-src is the part that matters: only this site's own files and Google's sign-in loader may run as code, so text that reaches the page from the AI, from OpenStreetMap or from another member of a trip cannot become a script. frame-ancestors lists the site's own four addresses because the sign-in iframe lives on the .firebaseapp.com one. If sign-in or the map ever breaks after a change here, deleting the Content-Security-Policy entry restores the old behaviour.",
+          "source": "!/__/**",
+          "headers": [
+            {
+              "key": "Content-Security-Policy",
+              "value": "default-src 'self'; script-src 'self' https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https:; frame-src 'self' https://*.firebaseapp.com https://accounts.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self' https://tripai-app.web.app https://tripai-app.firebaseapp.com https://travel-ai-6de47.web.app https://travel-ai-6de47.firebaseapp.com"
+            },
+            {
+              "key": "X-Content-Type-Options",
+              "value": "nosniff"
+            },
+            {
+              "key": "Referrer-Policy",
+              "value": "strict-origin-when-cross-origin"
+            },
+            {
+              "key": "Permissions-Policy",
+              "value": "geolocation=(self), microphone=(self), camera=(), payment=(), usb=(), bluetooth=()"
+            }
+          ]
+        },
+        {
           "comment": "Hashed filenames, so the content behind a URL never changes.",
           "source": "/assets/**",
           "headers": [
@@ -70,6 +92,28 @@
         }
       ],
       "headers": [
+        {
+          "comment": "Security headers on everything the site itself serves. The source excludes /__/ — Firebase's own reserved pages, which include the Google sign-in popup and iframe — so a policy written for this app can never be applied to pages it does not control. script-src is the part that matters: only this site's own files and Google's sign-in loader may run as code, so text that reaches the page from the AI, from OpenStreetMap or from another member of a trip cannot become a script. frame-ancestors lists the site's own four addresses because the sign-in iframe lives on the .firebaseapp.com one. If sign-in or the map ever breaks after a change here, deleting the Content-Security-Policy entry restores the old behaviour.",
+          "source": "!/__/**",
+          "headers": [
+            {
+              "key": "Content-Security-Policy",
+              "value": "default-src 'self'; script-src 'self' https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https:; frame-src 'self' https://*.firebaseapp.com https://accounts.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self' https://tripai-app.web.app https://tripai-app.firebaseapp.com https://travel-ai-6de47.web.app https://travel-ai-6de47.firebaseapp.com"
+            },
+            {
+              "key": "X-Content-Type-Options",
+              "value": "nosniff"
+            },
+            {
+              "key": "Referrer-Policy",
+              "value": "strict-origin-when-cross-origin"
+            },
+            {
+              "key": "Permissions-Policy",
+              "value": "geolocation=(self), microphone=(self), camera=(), payment=(), usb=(), bluetooth=()"
+            }
+          ]
+        },
         {
           "comment": "Hashed filenames, so the content behind a URL never changes.",
           "source": "/assets/**",

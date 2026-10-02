@@ -585,4 +585,25 @@ export default {
   // Calendar header
   "בחר חודש": "Choose a month",
   "בחר שנה": "Choose a year",
+
+  // Legal pages, consent and account deletion. The documents themselves are
+  // not here — each is a whole file per language under src/legal/.
+  "מדיניות פרטיות": "Privacy Policy",
+  "תנאי שימוש": "Terms of Use",
+  "הצהרת נגישות": "Accessibility Statement",
+  "מסמכים משפטיים": "Legal documents",
+  "חזרה לאפליקציה": "Back to the app",
+  "עודכן לאחרונה: {date}": "Last updated: {date}",
+  "דלג לתוכן הראשי": "Skip to main content",
+  "בהמשך אתם מאשרים את": "By continuing you accept the",
+  "תנאי השימוש": "Terms of Use",
+  "ואת": "and the",
+  "מדיניות הפרטיות": "Privacy Policy",
+  "מחיקת החשבון וכל המידע": "Delete account and all data",
+  "מחיקת החשבון": "Delete account",
+  "הפעולה מוחקת את פרטי החשבון, את הטיולים שרק אתם חברים בהם ואת כל מה שנשמר במכשיר הזה.": "This deletes your account details, the trips only you belong to, and everything stored on this device.",
+  "לא ניתן לבטל אותה.": "It cannot be undone.",
+  "טיולים משותפים יישארו אצל שאר החברים, בלעדיכם.": "Shared trips stay with the other members, without you.",
+  "המחיקה נכשלה. בדקו את החיבור לאינטרנט ונסו שוב.": "Deleting failed. Check your connection and try again.",
+  "המידע נמחק, אבל מחיקת החשבון עצמו דורשת אישור מחדש מול Google. נסו שוב.": "Your data was deleted, but deleting the account itself needs you to confirm with Google again. Please try once more.",
 }

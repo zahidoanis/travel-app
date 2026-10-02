@@ -22,6 +22,7 @@
 
 import { firebase, hasFirebase } from './firebase'
 import { record, breadcrumb, watchdog } from './telemetry'
+import { DIAGNOSTICS_RETENTION_DAYS } from '../legal/operator'
 
 const LOCAL_PREFIX = 'tripai.local.'
 
@@ -50,6 +51,20 @@ function localSet(key, value) {
 function localRemove(key) {
   try {
     localStorage.removeItem(LOCAL_PREFIX + key)
+  } catch {
+    /* quota or private mode */
+  }
+}
+
+/** Removes every local key starting with `prefix`. */
+function localRemovePrefix(prefix) {
+  try {
+    const keys = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key?.startsWith(LOCAL_PREFIX + prefix)) keys.push(key)
+    }
+    for (const key of keys) localStorage.removeItem(key)
   } catch {
     /* quota or private mode */
   }
@@ -226,21 +241,142 @@ export function deleteTrip(tripId) {
 
   return guarded(
     'deleteTrip',
-    async ({ db, FS }) => {
-      // Firestore does not cascade-delete subcollections when the parent
-      // document goes — the day documents underneath would just sit there
-      // orphaned, readable to nobody, forever. Best-effort cleanup first.
-      const routesSnap = await FS.getDocs(FS.collection(db, 'trips', tripId, 'routes'))
-      await Promise.all(routesSnap.docs.map((d) => FS.deleteDoc(d.ref)))
-      await FS.deleteDoc(FS.doc(db, 'trips', tripId))
+    async ({ db, uid, FS }) => {
+      const snap = await FS.getDoc(FS.doc(db, 'trips', tripId))
+      const data = snap.exists() ? snap.data() : {}
+      // Checked here as well as in the rules: the rules only stop the trip
+      // document itself from going, and by then a non-owner's call would
+      // already have emptied everything underneath it.
+      if (snap.exists() && data.ownerId !== uid) throw new Error('only the owner can delete a trip')
+      await purgeTrip(db, FS, tripId, data)
       return true
     },
     () => {
-      localRemove(`trip.${tripId}`)
-      localRemove(`routes.${tripId}`)
+      // Routes and ticket photos are keyed under the trip id too.
+      localRemovePrefix(`trip.${tripId}`)
+      localRemovePrefix(`routes.${tripId}`)
+      localRemovePrefix(`ticket.${tripId}.`)
       return false
     }
   )
+}
+
+/**
+ * Removes a trip and everything stored underneath it.
+ *
+ * Firestore does not cascade-delete subcollections when the parent document
+ * goes — whatever is underneath just sits there orphaned, readable to nobody,
+ * forever. That used to be true of everything except a `routes` collection
+ * the app no longer writes to: the real day plans (under each family), the
+ * ticket photos, the activity feed and every member's last shared location
+ * all outlived the trip they belonged to. A boarding pass that survives
+ * "delete permanently" is exactly what the privacy policy says cannot happen.
+ *
+ * The subcollections go first, while the caller is still a member and the
+ * rules still let them be read; the trip document goes last.
+ */
+async function purgeTrip(db, FS, tripId, data) {
+  const paths = [
+    ['routes'], // pre-family layout — older trips may still have these
+    ['tickets'],
+    ['activity'],
+    ['presence'],
+    // A family is a path segment, not a document, so it cannot be listed —
+    // the ids come from the trip's own parties.
+    ...(data.parties ?? []).filter((p) => p?.id).map((p) => ['families', p.id, 'routes']),
+  ]
+  for (const path of paths) {
+    const snap = await FS.getDocs(FS.collection(db, 'trips', tripId, ...path))
+    await Promise.all(snap.docs.map((d) => FS.deleteDoc(d.ref)))
+  }
+  await FS.deleteDoc(FS.doc(db, 'trips', tripId))
+}
+
+/**
+ * Erases what this account has stored: the "delete my account" half that
+ * lives in Firestore (the sign-in itself is removed by deleteAuthAccount in
+ * firebase.js, afterwards — these writes need it).
+ *
+ *   - a trip nobody else is on is deleted outright, with everything in it;
+ *   - a shared trip stays with the people still on it. This account is
+ *     removed from its member list and its last shared location is deleted,
+ *     and if it was the owner, ownership passes to another member so the
+ *     trip does not end up with nobody able to delete it;
+ *   - the profile document is deleted.
+ *
+ * Crash-log entries are not touched: the rules make that collection
+ * write-only from the browser. They expire on their own (see
+ * pushDiagnostics) and the privacy policy says so.
+ *
+ * Resolves true when everything went through. False means either there is
+ * no backend (the caller clears the device either way) or a write failed
+ * part-way — it is safe to run again, each step skips what is already gone.
+ */
+export function deleteAccountData() {
+  breadcrumb('data', 'deleteAccountData')
+
+  return guarded(
+    'deleteAccountData',
+    async ({ db, uid, FS }) => {
+      // listTrips() caps at 30; an account on more than that takes a few
+      // passes. Bounded, so a trip that somehow keeps matching cannot spin.
+      for (let pass = 0; pass < 10; pass++) {
+        const snap = await FS.getDocs(
+          FS.query(
+            FS.collection(db, 'trips'),
+            FS.where('memberIds', 'array-contains', uid),
+            FS.limit(30)
+          )
+        )
+        if (snap.empty) break
+
+        for (const doc of snap.docs) {
+          const data = doc.data()
+          const others = (data.memberIds ?? []).filter((id) => id !== uid)
+
+          if (others.length === 0) {
+            // Deleting is owner-only in the rules. A sole member who is not
+            // the owner (the owner left earlier) takes ownership first.
+            if (data.ownerId !== uid) await FS.updateDoc(doc.ref, { ownerId: uid })
+            await purgeTrip(db, FS, doc.id, data)
+            continue
+          }
+
+          await FS.deleteDoc(FS.doc(db, 'trips', doc.id, 'presence', uid))
+          await FS.updateDoc(doc.ref, {
+            memberIds: FS.arrayRemove(uid),
+            [`members.${uid}`]: FS.deleteField(),
+            ...(data.ownerId === uid
+              ? { ownerId: others[0], [`members.${others[0]}`]: 'owner' }
+              : {}),
+            updatedAt: FS.serverTimestamp(),
+          })
+        }
+      }
+
+      await FS.deleteDoc(FS.doc(db, 'users', uid))
+      return true
+    },
+    () => false
+  )
+}
+
+/**
+ * Everything this app keeps in the browser's own storage, gone — except the
+ * interface language, which says nothing about anyone and would otherwise
+ * flip a Hebrew reader to English on the reload that follows.
+ */
+export function clearLocalData() {
+  try {
+    const keys = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key?.startsWith('tripai.') && key !== 'tripai.lang') keys.push(key)
+    }
+    for (const key of keys) localStorage.removeItem(key)
+  } catch {
+    /* private mode — there was nothing stored to begin with */
+  }
 }
 
 /** Every trip this account belongs to, newest first. */
@@ -613,9 +749,15 @@ export async function pushDiagnostics(batch) {
   const { db, uid, FS } = fb
   const writer = FS.writeBatch(db)
 
+  // The date after which this entry may no longer be kept. Nothing in the
+  // browser can delete from this collection (the rules forbid it), so
+  // retention is enforced by a Firestore TTL policy on this field — see
+  // LEGAL.md for the one-time console step that turns it on.
+  const expireAt = FS.Timestamp.fromMillis(Date.now() + DIAGNOSTICS_RETENTION_DAYS * 86400000)
+
   for (const entry of batch) {
     const ref = FS.doc(FS.collection(db, 'diagnostics', uid, 'events'))
-    writer.set(ref, { ...entry, uid, receivedAt: FS.serverTimestamp() })
+    writer.set(ref, { ...entry, uid, receivedAt: FS.serverTimestamp(), expireAt })
   }
 
   await writer.commit()

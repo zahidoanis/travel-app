@@ -811,7 +811,9 @@ export function TripProvider({ children }) {
     const next = !sharingLocation
     setSharingLocation(next)
     localStorage.setItem(sharingKey, next ? '1' : '0')
-    if (!next) updatePresence(trip.id, user?.uid, { active: false })
+    // Switching it off also wipes the last position — "stopped sharing"
+    // should not leave a pin's worth of coordinates sitting in the trip.
+    if (!next) updatePresence(trip.id, user?.uid, { active: false, lat: null, lng: null })
   }
 
   useEffect(() => {

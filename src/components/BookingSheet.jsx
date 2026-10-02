@@ -98,8 +98,11 @@ export default function BookingSheet({ open, place, kind = 'food', onClose }) {
               </a>
             )}
 
-            {details.website && (
-              <a className="contact-row" href={details.website} target="_blank" rel="noreferrer">
+            {/* The address comes from OpenStreetMap, which anyone can edit —
+                only a real web address may become a link, never a
+                javascript: one. */}
+            {/^https?:\/\//i.test(details.website ?? '') && (
+              <a className="contact-row" href={details.website} target="_blank" rel="noopener noreferrer">
                 <span className="contact-icon"><Globe size={15} /></span>
                 <span className="grow">
                   <strong>{t('האתר הרשמי')}</strong>

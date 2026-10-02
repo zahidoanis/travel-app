@@ -33,14 +33,18 @@
   --accent:        #A8703F;
   --accent-2:      #B98150;
   --accent-soft:   rgba(168, 112, 63, 0.10);
-  --lav:           #8C6A32;
+  /* Text-on-cream bronze. #8C6A32 was 4.35:1 on a tinted badge — just under
+     the 4.5:1 small text needs; this is 5.0:1 on the darkest ground it sits on. */
+  --lav:           #7E5F2C;
   --amber:         #9A6B12;
   --gold:          #8C6A32;
   --gold-soft:     rgba(201, 164, 92, 0.14);
 
   --text:          #2B2124;
   --text-2:        #54474A;
-  --muted:         #86767A;
+  /* 5.0:1 on the cream ground, 4.6:1 on the sunken wells. The previous
+     #86767A was 4.0:1 — under the 4.5:1 small text needs (WCAG AA). */
+  --muted:         #75666A;
   --muted-2:       #B3A6A2;
 
   --shadow-sm:     0 1px 2px rgba(60, 40, 20, 0.06);
@@ -62,6 +66,7 @@
 
 [data-theme="cream"] .h1,
 [data-theme="cream"] .h2,
+[data-theme="cream"] .legal-doc h1,
 [data-theme="cream"] .hero-title,
 [data-theme="cream"] .wordmark {
   font-family: "Frank Ruhl Libre", "Heebo", serif;
@@ -222,3 +227,9 @@
 [data-theme="cream"] .wordmark-rule { background: linear-gradient(90deg, transparent, rgba(201, 164, 92, 0.7), transparent); }
 [data-theme="cream"] .welcome-feature-icon { background: var(--gold-soft); border-color: rgba(201, 164, 92, 0.35); color: #8C6A32; }
 [data-theme="cream"] .welcome-cta { background: linear-gradient(0deg, var(--bg) 62%, rgba(251, 246, 238, 0)); }
+
+/* Who owes whom, on the Finance screen. The base rule's pastel pink and mint
+   were picked for a dark ground; on cream they came out at 1.6:1 and 1.4:1 —
+   the one number on that screen people need was close to invisible. */
+[data-theme="cream"] .balance.owe  { color: #B32E4A; }
+[data-theme="cream"] .balance.owed { color: #0B7A50; }

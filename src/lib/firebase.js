@@ -202,6 +202,31 @@ export async function signInWithGoogle() {
   }
 }
 
+/**
+ * Deletes the sign-in itself — the last step of "delete my account", after
+ * deleteAccountData() in db.js has removed what the account stored.
+ *
+ * Firebase refuses to delete an account whose sign-in is not recent. For a
+ * Google account that means confirming with Google once more and trying
+ * again; an anonymous account has nothing to confirm with, and its session
+ * is always the one that created it.
+ */
+export async function deleteAuthAccount() {
+  const fb = await firebase()
+  if (!fb) return
+  const { AUTH, auth } = fb
+  const user = auth.currentUser
+  if (!user) return
+
+  try {
+    await AUTH.deleteUser(user)
+  } catch (err) {
+    if (err?.code !== 'auth/requires-recent-login' || user.isAnonymous) throw err
+    await AUTH.reauthenticateWithPopup(user, new AUTH.GoogleAuthProvider())
+    await AUTH.deleteUser(user)
+  }
+}
+
 /** Signs out and drops back to a fresh anonymous session. */
 export async function signOutUser() {
   const fb = await firebase()

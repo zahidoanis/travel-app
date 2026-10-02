@@ -2,14 +2,16 @@ import { useState } from 'react'
 import Sheet from './Sheet'
 import { Check, Users, Info, X, Plus, Pencil, Share } from './Icons'
 import { useTrip } from '../TripProvider'
-import { joinTrip, claimOwnership } from '../lib/db'
-import { signInWithGoogle, signOutUser, hasFirebase } from '../lib/firebase'
+import { joinTrip, claimOwnership, deleteAccountData, clearLocalData } from '../lib/db'
+import { signInWithGoogle, signOutUser, deleteAuthAccount, hasFirebase } from '../lib/firebase'
 import { breadcrumb } from '../lib/telemetry'
 import { initials } from '../lib/text'
 import { inviteUrl, shareTrip } from '../lib/share'
 import { placeNames } from '../lib/placeNames'
 import { t } from '../i18n'
 import LangToggle from './LangToggle'
+import LegalLinks from './LegalLinks'
+import ConsentNote from './ConsentNote'
 
 /**
  * Saving the trip to an account.
@@ -30,6 +32,10 @@ export default function AccountSheet({ open, onClose }) {
   const [deletingTrip, setDeletingTrip] = useState(null)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState(null)
+  // Deleting the whole account — its own confirmation, same reason.
+  const [erasing, setErasing] = useState(false)
+  const [eraseBusy, setEraseBusy] = useState(false)
+  const [eraseError, setEraseError] = useState(null)
 
   const connect = async () => {
     setBusy(true)
@@ -71,6 +77,34 @@ export default function AccountSheet({ open, onClose }) {
   }
 
   const signedIn = user && !user.anonymous
+
+  // Data first, sign-in last: the Firestore deletes need the account that is
+  // about to go. If the data half fails nothing else is touched, so trying
+  // again picks up where it stopped; if only the sign-in half fails (Google
+  // wanted a fresh confirmation and the popup was dismissed) the data is
+  // already gone and a second attempt just finishes the job.
+  const eraseAccount = async () => {
+    setEraseBusy(true)
+    setEraseError(null)
+    try {
+      const ok = await deleteAccountData()
+      if (!ok && hasFirebase) throw new Error(t('המחיקה נכשלה. בדקו את החיבור לאינטרנט ונסו שוב.'))
+      await deleteAuthAccount()
+    } catch (err) {
+      setEraseBusy(false)
+      setEraseError(
+        err?.code?.startsWith?.('auth/')
+          ? t('המידע נמחק, אבל מחיקת החשבון עצמו דורשת אישור מחדש מול Google. נסו שוב.')
+          : err.message
+      )
+      return
+    }
+    breadcrumb('lifecycle', 'account deleted')
+    clearLocalData()
+    // A full reload, not a state reset: every screen holds something of the
+    // account that no longer exists, and the app starts clean from here.
+    location.replace('/')
+  }
 
   const planAnother = () => {
     startNewTrip()
@@ -165,6 +199,7 @@ export default function AccountSheet({ open, onClose }) {
               {t('שום דבר ממה שכבר תכננת לא יאבד — החשבון הנוכחי משודרג, לא מוחלף. אנחנו לא מקבלים גישה לגוגל שלך מעבר לשם ולכתובת המייל.')}
             </p>
           </div>
+          <ConsentNote style={{ marginTop: 10 }} />
 
           <div style={{ borderTop: '1px solid var(--border)', marginTop: 20, paddingTop: 18 }}>
             <button className="btn btn-ghost btn-block" onClick={editTrip} disabled={!trip} style={{ marginBottom: 10 }}>
@@ -282,6 +317,41 @@ export default function AccountSheet({ open, onClose }) {
 
       <div style={{ marginTop: 22, display: 'flex', justifyContent: 'center' }}>
         <LangToggle />
+      </div>
+
+      <LegalLinks className="sheet-legal" />
+      <button className="erase-link" onClick={() => { setEraseError(null); setErasing(true) }}>
+        {t('מחיקת החשבון וכל המידע')}
+      </button>
+    </Sheet>
+
+    <Sheet
+      open={erasing}
+      title={t('מחיקת החשבון')}
+      onClose={() => { if (!eraseBusy) setErasing(false) }}
+    >
+      <p className="sub" style={{ marginBottom: 12 }}>
+        {t('הפעולה מוחקת את פרטי החשבון, את הטיולים שרק אתם חברים בהם ואת כל מה שנשמר במכשיר הזה.')}{' '}
+        <strong>{t('לא ניתן לבטל אותה.')}</strong>
+      </p>
+      <p className="tiny" style={{ marginBottom: 20 }}>
+        {t('טיולים משותפים יישארו אצל שאר החברים, בלעדיכם.')}
+      </p>
+      {eraseError && (
+        <p className="tiny" role="alert" style={{ color: 'var(--rose)', marginBottom: 14 }}>{eraseError}</p>
+      )}
+      <div className="row" style={{ gap: 9 }}>
+        <button className="btn btn-ghost btn-block grow" onClick={() => setErasing(false)} disabled={eraseBusy}>
+          {t('ביטול')}
+        </button>
+        <button
+          className="btn btn-block grow"
+          style={{ background: 'var(--rose)', color: '#fff' }}
+          onClick={eraseAccount}
+          disabled={eraseBusy}
+        >
+          {eraseBusy ? <span className="typing"><i /><i /><i /></span> : t('מחק לצמיתות')}
+        </button>
       </div>
     </Sheet>
 

@@ -341,7 +341,9 @@ input, select, textarea { font: inherit; color: inherit; }
 }
 .nav-item {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 4px; color: var(--muted-2); font-size: 10px; font-weight: 500;
+  /* --muted, not --muted-2: these labels are text someone has to read, and
+     --muted-2 is around 2:1 against the bar. */
+  gap: 4px; color: var(--muted); font-size: 10px; font-weight: 500;
   transition: color 0.2s var(--ease);
   height: 100%;
 }
@@ -755,7 +757,7 @@ input, select, textarea { font: inherit; color: inherit; }
   flex: 1; min-width: 0; background: none; border: none; outline: none;
   font-size: 14px; padding-inline: 4px;
 }
-.chat-bar input::placeholder { color: var(--muted-2); }
+.chat-bar input::placeholder { color: var(--muted); }
 .send {
   width: 36px; height: 36px; border-radius: 50%; flex: none;
   display: grid; place-items: center; color: #fff;
@@ -927,7 +929,7 @@ input, select, textarea { font: inherit; color: inherit; }
 .ai-status {
   align-self: center;
   display: inline-flex; align-items: center; gap: 6px;
-  font-size: 10.5px; font-weight: 500; color: var(--muted-2);
+  font-size: 10.5px; font-weight: 500; color: var(--muted);
   padding: 4px 12px; border-radius: var(--r-pill);
   background: var(--tint); border: 1px solid var(--border);
 }
@@ -1050,7 +1052,7 @@ input, select, textarea { font: inherit; color: inherit; }
   background: none; border: none; outline: none;
   font-size: 15px; color: var(--text);
 }
-.field-bare::placeholder { color: var(--muted-2); }
+.field-bare::placeholder { color: var(--muted); }
 
 .field-row {
   border-radius: var(--r-md); padding: 13px 14px;
@@ -1889,4 +1891,110 @@ a.contact-row:hover { background: var(--tint-2); color: var(--text); }
   }
   .summary-screen { color: #000; }
   .summary-day { break-inside: avoid; }
+}
+
+/* ---------- Legal pages (privacy, terms, accessibility) ---------- */
+
+/* A reading page, outside the app shell: its own scroll, one wide column.
+   Body links are underlined and text-coloured rather than accent-coloured —
+   the accent is too light to carry running text against the page. */
+.legal {
+  --legal-gutter: max(18px, calc((100% - 720px) / 2));
+  height: 100dvh; overflow-y: auto; overscroll-behavior: contain;
+  background: var(--bg); color: var(--text);
+}
+.legal-bar {
+  position: sticky; top: 0; z-index: 5;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: calc(12px + env(safe-area-inset-top)) var(--legal-gutter) 12px;
+  background: var(--bg); border-bottom: 1px solid var(--border);
+}
+.legal-tabs {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  padding: 20px var(--legal-gutter) 0;
+}
+.legal-tabs a {
+  padding: 8px 15px; border-radius: var(--r-pill);
+  font-size: 13.5px; font-weight: 500; text-decoration: none;
+  color: var(--text-2); background: var(--card); border: 1px solid var(--border-strong);
+  transition: background 0.16s var(--ease), color 0.16s;
+}
+.legal-tabs a:hover { background: var(--tint-2); }
+.legal-tabs a.on { background: var(--text); color: var(--bg); border-color: transparent; }
+
+.legal-doc {
+  max-width: 720px; margin-inline: auto;
+  padding: 28px 18px calc(72px + env(safe-area-inset-bottom));
+  font-size: 15.5px; line-height: 1.8; color: var(--text-2);
+}
+.legal-doc h1 {
+  margin: 0 0 6px; font-size: clamp(28px, 6vw, 36px); line-height: 1.2;
+  letter-spacing: -0.5px; color: var(--text); outline: none;
+}
+.legal-updated { margin: 0 0 28px; font-size: 13px; color: var(--muted); }
+.legal-doc h2 { margin: 36px 0 10px; font-size: 18.5px; line-height: 1.4; color: var(--text); }
+.legal-doc h3 { margin: 22px 0 8px; font-size: 15.5px; color: var(--text); }
+.legal-doc p { margin: 0 0 14px; }
+.legal-doc ul { margin: 0 0 14px; padding-inline-start: 22px; }
+.legal-doc li { margin-bottom: 8px; }
+.legal-doc strong { color: var(--text); font-weight: 600; }
+.legal-doc a { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+.legal-doc a:hover { text-decoration-thickness: 2px; }
+.legal-loading { padding-block: 24px; }
+.legal-fineprint {
+  margin-top: 36px; padding-top: 16px; border-top: 1px solid var(--border);
+  font-size: 13px; color: var(--muted);
+}
+/* An operator detail that was never filled in (see legal/operator.js).
+   Loud on purpose: this must not survive to a live site unnoticed. */
+.legal-missing {
+  padding: 1px 7px; border-radius: 6px;
+  background: #FDE68A; color: #5B2A00; font-weight: 600;
+}
+
+/* The row of three document links under the welcome screen, the account
+   sheet and the desktop rail. */
+.legal-links {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 14px;
+  font-size: 12px;
+}
+.legal-links a, .consent-note a {
+  color: inherit; text-decoration: underline; text-underline-offset: 3px;
+}
+.legal-links a { color: var(--muted); padding-block: 4px; }
+.legal-links a:hover { color: var(--text); }
+.welcome-consent { text-align: center; margin: 14px 0 0; }
+.welcome-legal { margin-top: 6px; }
+.sheet-legal { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
+.rail-legal {
+  margin-top: auto; padding: 18px 12px 0;
+  flex-direction: column; align-items: flex-start; gap: 0;
+}
+.erase-link {
+  display: block; margin: 12px auto 0; padding: 4px 8px;
+  font-size: 12px; color: var(--muted);
+  text-decoration: underline; text-underline-offset: 3px;
+}
+.erase-link:hover { color: var(--rose); }
+
+/* ---------- Accessibility ---------- */
+
+/* First thing in the tab order, invisible until it is focused. */
+.skip-link {
+  position: absolute; z-index: 100;
+  inset-block-start: 8px; inset-inline-start: 8px;
+  padding: 10px 16px; border-radius: var(--r-sm);
+  background: var(--text); color: var(--bg);
+  font-size: 14px; font-weight: 600; text-decoration: none;
+  transform: translateY(-220%);
+}
+.skip-link:focus { transform: none; }
+
+/* A sheet takes focus itself when it opens (Sheet.jsx); the ring belongs on
+   the controls inside it, not around the whole panel. */
+.sheet:focus { outline: none; }
+
+@media print {
+  .legal { height: auto; overflow: visible; }
+  .legal-bar, .legal-tabs, .skip-link { display: none !important; }
 }

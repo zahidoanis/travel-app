@@ -2,6 +2,8 @@ import { Sparkles, MapPin, Users, Wallet, ArrowLeft } from '../components/Icons'
 import { hasFirebase } from '../lib/firebase'
 import { t } from '../i18n'
 import LangToggle from '../components/LangToggle'
+import ConsentNote from '../components/ConsentNote'
+import LegalLinks from '../components/LegalLinks'
 
 const FEATURES = [
   { Icon: Sparkles, title: t('מסלול שנבנה בשבילך'), sub: t('סוכן AI מתכנן כל יום לפי הסגנון והתקציב שלך') },
@@ -18,7 +20,9 @@ export default function Welcome({ onStart, onSignIn }) {
       <div className="welcome-grid" aria-hidden="true" />
       <LangToggle className="welcome-lang" />
 
-      <div className="welcome-inner">
+      {/* Focusable because it scrolls: on a short screen the feature list
+          runs past the fold, and a keyboard has no other way to reach it. */}
+      <div className="welcome-inner" tabIndex={0}>
         <div className="welcome-mark" aria-hidden="true">
           <Sparkles size={26} />
         </div>
@@ -66,6 +70,8 @@ export default function Welcome({ onStart, onSignIn }) {
             {t('כבר יש לך טיול? התחבר עם Google')}
           </button>
         )}
+        <ConsentNote className="welcome-consent" />
+        <LegalLinks className="welcome-legal" />
       </div>
     </div>
   )

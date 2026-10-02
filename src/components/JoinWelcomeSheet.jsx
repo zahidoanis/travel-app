@@ -4,6 +4,7 @@ import { Route, Wallet, Users, Check, Plus } from './Icons'
 import { useTrip } from '../TripProvider'
 import { TIME_OPTIONS } from '../data'
 import DateRangeCalendar from './DateRangeCalendar'
+import ConsentNote from './ConsentNote'
 import { t, tn } from '../i18n'
 
 /**
@@ -70,6 +71,9 @@ export default function JoinWelcomeSheet() {
         <p className="sub" style={{ marginBottom: 16 }}>
           {t('הצטרפתם לטיול ל{city}! נשאר רק לדעת עם מי אנחנו.', { city: trip.city })}
         </p>
+        {/* Someone who arrives by invite link never sees the welcome screen,
+            so this is the only place they are shown the terms at all. */}
+        <ConsentNote style={{ marginBottom: 14 }} />
         <div className="col" style={{ gap: 8, marginBottom: 16 }}>
           {families.map((f) => (
             <button

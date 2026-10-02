@@ -19,6 +19,9 @@ import { PARTY_COLORS } from './data'
 import AccountSheet from './components/AccountSheet'
 import JoinWelcomeSheet from './components/JoinWelcomeSheet'
 import NotificationsSheet from './components/NotificationsSheet'
+import LegalLinks from './components/LegalLinks'
+import Legal from './screens/Legal'
+import { useLegalRoute } from './legal/route'
 import { initTelemetry, breadcrumb, attachSink } from './lib/telemetry'
 import { hasFirebase } from './lib/firebase'
 import { pushDiagnostics } from './lib/db'
@@ -27,15 +30,44 @@ import { t, dir } from './i18n'
 
 initTelemetry()
 
-// Mirror the crash log to Firestore once a project is configured.
-if (hasFirebase) attachSink(pushDiagnostics)
-
 export default function App() {
+  const legalDoc = useLegalRoute()
+
+  // Someone who lands straight on a legal page gets that page and nothing
+  // else: no Firebase connection, no anonymous account minted for a person
+  // who only came to read the privacy policy. The app proper starts the
+  // first time the address leaves the legal pages — and from then on stays
+  // mounted underneath them, so opening the terms from inside a trip and
+  // coming back loses nothing that was on screen.
+  const [booted, setBooted] = useState(legalDoc === null)
+  useEffect(() => {
+    if (legalDoc === null) setBooted(true)
+  }, [legalDoc])
+
+  // Mirror the crash log to Firestore once a project is configured. Tied to
+  // the same moment for the same reason: the sink connects to Firebase.
+  useEffect(() => {
+    if (booted && hasFirebase) attachSink(pushDiagnostics)
+  }, [booted])
+
   return (
-    <TripProvider>
-      <Shell />
-    </TripProvider>
+    <>
+      {booted && (
+        <div style={{ display: legalDoc ? 'none' : 'contents' }}>
+          <TripProvider>
+            <Shell />
+          </TripProvider>
+        </div>
+      )}
+      {legalDoc && <Legal doc={legalDoc} />}
+    </>
   )
+}
+
+/** Moves keyboard focus past the navigation, to the first control on screen. */
+function skipToMain(e) {
+  e.preventDefault()
+  document.getElementById('main')?.querySelector('button, a[href], input, select, textarea, [tabindex]')?.focus()
 }
 
 function Shell() {
@@ -189,6 +221,7 @@ function Shell() {
           </ErrorBoundary>
         ) : (
           <>
+            <a className="skip-link" href="#main" onClick={skipToMain}>{t('דלג לתוכן הראשי')}</a>
             <aside className="rail" aria-label={t('ניווט ראשי')}>
               <span className="rail-brand">TripAI</span>
               {[...TABS, ...RAIL_ONLY].map(({ id, label, Icon }) => (
@@ -214,9 +247,10 @@ function Shell() {
                 </span>
                 <span>{user && !user.anonymous ? (user.name?.split(' ')[0] || t('החשבון')) : t('שמור טיול')}</span>
               </button>
+              <LegalLinks className="rail-legal" />
             </aside>
 
-            <div className="stage">
+            <main className="stage" id="main">
               <ErrorBoundary scope={tab} key={tab}>
                 {tab === 'home' && (
                   <Home
@@ -239,7 +273,7 @@ function Shell() {
                 {tab === 'hotels' && <Hotels />}
                 {tab === 'summary' && <Summary />}
               </ErrorBoundary>
-            </div>
+            </main>
 
             <BottomNav tab={tab} onChange={go} />
           </>
