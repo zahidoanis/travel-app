@@ -10,12 +10,19 @@ import { navigateUrl } from '../lib/staticMap'
 import { breadcrumb, watchdog } from '../lib/telemetry'
 import { t } from '../i18n'
 
+// The screen remounts on every visit to its tab, and each visit used to ask
+// the AI for six new restaurants — one request from a daily free quota of a
+// few hundred, spent on opening a tab. Kept for the session; searching again
+// on purpose still asks afresh.
+const suggestionCache = new Map()
+const cacheKey = (trip, cuisines) => `${trip?.id}|${[...cuisines].sort().join(',')}`
+
 export default function Restaurants() {
   const { trip, profile, activeDay, addStop } = useTrip()
 
   // Seeded from the onboarding answer, then filterable here.
   const [picked, setPicked] = useState(() => profile?.cuisines ?? ['local'])
-  const [list, setList] = useState([])
+  const [list, setList] = useState(() => suggestionCache.get(cacheKey(trip, picked)) ?? [])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [adding, setAdding] = useState(null)
@@ -46,6 +53,7 @@ export default function Restaurants() {
 
       const rows = parseRows(text, ['name', 'area', 'kind', 'price', 'reason'])
       if (rows.length === 0) setError(t('לא הצלחתי לפענח את התשובה. נסה שוב.'))
+      else suggestionCache.set(cacheKey(trip, cuisines), rows)
       setList(rows)
     } catch (err) {
       setError(err.message)
@@ -55,7 +63,9 @@ export default function Restaurants() {
     }
   }
 
-  // Fetch once on arrival so the screen is never empty for no reason.
+  // Fetch once on arrival so the screen is never empty for no reason — and
+  // only once per trip and choice of cuisines in a session (see
+  // suggestionCache), not on every visit to the tab.
   useEffect(() => {
     if (trip && hasAI && list.length === 0) find()
     // eslint-disable-next-line react-hooks/exhaustive-deps

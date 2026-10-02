@@ -14,7 +14,7 @@ import { t, tn } from '../i18n'
  * alone when the browser actually prints the page.
  */
 export default function Summary() {
-  const { trip, days, families } = useTrip()
+  const { trip, days, families, activeFamily } = useTrip()
 
   if (!trip) return null
 
@@ -36,6 +36,13 @@ export default function Summary() {
             <p className="tiny" style={{ marginTop: 4 }}>
               {trip.from} — {trip.to} · <span className="num">{trip.totalDays}</span> {tn(trip.totalDays, 'יום אחד', 'ימים')}
             </p>
+            {/* Each family plans its own days, and this prints whichever
+                family's plan is selected — say so, on paper too. */}
+            {families.length > 1 && (
+              <p className="tiny" style={{ marginTop: 2 }}>
+                {t('התכנון של {name}', { name: families.find((f) => f.id === activeFamily)?.name ?? '' })}
+              </p>
+            )}
           </div>
           <button className="btn btn-ghost" onClick={() => window.print()}>
             <Printer size={16} />

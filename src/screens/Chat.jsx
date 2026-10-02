@@ -140,6 +140,16 @@ export default function Chat() {
             </span>
           )}
 
+          {/* The note in a reply opens this too, but only in the session it
+              was written in — after a reload, this was the only way left to
+              see or delete what the agent remembers. */}
+          {memory.length > 0 && (
+            <button className="ai-status" onClick={() => setMemoryOpen(true)}>
+              <Bookmark size={12} />
+              {t('מה הסוכן זוכר ({n})', { n: memory.length })}
+            </button>
+          )}
+
           {empty && (
             <div className="chat-empty">
               <div className="ai-avatar" style={{ width: 44, height: 44, borderRadius: 14 }}>

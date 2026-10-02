@@ -23,6 +23,10 @@ export const TABS = [
 ]
 
 export default function BottomNav({ tab, onChange }) {
+  // Restaurants, Arrival, Hotels and Summary are opened from Home's cards on
+  // a phone; while one is open, Home stays lit so it is clear where "back"
+  // is. aria-current stays truthful — it marks only the screen actually open.
+  const lit = RAIL_ONLY.some((r) => r.id === tab) ? 'home' : tab
   return (
     // Navigation between screens, not a tab widget: role="tab" promises
     // arrow-key movement and a tabpanel per tab, neither of which exists
@@ -32,7 +36,7 @@ export default function BottomNav({ tab, onChange }) {
         <button
           key={id}
           aria-current={tab === id ? 'page' : undefined}
-          className={`nav-item ${tab === id ? 'active' : ''}`}
+          className={`nav-item ${lit === id ? 'active' : ''}`}
           onClick={() => onChange(id)}
         >
           <span className="nav-glyph">

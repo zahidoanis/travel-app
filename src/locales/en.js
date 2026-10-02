@@ -637,4 +637,5 @@ export default {
   "העברה מ{from} אל {to}": "{from} pays {to}",
   "מי שעזב את הטיול": "someone who left the trip",
   "הסכום צריך להיות מספר גדול מאפס.": "The amount has to be a number greater than zero.",
+  "מה הסוכן זוכר ({n})": "What the agent remembers ({n})"
 }

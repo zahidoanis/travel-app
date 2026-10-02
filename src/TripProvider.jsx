@@ -968,6 +968,9 @@ export function TripProvider({ children }) {
   // the trip for the first time.
   useEffect(() => {
     if (!trip || !activeFamily || loading) return
+    // Only for your own family. Tapping another family's pill just to look
+    // at their plan used to have the agent write one into their days.
+    if (activeFamily !== myFamily) return
     const bucket = sharedDaySet.has(trip.day) ? 'shared' : activeFamily
     listRoutes(trip.id, bucket).then((routes) => {
       if (routes.some((r) => r.day === trip.day && r.stops?.length)) return
