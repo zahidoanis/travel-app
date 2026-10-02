@@ -56,10 +56,6 @@ export default function AccessibilityEn() {
             appears as text beside them.
           </li>
           <li>
-            <strong>The stop cards on the map screen</strong> other than the selected one are shown
-            dimmed, at lower contrast than required. The selected card is shown at full contrast.
-          </li>
-          <li>
             <strong>The AI agent's replies</strong> are generated automatically and may include
             place names in another language without the language markup a screen reader needs.
           </li>

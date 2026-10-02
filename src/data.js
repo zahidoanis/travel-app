@@ -16,6 +16,13 @@ export const CATEGORIES = {
   landmark: { label: t('אתר'), color: '#B5842A' },
 }
 
+/**
+ * A stop's category entry, with a fallback. Stops arrive from the agent,
+ * from imported maps and from older versions of the app; one whose category
+ * is missing or unknown used to take the whole map screen down with it.
+ */
+export const categoryOf = (stop) => CATEGORIES[stop?.cat] ?? CATEGORIES.landmark
+
 export const TRAVEL_STYLES = [
   { id: 'chill', emoji: '🏖️', title: t('בטן גב'), sub: t('רגוע, בלי לחץ') },
   { id: 'adventure', emoji: '🧗', title: t('הרפתקאות'), sub: t('אקסטרים ואקשן') },

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CATEGORIES } from '../data'
+import { categoryOf } from '../data'
 import { buildStaticMapUrl, hasMapsKey } from '../lib/staticMap'
 import { PROVIDERS, TILE_SIZE, project, tileRange, tilesIn } from '../lib/tiles'
 import { t } from '../i18n'
@@ -230,7 +230,7 @@ export default function MapCanvas({
         lat: s.lat,
         lng: s.lng,
         label: String(i + 1),
-        color: CATEGORIES[s.cat].color.replace('#', '0x'),
+        color: categoryOf(s).color.replace('#', '0x'),
       })),
       pathPoints: stops.map((s) => [s.lat, s.lng]),
     })
@@ -269,7 +269,10 @@ export default function MapCanvas({
           // follow the finger immediately, not glide half a second behind.
           transition: drag.current?.moved ? 'none' : undefined,
         }}
-        role="img"
+        // A group, not an image: role="img" turns everything inside into
+        // decoration, which hid the stop pins — real buttons — from screen
+        // readers and keyboards.
+        role="group"
         aria-label={t('מפת המסלול, {n} עצירות, ממוקדת על {place}', { n: stops.length, place: active.he })}
       >
         {tiles.map((tile) => (
@@ -316,7 +319,7 @@ export default function MapCanvas({
                 strokeLinecap="round" strokeDasharray="1 10" opacity="0.95" />
 
           {local.map((s, i) => {
-            const color = CATEGORIES[s.cat].color
+            const color = categoryOf(s).color
             const on = s.id === activeId
             return (
               <g

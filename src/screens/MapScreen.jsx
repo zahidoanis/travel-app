@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import TopBar from '../components/TopBar'
 import MapCanvas from '../components/MapCanvas'
 import Sheet from '../components/Sheet'
-import { Star, Info, Navigation, Clock, Locate, Plus, MapPin, Bed } from '../components/Icons'
-import { CATEGORIES } from '../data'
+import { Star, Info, Navigation, Clock, Locate, MapPin, Bed } from '../components/Icons'
+import { categoryOf } from '../data'
 import { useTrip } from '../TripProvider'
 import { navigateUrl } from '../lib/staticMap'
 import { t, tn } from '../i18n'
@@ -75,7 +75,7 @@ export default function MapScreen() {
   useEffect(() => {
     if (STOPS.length === 0) return
     if (!STOPS.some((s) => s.id === activeId)) {
-      setActiveId(STOPS[Math.min(1, STOPS.length - 1)].id)
+      setActiveId(STOPS[0].id)
     }
   }, [STOPS, activeId])
 
@@ -178,7 +178,7 @@ export default function MapScreen() {
 
       <div className="map-tools">
         <button className="map-tool" onClick={locateMe} aria-label={t('מרכז על המיקום שלי')}><Locate size={18} /></button>
-        <button className="map-tool" aria-label={t('הוסף עצירה')}><Plus size={18} /></button>
+        
         <button
           className={`map-tool ${sharingLocation ? 'on' : ''}`}
           onClick={toggleLocationSharing}
@@ -194,7 +194,7 @@ export default function MapScreen() {
         <div className="hscroll" ref={deckRef}>
           {STOPS.map((s) => {
             const on = s.id === activeId
-            const cat = CATEGORIES[s.cat]
+            const cat = categoryOf(s)
             return (
               <div
                 key={s.id}
@@ -276,12 +276,12 @@ export default function MapScreen() {
               style={{
                 height: 130, borderRadius: 16, marginBottom: 16,
                 border: '1px solid var(--border)',
-                background: `linear-gradient(150deg, ${CATEGORIES[details.cat].color}26, var(--card-2))`,
+                background: `linear-gradient(150deg, ${categoryOf(details).color}26, var(--card-2))`,
               }}
             />
             <div className="between" style={{ marginBottom: 14 }}>
               <span className="star"><Star size={14} /><span className="num">{details.rating}</span></span>
-              <span className="badge">{CATEGORIES[details.cat].label}</span>
+              <span className="badge">{categoryOf(details).label}</span>
             </div>
             <p className="sub" style={{ marginBottom: 16 }}>{details.desc}</p>
 
