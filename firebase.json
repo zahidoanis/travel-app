@@ -67,6 +67,16 @@
           ]
         },
         {
+          "comment": "The offline service worker: always revalidated, so a change to it reaches everyone on their next visit rather than up to an hour later.",
+          "source": "/sw.js",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "no-cache"
+            }
+          ]
+        },
+        {
           "source": "**/!(*.*)",
           "headers": [
             {
@@ -140,6 +150,16 @@
             {
               "key": "Cache-Control",
               "value": "no-cache, no-store, must-revalidate"
+            }
+          ]
+        },
+        {
+          "comment": "The offline service worker: always revalidated, so a change to it reaches everyone on their next visit rather than up to an hour later.",
+          "source": "/sw.js",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "no-cache"
             }
           ]
         },
