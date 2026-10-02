@@ -27,6 +27,12 @@ const cfg = {
 
 export const hasFirebase = Boolean(cfg.apiKey && cfg.projectId)
 
+// VITE_FB_EMULATOR=1 points auth and Firestore at the local emulators
+// (`firebase emulators:start --only auth,firestore`) instead of the real
+// project — the only way to exercise the security rules, account deletion
+// and two people editing one trip without touching production data.
+const EMULATOR = import.meta.env?.VITE_FB_EMULATOR === '1'
+
 let ready = null
 const listeners = new Set()
 
@@ -47,6 +53,7 @@ async function connect() {
 
     const app = initializeApp(cfg)
     const auth = AUTH.getAuth(app)
+    if (EMULATOR) AUTH.connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true })
 
     // A cached copy of whatever was last read — the trip, its routes,
     // expenses — kept in IndexedDB so it is still there to read when the
@@ -67,6 +74,7 @@ async function connect() {
       console.error('[firebase] offline persistence unavailable, using in-memory cache:', err?.message ?? err)
       db = FS.getFirestore(app)
     }
+    if (EMULATOR) FS.connectFirestoreEmulator(db, '127.0.0.1', 8080)
 
     // Wait for the first auth state before deciding anything. A session
     // restored from storage — anonymous or Google — is the answer; only a
