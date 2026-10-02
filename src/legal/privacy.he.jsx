@@ -156,9 +156,6 @@ export default function PrivacyHe() {
           <li>
             <strong>ExchangeRate-API</strong> — שערי מטבע. <Ext href="https://www.exchangerate-api.com/terms">תנאים</Ext>
           </li>
-          <li>
-            <strong>Google Fonts</strong> — הגופנים של האתר נטענים משרתי Google. <Ext href="https://developers.google.com/fonts/faq/privacy">מדיניות</Ext>
-          </li>
         </ul>
         <p>
           <strong>חברי הטיול.</strong> טיול הוא מרחב משותף. כל מי שמחזיק בקישור ההזמנה או בקוד

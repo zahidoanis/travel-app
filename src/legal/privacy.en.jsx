@@ -174,10 +174,6 @@ export default function PrivacyEn() {
           <li>
             <strong>ExchangeRate-API</strong> — currency rates. <Ext href="https://www.exchangerate-api.com/terms">Terms</Ext>
           </li>
-          <li>
-            <strong>Google Fonts</strong> — the site's fonts are loaded from Google's
-            servers. <Ext href="https://developers.google.com/fonts/faq/privacy">Policy</Ext>
-          </li>
         </ul>
         <p>
           <strong>The people on the trip.</strong> A trip is a shared space. Anyone who holds the

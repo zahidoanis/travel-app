@@ -21,7 +21,7 @@
           "headers": [
             {
               "key": "Content-Security-Policy",
-              "value": "default-src 'self'; script-src 'self' https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https:; frame-src 'self' https://*.firebaseapp.com https://accounts.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self' https://tripai-app.web.app https://tripai-app.firebaseapp.com https://travel-ai-6de47.web.app https://travel-ai-6de47.firebaseapp.com"
+              "value": "default-src 'self'; script-src 'self' https://apis.google.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; connect-src 'self' https:; frame-src 'self' https://*.firebaseapp.com https://accounts.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self' https://tripai-app.web.app https://tripai-app.firebaseapp.com https://travel-ai-6de47.web.app https://travel-ai-6de47.firebaseapp.com"
             },
             {
               "key": "X-Content-Type-Options",
@@ -108,7 +108,7 @@
           "headers": [
             {
               "key": "Content-Security-Policy",
-              "value": "default-src 'self'; script-src 'self' https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https:; frame-src 'self' https://*.firebaseapp.com https://accounts.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self' https://tripai-app.web.app https://tripai-app.firebaseapp.com https://travel-ai-6de47.web.app https://travel-ai-6de47.firebaseapp.com"
+              "value": "default-src 'self'; script-src 'self' https://apis.google.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; connect-src 'self' https:; frame-src 'self' https://*.firebaseapp.com https://accounts.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self' https://tripai-app.web.app https://tripai-app.firebaseapp.com https://travel-ai-6de47.web.app https://travel-ai-6de47.firebaseapp.com"
             },
             {
               "key": "X-Content-Type-Options",
