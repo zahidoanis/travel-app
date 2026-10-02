@@ -14,6 +14,9 @@ const VIEW = { width: 430, height: 932 }
 
 /** Neighbourhood-level zoom: street names legible, a few blocks in frame. */
 const ZOOM = 14
+// A desktop stage at z14 with an ordinary city day needs 40-80 tiles.
+const MAX_TILES = 150
+const MIN_ZOOM = 9
 
 /** The active stop sits here in the frame — above centre, clear of the carousel. */
 const FOCUS_Y = '42%'
@@ -149,22 +152,31 @@ export default function MapCanvas({
     // than something fitted to the whole route — fitting all of Paris lands on
     // z12, where the streets are unreadable. (tiles.js exports fitZoom if you
     // ever switch to framing the entire itinerary at once.)
-    const z = Math.min(ZOOM, src.maxZoom)
+    //
+    // Except when the day is spread too wide for it. Every tile covering the
+    // whole day is loaded up front, so a day trip 60 km out of town asked
+    // OpenStreetMap's servers for thousands of images at z14 — slow on a
+    // phone, and the kind of bulk use their tile policy forbids. Above
+    // MAX_TILES the zoom steps out until the day fits.
+    const lay = (z) => {
+      const pts = stops.map((s) => ({ ...s, ...project(s.lat, s.lng, z) }))
 
-    const pts = stops.map((s) => ({ ...s, ...project(s.lat, s.lng, z) }))
-
-    // Anchor the layout on the itinerary centroid and animate only the
-    // container transform, so tile elements are positioned once.
-    const anchor = {
-      x: pts.reduce((a, p) => a + p.x, 0) / pts.length,
-      y: pts.reduce((a, p) => a + p.y, 0) / pts.length,
+      // Anchor the layout on the itinerary centroid and animate only the
+      // container transform, so tile elements are positioned once.
+      const anchor = {
+        x: pts.reduce((a, p) => a + p.x, 0) / pts.length,
+        y: pts.reduce((a, p) => a + p.y, 0) / pts.length,
+      }
+      const spread = {
+        x: Math.max(...pts.map((p) => Math.abs(p.x - anchor.x))),
+        y: Math.max(...pts.map((p) => Math.abs(p.y - anchor.y))),
+      }
+      return { z, pts, anchor, tiles: tilesIn(tileRange(anchor, spread, view, z)) }
     }
-    const spread = {
-      x: Math.max(...pts.map((p) => Math.abs(p.x - anchor.x))),
-      y: Math.max(...pts.map((p) => Math.abs(p.y - anchor.y))),
-    }
 
-    return { z, pts, anchor, tiles: tilesIn(tileRange(anchor, spread, view, z)) }
+    let result = lay(Math.min(ZOOM, src.maxZoom))
+    while (result.tiles.length > MAX_TILES && result.z > MIN_ZOOM) result = lay(result.z - 1)
+    return result
   }, [stops, src.maxZoom, view])
 
   const { z, pts, anchor, tiles } = layout
