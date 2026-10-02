@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { ArrowLeft, ArrowRight } from './Icons'
+import { todayISO } from '../lib/dates'
 import { t, lang, locale } from '../i18n'
 
 const WEEKDAYS = lang === 'he' ? ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'] : ['S', 'M', 'T', 'W', 'T', 'F', 'S'] // i18n-ignore
@@ -21,7 +22,6 @@ const monthKey = (dateStr) => {
  * pair via onChange, it holds no date state of its own beyond which month is
  * currently in view.
  */
-const todayISO = () => new Date().toISOString().slice(0, 10)
 
 export default function DateRangeCalendar({ from, to, min, onChange }) {
   const seed = from || min || todayISO()

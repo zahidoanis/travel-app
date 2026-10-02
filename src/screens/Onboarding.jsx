@@ -10,6 +10,7 @@ import { CITIES, searchCities } from '../cities'
 import { breadcrumb, watchdog } from '../lib/telemetry'
 import DateRangeCalendar from '../components/DateRangeCalendar'
 import MapImportSheet from '../components/MapImportSheet'
+import { todayISO, addDaysISO } from '../lib/dates'
 import { t, tn } from '../i18n'
 import { lang } from '../i18n'
 
@@ -82,7 +83,7 @@ const STEPS = [
   },
 ]
 
-const today = new Date().toISOString().slice(0, 10)
+const today = todayISO()
 
 /**
  * `initial` + `startAt` + `editMode` turn the same wizard into an editor for
@@ -401,7 +402,12 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                     className="field-bare"
                     value={answers.destination}
                     onChange={(e) => {
-                      set({ destination: e.target.value, country: '' })
+                      // Typing replaces the destination outright. Only the
+                      // name and country used to be reset, so the English
+                      // name and coordinates of whatever was picked before
+                      // stayed behind — pick Paris, type Berlin, and the trip
+                      // was created for Paris.
+                      set({ destination: e.target.value, country: '', destinationEn: '', lat: null, lng: null })
                       lookupCity(e.target.value)
                     }}
                     placeholder={t('עיר או מדינה')}
@@ -514,7 +520,10 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
               <DateRangeCalendar
                 from={answers.from}
                 to={answers.to}
-                min={today}
+                // A trip already under way keeps its real start date —
+                // with "today" as the floor, opening the editor to extend
+                // the trip by a day forced the whole thing to begin today.
+                min={editMode && initial?.from && initial.from < today ? initial.from : today}
                 onChange={({ from, to }) => set({ from, to })}
               />
 
@@ -564,9 +573,7 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                     className="pill"
                     onClick={() => {
                       const start = answers.from || today
-                      const end = new Date(start)
-                      end.setDate(end.getDate() + d)
-                      set({ from: start, to: end.toISOString().slice(0, 10) })
+                      set({ from: start, to: addDaysISO(start, d) })
                     }}
                   >
                     <span className="num">{d}</span> {t('לילות')}
