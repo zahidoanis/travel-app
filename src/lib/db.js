@@ -23,6 +23,7 @@
 import { firebase, hasFirebase } from './firebase'
 import { record, breadcrumb, watchdog } from './telemetry'
 import { DIAGNOSTICS_RETENTION_DAYS } from '../legal/operator'
+import { newId } from './ids'
 
 const LOCAL_PREFIX = 'tripai.local.'
 
@@ -177,6 +178,9 @@ export function createTrip(details) {
         ...stripUndefined(details),
         id: ref.id,
         code,
+        // The secret half of the invite link (see firebase.rules,
+        // holdsInvite). Replacing it is how a leaked link is revoked.
+        inviteToken: newId(),
         ownerId: uid,
         members: { [uid]: 'owner' },
         memberIds: [uid],
@@ -529,11 +533,12 @@ export function listTrips() {
 /**
  * Adds this account to an existing trip.
  *
- * The trip id is the secret — it travels in the WhatsApp link — so the rules
- * let anyone holding it add themselves, and nothing else. That is the same
- * security model as an unguessable share link, which is what it is.
+ * The link carries the trip id and, for trips that have one, the trip's
+ * inviteToken; the rules let anyone holding both add themselves, as an
+ * editor, and nothing else. Recorded under this account's own uid in
+ * `joinedWith` so that one person's token cannot let in the next.
  */
-export function joinTrip(tripId) {
+export function joinTrip(tripId, token) {
   breadcrumb('data', `joinTrip ${tripId}`)
 
   return guarded(
@@ -544,6 +549,7 @@ export function joinTrip(tripId) {
       await FS.updateDoc(ref, {
         [`members.${uid}`]: 'editor',
         memberIds: FS.arrayUnion(uid),
+        ...(token ? { [`joinedWith.${uid}`]: token } : {}),
       })
 
       await saveProfile({ currentTripId: tripId })

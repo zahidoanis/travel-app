@@ -52,7 +52,7 @@ export default function AccountSheet({ open, onClose }) {
       // stay behind with the anonymous uid that made it, and this sheet
       // promises the opposite. Joining is the same path a shared link takes.
       if (result.merged && carried) {
-        await joinTrip(carried)
+        await joinTrip(carried, trip?.inviteToken)
         // Only when this device actually created the trip — a family member
         // who had merely joined someone else's shared trip must not walk
         // away owning it just because they were the one who happened to
@@ -137,7 +137,7 @@ export default function AccountSheet({ open, onClose }) {
     // Link rides as its own `url` field, not inline in `text` — see
     // share.js's inviteText comment for why: that's what gets WhatsApp to
     // unfurl it into a real preview card instead of a bare line of text.
-    shareTrip(t('הצטרפו אליי לטיול ל{city}! 🗺️', { city: placeNames(tr).city }), inviteUrl(tr.id))
+    shareTrip(t('הצטרפו אליי לטיול ל{city}! 🗺️', { city: placeNames(tr).city }), inviteUrl(tr.id, tr.inviteToken))
   }
 
   const confirmDelete = async () => {

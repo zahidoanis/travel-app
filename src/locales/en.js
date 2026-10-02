@@ -637,5 +637,10 @@ export default {
   "העברה מ{from} אל {to}": "{from} pays {to}",
   "מי שעזב את הטיול": "someone who left the trip",
   "הסכום צריך להיות מספר גדול מאפס.": "The amount has to be a number greater than zero.",
-  "מה הסוכן זוכר ({n})": "What the agent remembers ({n})"
+  "מה הסוכן זוכר ({n})": "What the agent remembers ({n})",
+  "ליצור קישור הזמנה חדש?": "Create a new invite link?",
+  "הקישור הקודם יפסיק לעבוד, וכל מי שינסה להצטרף דרכו יידחה. מי שכבר בטיול נשאר בו.": "The old link will stop working, and anyone who tries to join with it will be turned away. Everyone already on the trip stays.",
+  "צור קישור חדש": "Create new link",
+  "נוצר קישור חדש — הקודם כבר לא עובד": "New link created — the old one no longer works",
+  "הקישור הגיע למי שלא צריך? צור קישור חדש": "Link reached the wrong people? Create a new one"
 }

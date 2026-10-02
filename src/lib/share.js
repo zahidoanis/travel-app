@@ -8,19 +8,30 @@
  */
 
 import { t } from '../i18n'
-/** Public URL of the app, with the invite code attached. */
-export function inviteUrl(tripId) {
+/**
+ * Public URL of the app that joins this trip. `token` is the trip's
+ * inviteToken; trips made before tokens existed have none, and their link is
+ * the id alone until a member resets it.
+ */
+export function inviteUrl(tripId, token) {
   const base =
     typeof window !== 'undefined'
       ? `${window.location.origin}${window.location.pathname}`
       : ''
-  return `${base}?trip=${encodeURIComponent(tripId)}`
+  const k = token ? `&k=${encodeURIComponent(token)}` : ''
+  return `${base}?trip=${encodeURIComponent(tripId)}${k}`
 }
 
 /** Reads the invite code back out when someone opens a shared link. */
 export function invitedTripId() {
   if (typeof window === 'undefined') return null
   return new URLSearchParams(window.location.search).get('trip')
+}
+
+/** The invite token from a shared link, if it carried one. */
+export function invitedToken() {
+  if (typeof window === 'undefined') return null
+  return new URLSearchParams(window.location.search).get('k')
 }
 
 /**

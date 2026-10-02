@@ -3,17 +3,37 @@ import Sheet from './Sheet'
 import { WhatsApp, Check, Users, Link as LinkIcon } from './Icons'
 import { headCount } from '../data'
 import { useTrip } from '../TripProvider'
+import { useConfirm } from './Confirm'
+import { newId } from '../lib/ids'
 import { inviteText, inviteUrl, shareTrip, copyText } from '../lib/share'
 import { t, tn } from '../i18n'
 
 export default function ShareSheet({ open, stops, onClose }) {
-  const { trip: TRIP, families: FAMILIES } = useTrip()
+  const { trip: TRIP, families: FAMILIES, updateTrip } = useTrip()
+  const confirm = useConfirm()
+  const [resetDone, setResetDone] = useState(false)
   const [copied, setCopied] = useState(null)
 
   if (!TRIP) return null
 
   const text = inviteText(TRIP, stops, TRIP.id)
-  const url = inviteUrl(TRIP.id)
+  const url = inviteUrl(TRIP.id, TRIP.inviteToken)
+
+  // A link sent to the wrong group, or forwarded further than meant, used to
+  // be a key nobody could take back. A new token makes every earlier link
+  // stop working; people already on the trip are not affected.
+  const resetLink = async () => {
+    const ok = await confirm({
+      title: t('ליצור קישור הזמנה חדש?'),
+      body: t('הקישור הקודם יפסיק לעבוד, וכל מי שינסה להצטרף דרכו יידחה. מי שכבר בטיול נשאר בו.'),
+      action: t('צור קישור חדש'),
+      danger: false,
+    })
+    if (!ok) return
+    await updateTrip({ inviteToken: newId() })
+    setResetDone(true)
+    setTimeout(() => setResetDone(false), 2400)
+  }
   const joinedCount = headCount(FAMILIES.filter((f) => f.joined).map((f) => f.id), FAMILIES)
 
   const copy = async () => {
@@ -63,9 +83,12 @@ export default function ShareSheet({ open, stops, onClose }) {
           second button with nowhere of its own to be used. The join field
           in the account sheet now reads a pasted link just as well as a
           bare code, so the link alone covers every way of sharing this. */}
-      <button className="btn btn-ghost btn-block" style={{ marginBottom: 22 }} onClick={copy}>
+      <button className="btn btn-ghost btn-block" style={{ marginBottom: 8 }} onClick={copy}>
         {copied ? <Check size={16} /> : <LinkIcon size={16} />}
         {copied ? t('הקישור הועתק') : t('העתק קישור')}
+      </button>
+      <button className="erase-link" style={{ marginBottom: 18, marginTop: 4 }} onClick={resetLink}>
+        {resetDone ? t('נוצר קישור חדש — הקודם כבר לא עובד') : t('הקישור הגיע למי שלא צריך? צור קישור חדש')}
       </button>
 
       <div className="row" style={{ gap: 8, marginBottom: 12 }}>

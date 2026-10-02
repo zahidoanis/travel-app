@@ -34,9 +34,9 @@ service cloud.firestore {
                     && request.resource.data.ownerId == request.auth.uid;
 
       // Members may edit freely. A non-member may make exactly one change:
-      // adding themselves. That is how the WhatsApp invite works — the trip
-      // id travels in the link and is the only secret, which is the same
-      // security model as any unguessable share URL.
+      // adding themselves. That is how the WhatsApp invite works — the link
+      // carries the trip id and, for trips made since invite tokens exist,
+      // the trip's inviteToken.
       allow update: if signedIn() && (
         request.auth.uid in resource.data.memberIds
         || (
@@ -44,9 +44,27 @@ service cloud.firestore {
           && request.resource.data.memberIds.hasAll(resource.data.memberIds)
           && request.resource.data.memberIds.size() == resource.data.memberIds.size() + 1
           && request.resource.data.diff(resource.data)
-               .affectedKeys().hasOnly(['members', 'memberIds', 'updatedAt'])
+               .affectedKeys().hasOnly(['members', 'memberIds', 'joinedWith', 'updatedAt'])
+          // Only your own entry in the members map, and only as an editor.
+          // Before this a joiner could rewrite every other member's role, or
+          // list themselves as an owner.
+          && request.resource.data.get('members', {}).diff(resource.data.get('members', {}))
+               .affectedKeys().hasOnly([request.auth.uid])
+          && request.resource.data.members[request.auth.uid] == 'editor'
+          && holdsInvite()
         )
       );
+
+      // A trip with an inviteToken can only be joined by someone holding
+      // it, written under their own uid in joinedWith — per person, so
+      // nobody can ride on a token an earlier joiner already stored. Any
+      // member can replace the token, which is how a leaked link is
+      // revoked. Trips from before tokens have none and stay joinable by id,
+      // until a member resets their link.
+      function holdsInvite() {
+        return !('inviteToken' in resource.data)
+          || request.resource.data.get('joinedWith', {}).get(request.auth.uid, '') == resource.data.inviteToken;
+      }
 
       // Only the owner can delete, so one member cannot erase the trip for
       // everyone else.

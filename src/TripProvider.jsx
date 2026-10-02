@@ -10,7 +10,7 @@ import { todayISO, daysBetween } from './lib/dates'
 import { newId } from './lib/ids'
 import { useConfirm } from './components/Confirm'
 import { onUser, hasFirebase } from './lib/firebase'
-import { invitedTripId } from './lib/share'
+import { invitedTripId, invitedToken } from './lib/share'
 import { geocode } from './lib/geocode'
 import { importedStops, importSpan } from './lib/mapImport'
 import { hasAI, systemPrompt, streamReply, OPENER_PROMPT } from './lib/gemini'
@@ -83,6 +83,7 @@ function toTrip(raw) {
   return {
     id: raw.id,
     code: raw.code ?? '',
+    inviteToken: raw.inviteToken ?? null,
     ownerId: raw.ownerId ?? null,
     city,
     cityEn,
@@ -434,7 +435,7 @@ export function TripProvider({ children }) {
         // Arriving through a WhatsApp link joins that trip, even if this
         // device already had one of its own.
         if (invited && invited !== profile.currentTripId) {
-          const joined = await joinTrip(invited)
+          const joined = await joinTrip(invited, invitedToken())
           if (joined && !cancelled) {
             setRaw(joined)
             setJustJoined(true)
