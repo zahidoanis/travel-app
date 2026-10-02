@@ -4,7 +4,7 @@ import PlaceSheet from '../components/PlaceSheet'
 import PlacePhoto from '../components/PlacePhoto'
 import Sheet from '../components/Sheet'
 import { normaliseCategory } from '../lib/itinerary'
-import { AlertTriangle, Bookmark, Bot, MapPin, Mic, Paperclip, Plus, Send, X } from '../components/Icons'
+import { AlertTriangle, Bookmark, Bot, MapPin, Mic, Plus, Send, X } from '../components/Icons'
 import { useTrip } from '../TripProvider'
 import { hasAI } from '../lib/gemini'
 import { useSpeech } from '../lib/speech'
@@ -209,9 +209,6 @@ export default function Chat() {
       </div>
 
       <div className="chat-bar glass">
-        <button className="icon-btn" style={{ width: 34, height: 34 }} aria-label={t('צרף קובץ')}>
-          <Paperclip size={17} />
-        </button>
 
         <input
           value={shown}

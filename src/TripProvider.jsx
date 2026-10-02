@@ -4,8 +4,10 @@ import { buildItinerary, normaliseCategory } from './lib/itinerary'
 import {
   loadProfile, saveProfile, createTrip, loadTrip, saveTrip, listTrips, joinTrip,
   listRoutes, saveRoute, watchRoutes, deleteTrip, logActivity, watchActivity,
-  updatePresence, watchPresence, deleteTicketPhoto,
+  updatePresence, watchPresence, deleteTicketPhoto, watchTrip, mutateTripList,
 } from './lib/db'
+import { todayISO, daysBetween } from './lib/dates'
+import { useConfirm } from './components/Confirm'
 import { onUser, hasFirebase } from './lib/firebase'
 import { invitedTripId } from './lib/share'
 import { geocode } from './lib/geocode'
@@ -68,8 +70,11 @@ function toTrip(raw) {
   const to = toStr ? new Date(toStr) : null
   const totalDays = from && to ? Math.max(1, Math.round((to - from) / 86400000) + 1) : 1
 
-  const day = from
-    ? Math.min(totalDays, Math.max(1, Math.floor((Date.now() - from) / 86400000) + 1))
+  // Counted in calendar dates on this device, not in elapsed milliseconds
+  // since UTC midnight — that kept a trip on day 1 until 2 or 3 in the
+  // morning of day 2, Israel time.
+  const day = fromStr
+    ? Math.min(totalDays, Math.max(1, daysBetween(fromStr, todayISO()) + 1))
     : 1
 
   const { city, country, cityEn } = placeNames(raw)
@@ -140,7 +145,11 @@ function toFamilies(raw) {
       short: p.name.trim().charAt(0) || String(i + 1),
       color: p.color ?? PARTY_COLORS[i % PARTY_COLORS.length],
       members: named.map((m, k) => ({ id: `${p.id}-m${k}`, name: m.name, age: m.age })),
-      joined: i === 0,
+      // The creator's own family is on the trip by definition; every other
+      // one is marked when someone actually picks it after joining (see
+      // setMyFamily). This used to be `i === 0` and nothing else, so the
+      // share sheet showed every invited family as "waiting" forever.
+      joined: i === 0 || Boolean(p.joined),
       // The exact date+time, for display — "מגיעים ב-25.8 בשעה 14:30".
       arriveAt: p.arriveAt ?? null,
       departAt: p.departAt ?? null,
@@ -258,6 +267,19 @@ export function TripProvider({ children }) {
   // destination and dates first.
   const [editStep, setEditStep] = useState(null)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
+  // One short message at the bottom of the screen, optionally with a single
+  // action — "stop removed · undo", "that invite link is no longer valid".
+  // When the message is about a change to the itinerary it also carries
+  // what the days held before, so the action can put them back:
+  // { text, action?, undo?: { family, days: { [day]: stops } } }
+  // One step of undo, alive for as long as the message is — not a history.
+  const [snack, setSnack] = useState(null)
+  const dropUndo = () => setSnack((s) => (s?.undo ? null : s))
+  // Set while one operation changes several days (an agent reply), so they
+  // are collected into a single undo instead of each replacing the last.
+  const undoBatch = useRef(null)
+  const deletingTrip = useRef(null)
+  const confirm = useConfirm()
   const [activity, setActivity] = useState([])
   const activityWatch = useRef(null)
   const stopWatch = useRef(null)
@@ -276,13 +298,21 @@ export function TripProvider({ children }) {
    * plan is explicit.
    */
   const [activeFamily, setActiveFamily] = useState(null)
+  // Which family the person holding this device belongs to — as opposed to
+  // `activeFamily`, which is whose plan they happen to be looking at. Money
+  // is the place the difference matters: "you owe" has to mean you, not
+  // whichever family's days are on screen, and not the trip's creator.
+  const [myFamily, setMyFamilyId] = useState(null)
   useEffect(() => {
     // A device that already said "I'm family X" for this trip — set once,
     // right after joining via the family picker — opens straight to that
     // family's plan on every later visit, not always back to families[0].
     const saved = trip ? localStorage.getItem(`tripai.myFamily.${trip.id}`) : null
     const stillReal = saved && families.some((f) => f.id === saved)
-    setActiveFamily(stillReal ? saved : families[0]?.id ?? null)
+    const mine = stillReal ? saved : families[0]?.id ?? null
+    setActiveFamily(mine)
+    setMyFamilyId(mine)
+    dropUndo()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trip?.id])
   const switchFamily = (id) => {
@@ -291,13 +321,22 @@ export function TripProvider({ children }) {
     // on, showing an empty plan that looks broken rather than just early.
     setActiveDay(families.find((f) => f.id === id)?.arriveDay ?? 1)
     setActiveFamily(id)
+    // The undo belongs to the plan that was on screen; restoring it into a
+    // different family's days would overwrite theirs.
+    dropUndo()
   }
 
   /** Remembers "this device is family X" for next time, then switches to it —
-   *  used once, right after the join-family picker resolves. */
+   *  used once, right after the join-family picker resolves. Also records on
+   *  the trip that this family has someone on board, which is what the share
+   *  sheet's "joined / waiting" reads. */
   const setMyFamily = (id) => {
     if (trip) localStorage.setItem(`tripai.myFamily.${trip.id}`, id)
+    setMyFamilyId(id)
     switchFamily(id)
+    if (trip && !families.find((f) => f.id === id)?.joined) {
+      updateList('parties', (list) => list.map((p) => (p.id === id ? { ...p, joined: true } : p)))
+    }
   }
 
   /**
@@ -315,9 +354,10 @@ export function TripProvider({ children }) {
       color: PARTY_COLORS[(raw.parties?.length ?? 0) % PARTY_COLORS.length],
       arriveAt: arriveAt || null,
       departAt: departAt || null,
+      joined: true,
     }
-    const ok = await updateTrip({ parties: [...(raw.parties ?? []), party] })
-    return ok ? id : null
+    const ok = await updateList('parties', (list) => [...list.filter((p) => p.id !== id), party])
+    return ok || !hasFirebase ? id : null
   }
 
   const activeFamilyObj = families.find((f) => f.id === activeFamily) ?? null
@@ -332,14 +372,17 @@ export function TripProvider({ children }) {
    */
   const toggleSharedDay = (day) => {
     if (!trip || !activeFamily) return
-    const parties = (raw.parties ?? []).map((p) => {
+    // Decided once, here — not inside the change, which may run again on a
+    // newer copy of the list and must not flip the day back.
+    const turnOn = !sharedDaySet.has(day)
+    dropUndo()
+    return updateList('parties', (list) => list.map((p) => {
       if (p.id !== activeFamily) return p
       const set = new Set(p.sharedDays ?? [])
-      if (set.has(day)) set.delete(day)
-      else set.add(day)
+      if (turnOn) set.add(day)
+      else set.delete(day)
       return { ...p, sharedDays: [...set].sort((a, b) => a - b) }
-    })
-    return updateTrip({ parties })
+    }))
   }
 
   /**
@@ -355,6 +398,11 @@ export function TripProvider({ children }) {
     return merged
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ownDays, sharedRoutes, activeFamilyObj?.sharedDays])
+
+  // The same value as `days`, readable from a function that was created
+  // in an earlier render — see addStop.
+  const daysRef = useRef(days)
+  daysRef.current = days
 
   const stops = days[activeDay] ?? []
 
@@ -394,9 +442,18 @@ export function TripProvider({ children }) {
             history.replaceState(null, '', location.pathname)
             return
           }
+          // The link did not work — the trip was deleted, or there is no
+          // connection. This used to go on to load the invited trip anyway,
+          // which failed the same way and left the visitor on the welcome
+          // screen with no explanation and their own trip out of reach.
+          // Say what happened and carry on with the trip they already had.
+          if (!cancelled) {
+            setSnack({ text: t('לא הצלחנו להצטרף לטיול מהקישור. ייתכן שהטיול נמחק, או שאין חיבור לאינטרנט.') })
+            history.replaceState(null, '', location.pathname)
+          }
         }
 
-        const current = invited ?? profile.currentTripId
+        const current = profile.currentTripId
         const doc = current ? await loadTrip(current) : null
         if (!cancelled) {
           setRaw(doc)
@@ -410,6 +467,34 @@ export function TripProvider({ children }) {
 
     return () => { cancelled = true }
   }, [])
+
+  // The trip document, live. Expenses, notes, reservations and families
+  // travel on it, so without this a second member only ever saw the first
+  // one's changes after a reload. Local edits arrive here too (Firestore
+  // reports a pending write straight away), so this never undoes one.
+  useEffect(() => {
+    if (!trip?.id) return
+    const id = trip.id
+    return watchTrip(id, (doc) => {
+      if (doc) {
+        setRaw((current) => (current?.id === id ? doc : current))
+        return
+      }
+      if (deletingTrip.current === id) return
+      // Gone — the owner deleted it from another device.
+      setRaw((current) => (current?.id === id ? null : current))
+      setTrips((list) => list.filter((x) => x.id !== id))
+      setSnack({ text: t('הטיול נמחק על ידי מי שיצר אותו.') })
+    })
+  }, [trip?.id])
+
+  // A message with nothing to tap goes away on its own; one that offers an
+  // undo stays a little longer.
+  useEffect(() => {
+    if (!snack) return
+    const timer = setTimeout(() => setSnack(null), snack.undo ? 9000 : 6000)
+    return () => clearTimeout(timer)
+  }, [snack])
 
   /** Signing in can reveal trips this device never saw. */
   useEffect(() => {
@@ -526,14 +611,37 @@ export function TripProvider({ children }) {
     // would otherwise each start from the same stale list and overwrite one
     // another.
     const work = {}
-    const listFor = (day) => (work[day] ??= [...(days[day] ?? [])])
+    const listFor = (day) => (work[day] ??= [...(daysRef.current[day] ?? [])])
     const inRange = (d) => Number.isInteger(d) && d >= 1 && d <= trip.totalDays
+
+    // Everything this reply changes is collected as one undo step. Without
+    // the batch, each day touched would overwrite the previous day's undo
+    // and only the last could be taken back.
+    undoBatch.current = {}
 
     for (const { kind, args } of actions) {
       const parts = args.split('|').map((p) => p.trim())
 
       if (kind === 'PLAN_DAYS') {
         const wanted = [...new Set(parts[0].split(',').map((n) => parseInt(n, 10)).filter(inRange))]
+        // Rebuilding throws away what is on those days, so the agent has to
+        // ask first. What the model writes is shaped by everything it was
+        // shown — web search results, an imported map's descriptions, other
+        // members' notes — and none of that should be able to wipe a
+        // hand-built day just by containing the right words. Adding a stop
+        // is harmless and stays immediate; replacing and removing are not.
+        const occupied = wanted.filter((d) => (daysRef.current[d] ?? []).length > 0)
+        if (occupied.length > 0) {
+          const ok = await confirm({
+            title: t('לבנות מחדש את יום {days}?', { days: occupied.join(', ') }),
+            body: t('הסוכן מבקש לבנות את היום מחדש. העצירות שכבר נמצאות בו יוחלפו.'),
+            action: t('בנה מחדש'),
+          })
+          if (!ok) {
+            report.push(`• ${t('לא נגעתי ביום {days} — הבנייה מחדש בוטלה', { days: occupied.join(', ') })}`)
+            continue
+          }
+        }
         for (const day of wanted) {
           const r = await plan(day, { instructions: parts[1] ?? '' })
           const why = r.warning === 'busy' ? ` — ${t('עדיין באמצע תכנון, נסו שוב עוד רגע')}` : r.warning ? ` — ${r.warning}` : ''
@@ -589,6 +697,16 @@ export function TripProvider({ children }) {
           report.push(`✗ ${t('לא מצאתי "{place}" ביום {day}', { place: name, day: dayStr })}`)
           continue
         }
+        const target = list[at].he ?? list[at].name
+        const ok = await confirm({
+          title: t('להסיר את {place}?', { place: target }),
+          body: t('הסוכן מבקש להסיר את העצירה הזו מיום {day}.', { day }),
+          action: t('הסר'),
+        })
+        if (!ok) {
+          report.push(`• ${t('{place} נשאר ביום {day}', { place: target, day })}`)
+          continue
+        }
         const [gone] = list.splice(at, 1)
         setDayStops(day, [...list])
         report.push(`✓ ${t('הסרתי את {place} מיום {day}', { place: gone.he ?? gone.name, day })}`)
@@ -611,6 +729,12 @@ export function TripProvider({ children }) {
         const isFood = /מסעד|restaurant|food/i.test(category ?? '') // i18n-ignore — model output
         report.push(`🔗 ${he} — ${isFood ? t('קישור להזמנת שולחן') : t('קישור להזמנה')} (Google Maps): ${url}`)
       }
+    }
+
+    const before = undoBatch.current
+    undoBatch.current = null
+    if (Object.keys(before).length > 0) {
+      setSnack({ text: t('הסוכן שינה את המסלול'), action: t('בטל'), undo: { family: activeFamily, days: before } })
     }
     return report
   }
@@ -645,14 +769,13 @@ export function TripProvider({ children }) {
       .slice(0, 5)
     if (fresh.length === 0) return []
     const now = Date.now()
-    await updateTrip({
-      memory: [...(trip.memory ?? []), ...fresh.map((text, i) => ({ id: `m${now}-${i}`, text, at: now }))],
-    })
+    const added = fresh.map((text, i) => ({ id: `m${now}-${i}`, text, at: now }))
+    await updateList('memory', (list) => [...list.filter((m) => !added.some((a) => a.id === m.id)), ...added])
     breadcrumb('action', `agent remembered ${fresh.length} fact(s)`)
     return fresh
   }
 
-  const forgetMemory = (id) => updateTrip({ memory: (trip?.memory ?? []).filter((m) => m.id !== id) })
+  const forgetMemory = (id) => updateList('memory', (list) => list.filter((m) => m.id !== id))
 
   const askAgent = async (history, { opener = false } = {}) => {
     const controller = new AbortController()
@@ -874,6 +997,7 @@ export function TripProvider({ children }) {
     })
 
     if (fresh.length > 0) {
+      noteChange(t('יום {day} נבנה מחדש', { day }), { [day]: daysRef.current[day] ?? [] })
       applyLocalDay(day, fresh)
       persist(day, fresh)
     }
@@ -893,17 +1017,53 @@ export function TripProvider({ children }) {
   /** Updates whichever local bucket (own or shared) actually backs this day,
    *  matching persist()'s choice of where the write itself goes. */
   const applyLocalDay = (day, next) => {
+    daysRef.current = { ...daysRef.current, [day]: next }
     if (sharedDaySet.has(day)) setSharedRoutes((d) => ({ ...d, [day]: next }))
     else setOwnDays((d) => ({ ...d, [day]: next }))
   }
 
-  const setDayStops = (day, next) => {
+  /**
+   * Records what some days held before a change, so it can be taken back.
+   * `before` is { [day]: stops }. Inside a batch (an agent reply touching
+   * several days) it is only collected — the first snapshot of each day
+   * wins, since that is the state to go back to. Otherwise it becomes the
+   * message at the bottom of the screen, with its undo. Nothing is offered
+   * when there was nothing there to lose.
+   */
+  const noteChange = (text, before) => {
+    if (undoBatch.current) {
+      for (const [day, list] of Object.entries(before)) undoBatch.current[day] ??= list
+      return
+    }
+    if (!Object.values(before).some((list) => list.length > 0)) return
+    setSnack({ text, action: t('בטל'), undo: { family: activeFamily, days: before } })
+  }
+
+  /** Puts back the days the current message remembers. */
+  const runSnackAction = () => {
+    const undo = snack?.undo
+    setSnack(null)
+    if (!undo || undo.family !== activeFamily) return
+    breadcrumb('action', 'undo itinerary change')
+    for (const [day, list] of Object.entries(undo.days)) {
+      applyLocalDay(Number(day), list)
+      persist(Number(day), list)
+    }
+  }
+
+  // `undoable` is the message to show with an undo for this change. A change
+  // made without one (adding, reordering) drops any undo still on offer:
+  // going back to the older snapshot now would silently discard it.
+  const setDayStops = (day, next, undoable) => {
+    if (undoBatch.current) undoBatch.current[day] ??= daysRef.current[day] ?? []
+    else if (undoable) noteChange(undoable, { [day]: daysRef.current[day] ?? [] })
+    else dropUndo()
     applyLocalDay(day, next)
     persist(day, next)
   }
 
   const moveStop = (day, id, delta) => {
-    const list = [...(days[day] ?? [])]
+    const list = [...(daysRef.current[day] ?? [])]
     const i = list.findIndex((s) => s.id === id)
     const j = i + delta
     if (i < 0 || j < 0 || j >= list.length) return
@@ -917,8 +1077,13 @@ export function TripProvider({ children }) {
   // change to nobody in particular.
   const whoami = () => user?.name || t('מישהו בטיול')
 
+  // Reads the list through daysRef, not the `days` of the render this
+  // function was created in. Screens call it after an await (a geocode, an
+  // AI suggestion); by then that `days` could be seconds old, and writing
+  // "old list + new stop" threw away whatever was added in between — tap two
+  // suggestions quickly and only one survived.
   const addStop = (day, stop) => {
-    const list = days[day] ?? []
+    const list = daysRef.current[day] ?? []
     if (list.some((s) => s.name === stop.name)) return
     const next = [...list, { ...stop, id: Date.now() }].sort((a, b) =>
       String(a.time).localeCompare(String(b.time))
@@ -931,8 +1096,13 @@ export function TripProvider({ children }) {
   }
 
   const removeStop = (day, id) => {
-    const removed = (days[day] ?? []).find((s) => s.id === id)
-    setDayStops(day, (days[day] ?? []).filter((s) => s.id !== id))
+    const list = daysRef.current[day] ?? []
+    const removed = list.find((s) => s.id === id)
+    setDayStops(
+      day,
+      list.filter((s) => s.id !== id),
+      removed ? t('{place} הוסר/ה מיום {day}', { place: removed.he ?? removed.name, day }) : undefined
+    )
     if (trip && removed) {
       logActivity(trip.id, { type: 'stop', message: t('{name} הסיר/ה עצירה מיום {day}: {place}', { name: whoami(), day, place: removed.he ?? removed.name }) })
     }
@@ -941,21 +1111,27 @@ export function TripProvider({ children }) {
   /** Patches one stop in place — used to give a stop added without a map
    *  position its coordinates once a retry finds the place. */
   const updateStop = (day, id, patch) => {
-    setDayStops(day, (days[day] ?? []).map((s) => (s.id === id ? { ...s, ...patch } : s)))
+    setDayStops(day, (daysRef.current[day] ?? []).map((s) => (s.id === id ? { ...s, ...patch } : s)))
   }
 
   /** Moves one stop to another day, keeping both days in time order. */
   const moveStopToDay = (fromDay, id, toDay) => {
     if (fromDay === toDay) return
-    const stop = (days[fromDay] ?? []).find((s) => s.id === id)
+    const source = daysRef.current[fromDay] ?? []
+    const destination = daysRef.current[toDay] ?? []
+    const stop = source.find((s) => s.id === id)
     if (!stop) return
 
-    const remaining = (days[fromDay] ?? []).filter((s) => s.id !== id)
-    const target = [...(days[toDay] ?? []), stop].sort((a, b) =>
+    const remaining = source.filter((s) => s.id !== id)
+    const target = [...destination, stop].sort((a, b) =>
       String(a.time).localeCompare(String(b.time))
     )
 
     breadcrumb('action', `move stop ${fromDay} -> ${toDay}`)
+    noteChange(
+      t('{place} הועבר/ה ליום {day}', { place: stop.he ?? stop.name, day: toDay }),
+      { [fromDay]: source, [toDay]: destination }
+    )
     applyLocalDay(fromDay, remaining)
     applyLocalDay(toDay, target)
     persist(fromDay, remaining)
@@ -973,7 +1149,7 @@ export function TripProvider({ children }) {
   const addReservation = (r) => {
     if (!trip) return null
     const entry = { ...r, id: `r${Date.now()}`, createdAt: Date.now() }
-    updateTrip({ reservations: [entry, ...reservations] })
+    updateList('reservations', (list) => [entry, ...list.filter((x) => x.id !== entry.id)])
     breadcrumb('action', `reservation noted: ${r.place}`)
     return entry
   }
@@ -981,7 +1157,7 @@ export function TripProvider({ children }) {
   const removeReservation = (id) => {
     if (!trip) return
     deleteTicketPhoto(trip.id, id) // best-effort — an orphaned file costs nothing to leave, but no reason to
-    return updateTrip({ reservations: reservations.filter((r) => r.id !== id) })
+    return updateList('reservations', (list) => list.filter((r) => r.id !== id))
   }
 
   /* ---- trip lifecycle ---- */
@@ -1086,7 +1262,12 @@ export function TripProvider({ children }) {
    * be the one currently open.
    */
   const removeTrip = async (tripId) => {
+    // The live watch on the trip reports the deletion before this function
+    // gets its answer back; without the flag it would announce "deleted by
+    // its creator" to the creator.
+    deletingTrip.current = tripId
     const ok = await deleteTrip(tripId)
+    deletingTrip.current = null
     // A `false` here means either "no backend, deleted locally as intended"
     // or "the write was actually rejected" (a non-owner member, most
     // realistically — firebase.rules restricts delete to the owner, which
@@ -1126,6 +1307,22 @@ export function TripProvider({ children }) {
   }
 
   /**
+   * Changes one of the trip's lists — expenses, notes, reservations, stays,
+   * parties, memory. `change` takes the list and returns the new one; it is
+   * applied here to the copy on screen (so the edit shows at once) and then
+   * to the server's current copy (see mutateTripList in db.js), which is why
+   * it must not depend on anything but the list it is given.
+   */
+  const updateList = async (field, change) => {
+    if (!trip) return false
+    setRaw((r) => (r ? { ...r, [field]: change(r[field] ?? []) } : r))
+    setSyncing(true)
+    const ok = await mutateTripList(trip.id, field, change)
+    setSyncing(false)
+    return ok
+  }
+
+  /**
    * Short, general-purpose notes about the trip — a driver's name, a booking
    * code, anything that isn't tied to one stop on the map and so has no
    * other home. A short list rather than one growing block of text, so an
@@ -1135,18 +1332,19 @@ export function TripProvider({ children }) {
     const trimmed = text.trim()
     if (!trimmed || !trip) return
     logActivity(trip.id, { type: 'note', message: t('{name} הוסיף/ה הערה: {note}', { name: whoami(), note: trimmed }) })
-    return updateTrip({ notes: [...trip.notes, { id: `n${Date.now()}`, text: trimmed }] })
+    const note = { id: `n${Date.now()}`, text: trimmed }
+    return updateList('notes', (list) => [...list.filter((n) => n.id !== note.id), note])
   }
 
   const updateNote = (id, text) => {
     const trimmed = text.trim()
     if (!trimmed || !trip) return
-    return updateTrip({ notes: trip.notes.map((n) => (n.id === id ? { ...n, text: trimmed } : n)) })
+    return updateList('notes', (list) => list.map((n) => (n.id === id ? { ...n, text: trimmed } : n)))
   }
 
   const removeNote = (id) => {
     if (!trip) return
-    return updateTrip({ notes: trip.notes.filter((n) => n.id !== id) })
+    return updateList('notes', (list) => list.filter((n) => n.id !== id))
   }
 
   /**
@@ -1157,17 +1355,17 @@ export function TripProvider({ children }) {
    */
   const addExpense = (expense) => {
     if (!trip) return
-    return updateTrip({ expenses: [expense, ...trip.expenses] })
+    return updateList('expenses', (list) => [expense, ...list.filter((e) => e.id !== expense.id)])
   }
 
   const updateExpense = (id, patch) => {
     if (!trip) return
-    return updateTrip({ expenses: trip.expenses.map((e) => (e.id === id ? { ...e, ...patch } : e)) })
+    return updateList('expenses', (list) => list.map((e) => (e.id === id ? { ...e, ...patch } : e)))
   }
 
   const removeExpense = (id) => {
     if (!trip) return
-    return updateTrip({ expenses: trip.expenses.filter((e) => e.id !== id) })
+    return updateList('expenses', (list) => list.filter((e) => e.id !== id))
   }
 
   /**
@@ -1177,23 +1375,24 @@ export function TripProvider({ children }) {
    */
   const addStay = (stay) => {
     if (!trip || trip.stays.some((s) => s.label === stay.label)) return
-    return updateTrip({ stays: [...trip.stays, stay] })
+    return updateList('stays', (list) => [...list.filter((s) => s.label !== stay.label), stay])
   }
 
   const updateStay = (label, patch) => {
     if (!trip) return
-    return updateTrip({ stays: trip.stays.map((s) => (s.label === label ? { ...s, ...patch } : s)) })
+    return updateList('stays', (list) => list.map((s) => (s.label === label ? { ...s, ...patch } : s)))
   }
 
   const removeStay = (label) => {
     if (!trip) return
-    return updateTrip({ stays: trip.stays.filter((s) => s.label !== label) })
+    return updateList('stays', (list) => list.filter((s) => s.label !== label))
   }
 
   const value = {
     user, trip, trips, loading, syncState, skipWelcome,
-    stops, days, activeDay, setActiveDay, activeFamily, switchFamily,
+    stops, days, activeDay, setActiveDay, activeFamily, switchFamily, myFamily,
     sharedDaySet, toggleSharedDay, setMyFamily, addFamily,
+    snack, runSnackAction, dismissSnack: () => setSnack(null),
     families, isReal, planning, planWarning,
     plan, moveStop, addStop, removeStop, updateStop, moveStopToDay,
     reservations, addReservation, removeReservation,

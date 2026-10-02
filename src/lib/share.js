@@ -47,7 +47,7 @@ export function inviteText(trip, stops, tripId) {
     t('יום {day} מתוך {total}:', { day: trip.day, total: trip.totalDays }),
     ...lines,
     '',
-    t('המסלול מתעדכן אצל כולם בזמן אמת — קוד הצטרפות: {code}', { code: tripId }),
+    t('המסלול מתעדכן אצל כולם בזמן אמת — הקישור למטה מצרף אתכם לטיול.'),
   ].join('\n')
 }
 

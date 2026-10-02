@@ -4,6 +4,7 @@ import Sheet from '../components/Sheet'
 import TicketPhoto from '../components/TicketPhoto'
 import { Plus, X, Ticket, Phone } from '../components/Icons'
 import { useTrip } from '../TripProvider'
+import { useConfirm } from '../components/Confirm'
 import { t } from '../i18n'
 
 /**
@@ -20,7 +21,20 @@ export default function Reservations() {
   const [addingTicket, setAddingTicket] = useState(false)
   const [ticketName, setTicketName] = useState('')
 
+  const confirm = useConfirm()
+
   if (!trip) return null
+
+  // Removing a reservation also deletes the photo of the ticket attached to
+  // it, and neither can be brought back.
+  const cancel = async (r) => {
+    const ok = await confirm({
+      title: t('להסיר את {place}?', { place: r.place }),
+      body: t('ההזמנה ותמונת הכרטיס שצורפה אליה יימחקו עבור כל מי שבטיול.'),
+      action: t('הסר'),
+    })
+    if (ok) removeReservation(r.id)
+  }
 
   const saveTicket = () => {
     const name = ticketName.trim()
@@ -86,7 +100,7 @@ export default function Reservations() {
                 <TicketPhoto tripId={trip.id} ticketId={r.id} />
                 <button
                   className="icon-btn" style={{ width: 30, height: 30 }}
-                  onClick={() => removeReservation(r.id)}
+                  onClick={() => cancel(r)}
                   aria-label={t('בטל את {place}', { place: r.place })}
                 ><X size={13} /></button>
               </div>
@@ -107,7 +121,7 @@ export default function Reservations() {
           autoFocus
         />
         <button className="btn btn-primary btn-block" onClick={saveTicket} disabled={!ticketName.trim()}>
-          <Plus size={16} /> {t('המשך לצירוף תמונה')}
+          <Plus size={16} /> {t('הוסף כרטיס')}
         </button>
       </Sheet>
     </div>

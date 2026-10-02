@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import Sheet from './Sheet'
 import { Check, X } from './Icons'
+import { useConfirm } from './Confirm'
 import { t } from '../i18n'
 
 /**
@@ -10,6 +11,11 @@ import { t } from '../i18n'
  */
 export default function NoteSheet({ open, isNew, initialText, onClose, onSave, onDelete }) {
   const [text, setText] = useState('')
+  const confirm = useConfirm()
+
+  const remove = async () => {
+    if (await confirm({ title: t('למחוק את ההערה?') })) onDelete()
+  }
 
   // Re-seed on every open rather than once on mount — the same sheet
   // instance is reused for every note, so a stale value from the last one
@@ -36,7 +42,7 @@ export default function NoteSheet({ open, isNew, initialText, onClose, onSave, o
       />
       <div className="row" style={{ gap: 9, marginTop: 16 }}>
         {!isNew && (
-          <button className="btn btn-ghost" onClick={onDelete} aria-label={t('מחק הערה')}>
+          <button className="btn btn-ghost" onClick={remove} aria-label={t('מחק הערה')}>
             <X size={17} />
           </button>
         )}

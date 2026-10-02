@@ -3,6 +3,7 @@ import TopBar from '../components/TopBar'
 import { Bed, MapPin, X, Plus } from '../components/Icons'
 import { useTrip } from '../TripProvider'
 import { search } from '../lib/geocode'
+import { useConfirm } from '../components/Confirm'
 import { t } from '../i18n'
 
 /**
@@ -14,6 +15,12 @@ import { t } from '../i18n'
  */
 export default function Hotels() {
   const { trip, addStay, updateStay, removeStay } = useTrip()
+  const confirm = useConfirm()
+
+  const remove = async (s) => {
+    const ok = await confirm({ title: t('להסיר את {place}?', { place: s.name }), action: t('הסר') })
+    if (ok) removeStay(s.label)
+  }
   const [name, setName] = useState('')
   const [hits, setHits] = useState([])
   const [locating, setLocating] = useState(false)
@@ -68,7 +75,7 @@ export default function Hotels() {
                   <button
                     className="icon-btn"
                     style={{ width: 30, height: 30 }}
-                    onClick={() => removeStay(s.label)}
+                    onClick={() => remove(s)}
                     aria-label={t('הסר את {name}', { name: s.name })}
                   >
                     <X size={14} />

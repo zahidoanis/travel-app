@@ -1998,3 +1998,46 @@ a.contact-row:hover { background: var(--tint-2); color: var(--text); }
   .legal { height: auto; overflow: visible; }
   .legal-bar, .legal-tabs, .skip-link { display: none !important; }
 }
+
+/* ---------- Message bar (undo) ---------- */
+
+/* Sits just above the bottom nav on a phone, and at the bottom of the stage
+   on desktop where there is no nav. Dark on every theme: it has to read as
+   separate from the page, and it is on screen for a few seconds at most. */
+.snack {
+  position: absolute; z-index: 70;
+  inset-inline: 14px; inset-block-end: calc(var(--nav-h) + 6px + env(safe-area-inset-bottom));
+  max-width: 520px; margin-inline: auto;
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 12px 11px 16px; border-radius: var(--r-md);
+  background: #24212B; color: #fff;
+  font-size: 13.5px; line-height: 1.5;
+  box-shadow: var(--shadow-lg);
+  animation: toast-in 0.26s var(--ease);
+}
+[dir="rtl"] .snack { padding: 11px 16px 11px 12px; }
+.snack-action {
+  flex: none; padding: 6px 12px; border-radius: var(--r-sm);
+  font-size: 13.5px; font-weight: 700; color: #F2D58E;
+}
+.snack-action:hover { background: rgba(255, 255, 255, 0.1); }
+.snack-close {
+  flex: none; width: 28px; height: 28px; border-radius: 8px;
+  display: grid; place-items: center; color: rgba(255, 255, 255, 0.72);
+}
+.snack-close:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+@media (min-width: 1024px) {
+  .snack { inset-block-end: 24px; }
+}
+
+/* ---------- Finance: everyone's balance, and how to settle ---------- */
+
+.unit-balance { flex: none; font-size: 13px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.unit-balance.owe  { color: var(--rose); }
+.unit-balance.owed { color: var(--emerald); }
+.member.between { justify-content: space-between; }
+.transfers {
+  display: flex; flex-direction: column; gap: 7px;
+  margin-top: 10px; padding-top: 12px; border-top: 1px solid var(--border);
+}
+.transfer { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-size: 13.5px; }

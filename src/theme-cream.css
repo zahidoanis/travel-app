@@ -233,3 +233,5 @@
    the one number on that screen people need was close to invisible. */
 [data-theme="cream"] .balance.owe  { color: #B32E4A; }
 [data-theme="cream"] .balance.owed { color: #0B7A50; }
+[data-theme="cream"] .unit-balance.owe  { color: #B32E4A; }
+[data-theme="cream"] .unit-balance.owed { color: #0B7A50; }

@@ -22,6 +22,8 @@ import NotificationsSheet from './components/NotificationsSheet'
 import LegalLinks from './components/LegalLinks'
 import Legal from './screens/Legal'
 import { useLegalRoute } from './legal/route'
+import { ConfirmProvider, ConfirmHost } from './components/Confirm'
+import Snack from './components/Snack'
 import { initTelemetry, breadcrumb, attachSink } from './lib/telemetry'
 import { hasFirebase } from './lib/firebase'
 import { pushDiagnostics } from './lib/db'
@@ -54,9 +56,11 @@ export default function App() {
     <>
       {booted && (
         <div style={{ display: legalDoc ? 'none' : 'contents' }}>
-          <TripProvider>
-            <Shell />
-          </TripProvider>
+          <ConfirmProvider>
+            <TripProvider>
+              <Shell />
+            </TripProvider>
+          </ConfirmProvider>
         </div>
       )}
       {legalDoc && <Legal doc={legalDoc} />}
@@ -296,6 +300,9 @@ function Shell() {
         <ErrorBoundary scope="notifications">
           <NotificationsSheet />
         </ErrorBoundary>
+        {/* Last, so it opens above whichever sheet asked the question. */}
+        <ConfirmHost />
+        <Snack />
       </div>
     </div>
   )

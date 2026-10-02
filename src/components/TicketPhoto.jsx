@@ -4,6 +4,7 @@ import { Ticket, X } from './Icons'
 import { loadTicketPhoto, saveTicketPhoto, deleteTicketPhoto } from '../lib/db'
 import { hasFirebase } from '../lib/firebase'
 import { record } from '../lib/telemetry'
+import { useConfirm } from './Confirm'
 import { t } from '../i18n'
 
 /**
@@ -56,6 +57,7 @@ export default function TicketPhoto({ tripId, ticketId }) {
   const [photo, setPhoto] = useState(null)
   const [busy, setBusy] = useState(false)
   const [viewing, setViewing] = useState(false)
+  const confirm = useConfirm()
 
   useEffect(() => {
     let cancelled = false
@@ -85,6 +87,7 @@ export default function TicketPhoto({ tripId, ticketId }) {
   }
 
   const remove = async () => {
+    if (!(await confirm({ title: t('להסיר את תמונת הכרטיס?'), action: t('הסר') }))) return
     setViewing(false)
     await deleteTicketPhoto(tripId, ticketId)
     setPhoto(null)

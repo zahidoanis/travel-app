@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import TopBar from '../components/TopBar'
 import ShareSheet from '../components/ShareSheet'
 import {
-  ArrowLeft, Sparkles, Bookmark, Clock, Share, Users, RefreshCw, Route, Utensils, Cloud, Plane, Note, Layers, Bed, Printer,
+  ArrowLeft, Sparkles, Clock, Share, Users, RefreshCw, Route, Utensils, Cloud, Plane, Note, Layers, Bed, Printer,
 } from '../components/Icons'
 import { useTrip } from '../TripProvider'
 import PlacePhoto from '../components/PlacePhoto'
@@ -12,6 +12,8 @@ import { geocode } from '../lib/geocode'
 import { CITIES } from '../cities'
 import WeatherSheet from '../components/WeatherSheet'
 import NoteSheet from '../components/NoteSheet'
+import { useConfirm } from '../components/Confirm'
+import { todayISO, nowHHMM } from '../lib/dates'
 import { t, tn, lang } from '../i18n'
 
 /** "מגיעים ב-25.8 בשעה 14:30 · עוזבים ב-28.8" — the tooltip on a family's
@@ -53,9 +55,10 @@ const TOD_TINT = {
 export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood, onOpenArrival, onOpenHotels, onOpenSummary }) {
   const {
     trip: TRIP, stops: STOPS, families: FAMILIES, activeFamily, switchFamily,
-    planning, planWarning, plan, syncState, trips,
+    planning, planWarning, plan, syncState, trips, activeDay,
     openAccount, openEdit, addNote, updateNote, removeNote,
   } = useTrip()
+  const confirm = useConfirm()
   const [shareOpen, setShareOpen] = useState(false)
   const [forecast, setForecast] = useState(null)
   const [climate, setClimate] = useState(null)
@@ -143,8 +146,26 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
   // between renders, which React rejects outright.
   if (!TRIP) return null
 
-  // The "next" stop is the first one still ahead of us today.
-  const nextId = STOPS[1]?.id ?? STOPS[0]?.id
+  // The "next" stop is the first one still ahead of us today — which only
+  // means anything while the trip is under way and today's day is the one on
+  // screen. It used to be "the second stop", always, on every day.
+  const underWay = TRIP.from <= todayISO() && todayISO() <= TRIP.to && activeDay === TRIP.day
+  const nextId = underWay ? STOPS.find((s) => String(s.time) >= nowHHMM())?.id ?? null : null
+
+  // `plan` takes the day as its first argument. Passed straight to onClick
+  // it received the click event instead: the agent ran, and its result was
+  // filed under a day called "[object Object]" where nothing ever read it.
+  const rebuild = async () => {
+    if (STOPS.length > 0) {
+      const ok = await confirm({
+        title: t('לבנות את היום מחדש?'),
+        body: t('הסוכן יבנה את יום {day} מחדש, והעצירות שכבר נמצאות בו יוחלפו.', { day: activeDay }),
+        action: t('בנה מחדש'),
+      })
+      if (!ok) return
+    }
+    plan(activeDay)
+  }
 
   // Beyond Open-Meteo's forecast horizon, "today's weather at the
   // destination" is a real number that has nothing to do with the trip.
@@ -239,7 +260,7 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
             <p className="sub" style={{ maxWidth: '92%', marginTop: forecast ? 8 : undefined }}>
               {planning
                 ? t('הסוכן בונה עכשיו מסלול ל{city}...', { city: TRIP.city })
-                : t('הנה התכנון ליום {day} ב{city}, מותאם לסגנון שבחרת.', { day: TRIP.day, city: TRIP.city })}
+                : t('הנה התכנון ליום {day} ב{city}, מותאם לסגנון שבחרת.', { day: activeDay, city: TRIP.city })}
             </p>
             <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={onStartRoute}>
               {t('התחל מסלול')}
@@ -328,16 +349,16 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
 
       <div className="pad section-head">
         <h2 className="h2">
-          {FAMILIES.length > 1 ? t('התכנון של {name}', { name: FAMILIES.find((f) => f.id === activeFamily)?.name ?? '' }) : t('התכנון להיום')}
+          {FAMILIES.length > 1 ? t('התכנון של {name}', { name: FAMILIES.find((f) => f.id === activeFamily)?.name ?? '' }) : activeDay === TRIP.day ? t('התכנון להיום') : t('התכנון ליום {day}', { day: activeDay })}
         </h2>
         <span className="row" style={{ gap: 10 }}>
           <span className="tiny">
-            {t('יום')} <span className="num">{TRIP.day}</span> {t('מתוך')} <span className="num">{TRIP.totalDays}</span>
+            {t('יום')} <span className="num">{activeDay}</span> {t('מתוך')} <span className="num">{TRIP.totalDays}</span>
           </span>
           <button
             className="icon-btn"
             style={{ width: 30, height: 30 }}
-            onClick={plan}
+            onClick={rebuild}
             disabled={planning}
             aria-label={t('בנה מסלול מחדש')}
             title={t('בנה מסלול מחדש')}
@@ -364,7 +385,7 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
                   <span className="num">{s.time}</span>
                   {isNext && ` ${t('(הבא)')}`}
                 </span>
-                <span style={{ color: 'var(--muted-2)' }}><Bookmark size={15} /></span>
+                
               </div>
 
               <PlacePhoto name={s.name} cat={s.cat} title={s.name} />

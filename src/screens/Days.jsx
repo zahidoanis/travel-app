@@ -9,6 +9,7 @@ import { useTrip } from '../TripProvider'
 import { hasAI, complete, parseRows } from '../lib/gemini'
 import { geocode, search } from '../lib/geocode'
 import { breadcrumb, watchdog } from '../lib/telemetry'
+import { useConfirm } from '../components/Confirm'
 import { t, tn, locale } from '../i18n'
 
 /**
@@ -44,6 +45,23 @@ export default function Days() {
     planning, planWarning, plan, moveStop, addStop, removeStop, updateStop,
     moveStopToDay,
   } = useTrip()
+  const confirm = useConfirm()
+
+  // Rebuilding replaces the day. On an empty day there is nothing to lose
+  // and it just runs; on one that has stops — possibly added by hand, and on
+  // a shared day by another family — it asks first. (It can also be undone
+  // afterwards, from the message that appears.)
+  const rebuild = async () => {
+    if (stops.length > 0) {
+      const ok = await confirm({
+        title: t('לבנות את היום מחדש?'),
+        body: t('הסוכן יבנה את יום {day} מחדש, והעצירות שכבר נמצאות בו יוחלפו.', { day: activeDay }),
+        action: t('בנה מחדש'),
+      })
+      if (!ok) return
+    }
+    plan(activeDay)
+  }
 
   /**
    * Finds a place from what someone typed. The geocoder barely understands
@@ -305,7 +323,7 @@ export default function Days() {
           <button
             className="icon-btn"
             style={{ width: 30, height: 30 }}
-            onClick={() => plan(activeDay)}
+            onClick={rebuild}
             disabled={planning}
             aria-label={t('בנה את היום מחדש')}
             title={t('בנה את היום מחדש')}
@@ -330,7 +348,7 @@ export default function Days() {
         {!planning && stops.length === 0 && (
           <div className="card" style={{ textAlign: 'center' }}>
             <p className="sub" style={{ marginBottom: 14 }}>{t('היום הזה עדיין ריק.')}</p>
-            <button className="btn btn-primary btn-sm" onClick={() => plan(activeDay)}>
+            <button className="btn btn-primary btn-sm" onClick={rebuild}>
               <Sparkles size={15} />
               {t('בנה לי יום')}
             </button>

@@ -232,6 +232,104 @@ export function saveTrip(tripId, patch) {
 }
 
 /**
+ * Changes one of the lists on the trip document — expenses, notes,
+ * reservations, stays, parties, the agent's memory — without losing what
+ * someone else just added to it.
+ *
+ * These lists used to be saved by writing the whole array back from whatever
+ * copy this device happened to hold. Two people each adding an expense meant
+ * the second write replaced the list with one that had never seen the first:
+ * one expense silently gone. Here `change` is applied to the server's
+ * current list inside a transaction, so it always builds on the latest
+ * version. It can run more than once (a transaction retries when the
+ * document moved underneath it), so it has to be a pure function of the list
+ * it is handed.
+ *
+ * Offline there is no server to transact with. The change is then applied to
+ * the cached copy and queued as an ordinary write — the old behaviour, which
+ * is the best available without a connection.
+ */
+export function mutateTripList(tripId, field, change) {
+  return guarded(
+    'mutateTripList',
+    async ({ db, FS }) => {
+      const ref = FS.doc(db, 'trips', tripId)
+      try {
+        await FS.runTransaction(db, async (tx) => {
+          const snap = await tx.get(ref)
+          if (!snap.exists()) throw new Error('trip not found')
+          tx.update(ref, {
+            [field]: stripUndefined(change(snap.data()[field] ?? [])),
+            updatedAt: FS.serverTimestamp(),
+          })
+        })
+      } catch (err) {
+        if (err?.code !== 'unavailable') throw err
+        const cached = await FS.getDocFromCache(ref)
+        // Not awaited: offline, this promise only settles once the write
+        // reaches the server, which may be hours away.
+        FS.updateDoc(ref, {
+          [field]: stripUndefined(change(cached.data()?.[field] ?? [])),
+          updatedAt: FS.serverTimestamp(),
+        }).catch((e) => record({ kind: 'db', message: `queued ${field} write failed: ${e?.message ?? e}` }))
+      }
+      return true
+    },
+    () => {
+      const trip = localGet(`trip.${tripId}`, {})
+      localSet(`trip.${tripId}`, { ...trip, [field]: change(trip[field] ?? []) })
+      return false
+    }
+  )
+}
+
+/**
+ * Live copy of the trip document itself.
+ *
+ * Only the day plans used to be live; the trip — with its expenses, notes,
+ * reservations and families — was read once when the app opened. A second
+ * member never saw the first one's expense until they reloaded, and the
+ * share sheet's "updates appear for everyone" was true of the itinerary
+ * alone. `onChange(null)` means the trip no longer exists.
+ */
+export function watchTrip(tripId, onChange) {
+  if (!hasFirebase || !tripId) return () => {}
+
+  let stop = () => {}
+  let cancelled = false
+  let retried = false
+
+  firebase().then((fb) => {
+    if (!fb || cancelled) return
+    const { db, FS } = fb
+
+    const subscribe = () => {
+      stop = FS.onSnapshot(
+        FS.doc(db, 'trips', tripId),
+        (snap) => onChange(snap.exists() ? { id: snap.id, ...snap.data() } : null),
+        (err) => {
+          // Same sign-in race watchRoutes() describes: one retry covers the
+          // moment between a new uid taking over and it joining the trip.
+          if (err.code === 'permission-denied' && !retried && !cancelled) {
+            retried = true
+            setTimeout(() => { if (!cancelled) subscribe() }, 1500)
+            return
+          }
+          record({ kind: 'db', message: `watchTrip: ${err.message}`, stack: err.stack })
+        }
+      )
+    }
+
+    subscribe()
+  })
+
+  return () => {
+    cancelled = true
+    stop()
+  }
+}
+
+/**
  * Deletes a trip outright. firebase.rules restricts this to the owner —
  * one member cannot erase it for everyone else — so a non-owner's call
  * fails there, not here.
