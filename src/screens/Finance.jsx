@@ -6,18 +6,30 @@ import {
 } from '../components/Icons'
 import { useTrip } from '../TripProvider'
 import { SUPPORTED, SYMBOL, localCurrency, fetchRates, isConvertible } from '../lib/currency'
+import { balances, settle, payerOf, parseAmount, fromAgorot, toAgorot } from '../lib/split'
+import { useConfirm } from '../components/Confirm'
 import { t, tn } from '../i18n'
 
 const fmt = (n) =>
   n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
+/** Shekels for display: whole amounts without ".00", the rest to the agora. */
+const money = (n) =>
+  n.toLocaleString('en-US', {
+    minimumFractionDigits: Number.isInteger(n) ? 0 : 2,
+    maximumFractionDigits: 2,
+  })
+
+/** A rate of 0.00027 printed to three places is "0.000". */
+const rateText = (r) => (r >= 0.01 ? r.toFixed(3) : r.toPrecision(3))
+
 export default function Finance() {
   const {
-    families: FAMILIES, trip,
+    families: FAMILIES, trip, myFamily,
     addExpense, updateExpense, removeExpense: removeExpenseFromTrip,
   } = useTrip()
+  const confirm = useConfirm()
   // Every traveller is a member of exactly one party.
-  // "You" are the first member of the first party.
   // Onboarding no longer collects individual names — a member is just a
   // headcount now — so the payer picker needs something to show besides a
   // blank pill. Numbered within the family ("כהן 2") stays distinguishable
@@ -26,13 +38,18 @@ export default function Finance() {
   const MEMBERS = FAMILIES.flatMap((f) =>
     f.members.map((m, i) => ({
       id: m.id,
-      name: m.name.trim() || `${f.name} ${i + 1}`,
+      // A family nobody named (a solo trip is never asked for one) used to
+      // come out as " 1", " 2".
+      name: m.name.trim() || `${f.name.trim() || t('נוסע')} ${i + 1}`,
       short: m.name.trim().charAt(0) || f.short,
       color: f.color,
       family: f.id,
     }))
   )
-  const ME = MEMBERS[0]?.id ?? null
+  // Who is holding this device. It used to be "the first member of the
+  // first party" — the trip's creator — for everyone, so a family that
+  // joined by link was shown the creator's debt under "you owe".
+  const mine = FAMILIES.find((f) => f.id === myFamily) ?? FAMILIES[0] ?? null
   /* ---- converter ---- */
 
   // The currency you will actually be handing over at the destination. This
@@ -88,8 +105,8 @@ export default function Finance() {
   }, [rates, from, to])
 
   const converted = useMemo(() => {
-    const n = parseFloat(amount)
-    return Number.isFinite(n) && rate != null ? n * rate : 0
+    const n = parseAmount(amount)
+    return n != null && rate != null ? n * rate : 0
   }, [amount, rate])
 
   const swap = () => {
@@ -112,43 +129,53 @@ export default function Finance() {
   // save and whether a delete button shows up.
   const [editingId, setEditingId] = useState(null)
 
-  const total = expenses.reduce((sum, e) => sum + e.amount, 0)
+  const total = fromAgorot(expenses.reduce((sum, e) => sum + toAgorot(e.amount), 0))
 
   /* ---- how the bill is divided ---- */
   const [splitBy, setSplitBy] = useState('person')
 
   // MEMBERS is derived, so the default payer has to wait for it.
-  const payerId = payer ?? ME
+  const payerId = payer ?? mine?.members[0]?.id ?? MEMBERS[0]?.id ?? null
 
   // Per person everyone pays an equal share; per family each household pays one
-  // share regardless of size — the usual arrangement when families travel together.
-  const parties = useMemo(() => {
-    if (splitBy === 'family') {
-      return FAMILIES.map((f) => ({ ...f, size: f.members.length }))
-        .filter((f) => !f.members.some((m) => m.id === ME))
-    }
-    return MEMBERS.filter((m) => m.id !== ME).map((m) => ({ ...m, size: 1 }))
-  }, [splitBy, FAMILIES])
+  // share regardless of size — the usual arrangement when families travel
+  // together. All the arithmetic is in lib/split.js, in whole agorot.
+  const { byMember, byFamily } = useMemo(
+    () => balances(expenses, FAMILIES, splitBy),
+    [expenses, FAMILIES, splitBy]
+  )
 
+  // Several families settle up between households — nobody needs to know
+  // which of the Cohens owes which of the Levis. A single group of travellers
+  // settles person to person.
+  const households = FAMILIES.length > 1
+  const units = households
+    ? FAMILIES.map((f) => ({
+        id: f.id,
+        name: f.name.trim() || t('הנוסעים שלנו'),
+        short: f.short,
+        color: f.color,
+        size: f.members.length,
+        balance: byFamily.get(f.id) ?? 0,
+        mine: f.id === mine?.id,
+      }))
+    : MEMBERS.map((m) => ({ ...m, size: 1, balance: byMember.get(m.id) ?? 0, mine: false }))
+
+  const transfers = useMemo(
+    () => settle(households ? byFamily : byMember),
+    [households, byFamily, byMember]
+  )
+  const unitName = (id) => units.find((u) => u.id === id)?.name ?? ''
+
+  // How many ways one bill is cut: travellers per person, households per family.
   const shares = splitBy === 'family' ? FAMILIES.length : MEMBERS.length
+  const sharesOf = (e) => {
+    const named = FAMILIES.filter((f) => e.among?.includes(f.id))
+    const sharing = named.length > 0 ? named : FAMILIES
+    return splitBy === 'family' ? sharing.length : sharing.reduce((n, f) => n + f.members.length, 0)
+  }
 
-  // Net position of the first traveller: their share of everything, minus what
-  // they fronted.
-  const { owe, owed } = useMemo(() => {
-    const myFamily = FAMILIES.find((f) => f.members.some((m) => m.id === ME))
-    let balance = 0
-    for (const e of expenses) {
-      const share = e.amount / shares
-      // Anyone in your household counts as you when splitting per family.
-      const mine =
-        splitBy === 'family'
-          ? Boolean(myFamily?.members.some((m) => m.id === e.payer))
-          : e.payer === ME
-      if (mine) balance += e.amount - share
-      else balance -= share
-    }
-    return { owe: balance < 0 ? Math.abs(balance) : 0, owed: balance > 0 ? balance : 0 }
-  }, [expenses, shares, splitBy, FAMILIES, ME])
+  const myBalance = households && mine ? byFamily.get(mine.id) ?? 0 : 0
 
   const closeSheet = () => {
     setAddOpen(false)
@@ -166,14 +193,26 @@ export default function Finance() {
     setAddOpen(true)
   }
 
+  const parsed = parseAmount(value)
+  const canSave = Boolean(title.trim()) && parsed != null && payerId != null
+
   const saveExpense = () => {
-    const n = parseFloat(value)
-    if (!title.trim() || !Number.isFinite(n) || n <= 0) return
+    // `saved` is true for the 900ms the "saved" tick is on screen; a second
+    // tap in that window used to add the expense again.
+    if (!canSave || saved) return
 
     if (editingId) {
-      updateExpense(editingId, { title: title.trim(), payer: payerId, amount: n })
+      updateExpense(editingId, { title: title.trim(), payer: payerId, amount: parsed })
     } else {
-      addExpense({ id: `e${Date.now()}`, title: title.trim(), payer: payerId, amount: n, split: shares })
+      addExpense({
+        id: `e${Date.now()}`,
+        title: title.trim(),
+        payer: payerId,
+        amount: parsed,
+        // Who was on the trip when this was spent — a family that joins
+        // later is not charged for it.
+        among: FAMILIES.map((f) => f.id),
+      })
     }
 
     setSaved(true)
@@ -183,7 +222,12 @@ export default function Finance() {
     }, 900)
   }
 
-  const removeExpense = () => {
+  const removeExpense = async () => {
+    const ok = await confirm({
+      title: t('למחוק את ההוצאה?'),
+      body: t('"{title}" תימחק עבור כל מי שבטיול.', { title }),
+    })
+    if (!ok) return
     removeExpenseFromTrip(editingId)
     closeSheet()
   }
@@ -201,7 +245,7 @@ export default function Finance() {
           <div className="col" style={{ alignItems: 'flex-end' }}>
             <span className="tiny">{t('סה"כ הוצאות')}</span>
             <strong style={{ fontSize: 20, fontWeight: 700 }}>
-              <span className="num">₪{total.toLocaleString('en-US')}</span>
+              <span className="num">₪{money(total)}</span>
             </strong>
           </div>
         </div>
@@ -217,7 +261,7 @@ export default function Finance() {
             <div className="cur-field">
               <input
                 value={amount}
-                onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ''))}
+                onChange={(e) => setAmount(e.target.value.replace(/[^\d.,]/g, ''))}
                 inputMode="decimal"
                 aria-label={t('סכום ב-{currency}', { currency: from })}
               />
@@ -259,7 +303,7 @@ export default function Finance() {
               {rate != null ? (
                 <>
                   {t('שער יציג:')}{' '}
-                  <span className="num">1 {from} = {rate.toFixed(3)} {to}</span>
+                  <span className="num">1 {from} = {rateText(rate)} {to}</span>
                   {rates?.date && <> · {t('עודכן')} <span className="num">{rates.date}</span></>}
                 </>
               ) : ratesError ? (
@@ -325,33 +369,52 @@ export default function Finance() {
               </div>
             </div>
 
-            <div className="between" style={{ alignItems: 'flex-start' }}>
-              <div className="grow">
-                {parties.map((p) => (
-                  <div key={p.id} className="member">
-                    <span className="avatar" style={{ background: p.color }}>{p.short}</span>
-                    <span className="col" style={{ gap: 1 }}>
-                      <span style={{ fontSize: 14, fontWeight: 500 }}>{p.name}</span>
-                      {splitBy === 'family' && (
-                        <span className="tiny"><span className="num">{p.size}</span> {tn(p.size, 'נוסע', 'נוסעים')}</span>
-                      )}
+            {/* Your own household's position, when there is more than one —
+                the number most people open this screen for. */}
+            {households && mine && (
+              <div className={`balance ${myBalance < 0 ? 'owe' : 'owed'}`} style={{ marginBottom: 14 }}>
+                {myBalance < 0
+                  ? <>{t('אתם חייבים')} <span className="num">₪{money(fromAgorot(-myBalance))}</span></>
+                  : myBalance > 0
+                    ? <>{t('חייבים לכם')} <span className="num">₪{money(fromAgorot(myBalance))}</span></>
+                    : t('אתם מאוזנים')}
+              </div>
+            )}
+
+            {/* Everyone's position, not only the viewer's: who is in credit,
+                who is in debt, and by how much. */}
+            {units.map((u) => (
+              <div key={u.id} className="member between">
+                <span className="row" style={{ gap: 10, minWidth: 0 }}>
+                  <span className="avatar" style={{ background: u.color }}>{u.short}</span>
+                  <span className="col" style={{ gap: 1, minWidth: 0 }}>
+                    <span style={{ fontSize: 14, fontWeight: 500 }}>
+                      {u.name}{u.mine ? ` ${t('(אתם)')}` : ''}
                     </span>
+                    {households && (
+                      <span className="tiny"><span className="num">{u.size}</span> {tn(u.size, 'נוסע', 'נוסעים')}</span>
+                    )}
+                  </span>
+                </span>
+                <span className={`unit-balance ${u.balance < 0 ? 'owe' : u.balance > 0 ? 'owed' : ''}`}>
+                  {u.balance === 0
+                    ? t('מאוזן')
+                    : <>{u.balance < 0 ? t('חוב') : t('זכות')} <span className="num">₪{money(fromAgorot(Math.abs(u.balance)))}</span></>}
+                </span>
+              </div>
+            ))}
+
+            {transfers.length > 0 && (
+              <div className="transfers">
+                <span className="tiny">{t('כדי להתאזן:')}</span>
+                {transfers.map((x) => (
+                  <div key={`${x.from}-${x.to}`} className="transfer">
+                    <span>{t('העברה מ{from} אל {to}', { from: unitName(x.from), to: unitName(x.to) })}</span>
+                    <strong className="num">₪{money(fromAgorot(x.amount))}</strong>
                   </div>
                 ))}
               </div>
-
-              <div className="col" style={{ gap: 9, minWidth: 128 }}>
-                <div className="balance owe">
-                  {t('אתה חייב')} <span className="num">{Math.round(owe)}₪</span>
-                </div>
-                <div className="balance owed">
-                  {t('חייבים לך')} <span className="num">{Math.round(owed)}₪</span>
-                </div>
-                <span className="tiny" style={{ textAlign: 'center' }}>
-                  {t('חלוקה שווה')} (<span className="num">{shares}</span>)
-                </span>
-              </div>
-            </div>
+            )}
           </div>
         </div>
 
@@ -367,7 +430,11 @@ export default function Finance() {
               </p>
             )}
             {expenses.map((e) => {
-              const m = MEMBERS.find((x) => x.id === e.payer) ?? MEMBERS[0]
+              // Resolved the same way the balances resolve it, so the name
+              // on the row is always who the money was credited to.
+              const who = payerOf(e, FAMILIES)
+              const m = MEMBERS.find((x) => x.id === who?.member)
+                ?? { name: t('מי שעזב את הטיול'), short: '?', color: 'var(--muted-2)' }
               return (
                 <button
                   key={e.id}
@@ -382,10 +449,10 @@ export default function Finance() {
                   <span className="grow col" style={{ gap: 2 }}>
                     <strong style={{ fontSize: 13.5, fontWeight: 600 }}>{e.title}</strong>
                     <span className="tiny">
-                      {t('שילם/ה {name}', { name: m.name })} · <span className="num">₪{Math.round(e.amount / shares)}</span> {splitBy === 'family' ? t('למשפחה') : t('לאדם')}
+                      {t('שילם/ה {name}', { name: m.name })} · <span className="num">₪{money(Math.round((e.amount / sharesOf(e)) * 100) / 100)}</span> {splitBy === 'family' ? t('למשפחה') : t('לאדם')}
                     </span>
                   </span>
-                  <strong className="num" style={{ fontSize: 14 }}>₪{e.amount}</strong>
+                  <strong className="num" style={{ fontSize: 14 }}>₪{money(e.amount)}</strong>
                 </button>
               )
             })}
@@ -417,10 +484,16 @@ export default function Finance() {
           id="exp-amount"
           className="field num"
           value={value}
-          onChange={(e) => setValue(e.target.value.replace(/[^\d.]/g, ''))}
+          onChange={(e) => setValue(e.target.value.replace(/[^\d.,]/g, ''))}
           inputMode="decimal"
           placeholder="0.00"
+          aria-invalid={value !== '' && parsed == null}
         />
+        {value !== '' && parsed == null && (
+          <p className="tiny" role="alert" style={{ color: 'var(--rose)', marginTop: 6 }}>
+            {t('הסכום צריך להיות מספר גדול מאפס.')}
+          </p>
+        )}
 
         <label className="label" style={{ marginTop: 16 }}>{t('מי שילם?')}</label>
         <div className="pills" style={{ marginBottom: 22 }}>
@@ -437,7 +510,7 @@ export default function Finance() {
               <X size={17} />
             </button>
           )}
-          <button className="btn btn-primary btn-block grow" onClick={saveExpense}>
+          <button className="btn btn-primary btn-block grow" onClick={saveExpense} disabled={!canSave || saved}>
             {saved
               ? <><Check size={17} /> {t('נשמר')}</>
               : editingId
