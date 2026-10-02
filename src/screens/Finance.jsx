@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import TopBar from '../components/TopBar'
 import Sheet from '../components/Sheet'
 import {
@@ -8,6 +8,7 @@ import { useTrip } from '../TripProvider'
 import { SUPPORTED, SYMBOL, localCurrency, fetchRates, isConvertible } from '../lib/currency'
 import { balances, settle, payerOf, parseAmount, fromAgorot, toAgorot } from '../lib/split'
 import { useConfirm } from '../components/Confirm'
+import { newId } from '../lib/ids'
 import { t, tn } from '../i18n'
 
 const fmt = (n) =>
@@ -196,16 +197,21 @@ export default function Finance() {
   const parsed = parseAmount(value)
   const canSave = Boolean(title.trim()) && parsed != null && payerId != null
 
+  // Set synchronously, unlike `saved`: two taps inside one frame both run
+  // before React re-renders, so state alone cannot stop the second one.
+  const saving = useRef(false)
+
   const saveExpense = () => {
-    // `saved` is true for the 900ms the "saved" tick is on screen; a second
-    // tap in that window used to add the expense again.
-    if (!canSave || saved) return
+    // A second tap while the "saved" tick is on screen used to add the
+    // expense again.
+    if (!canSave || saving.current) return
+    saving.current = true
 
     if (editingId) {
       updateExpense(editingId, { title: title.trim(), payer: payerId, amount: parsed })
     } else {
       addExpense({
-        id: `e${Date.now()}`,
+        id: newId('e'),
         title: title.trim(),
         payer: payerId,
         amount: parsed,
@@ -218,6 +224,7 @@ export default function Finance() {
     setSaved(true)
     setTimeout(() => {
       setSaved(false)
+      saving.current = false
       closeSheet()
     }, 900)
   }

@@ -7,6 +7,7 @@ import {
   updatePresence, watchPresence, deleteTicketPhoto, watchTrip, mutateTripList,
 } from './lib/db'
 import { todayISO, daysBetween } from './lib/dates'
+import { newId } from './lib/ids'
 import { useConfirm } from './components/Confirm'
 import { onUser, hasFirebase } from './lib/firebase'
 import { invitedTripId } from './lib/share'
@@ -346,7 +347,7 @@ export function TripProvider({ children }) {
    */
   const addFamily = async ({ name, members, arriveAt, departAt }) => {
     if (!trip) return null
-    const id = `p${Date.now()}`
+    const id = newId('p')
     const party = {
       id,
       name: name.trim(),
@@ -475,17 +476,18 @@ export function TripProvider({ children }) {
   useEffect(() => {
     if (!trip?.id) return
     const id = trip.id
-    return watchTrip(id, (doc) => {
-      if (doc) {
-        setRaw((current) => (current?.id === id ? doc : current))
-        return
+    return watchTrip(
+      id,
+      (doc) => setRaw((current) => (current?.id === id ? doc : current)),
+      () => {
+        if (deletingTrip.current === id) return
+        // Deleted by its owner on another device, or this account was taken
+        // off it. Either way there is nothing here to show any more.
+        setRaw((current) => (current?.id === id ? null : current))
+        setTrips((list) => list.filter((x) => x.id !== id))
+        setSnack({ text: t('הטיול כבר לא זמין — ייתכן שמי שיצר אותו מחק אותו.') })
       }
-      if (deletingTrip.current === id) return
-      // Gone — the owner deleted it from another device.
-      setRaw((current) => (current?.id === id ? null : current))
-      setTrips((list) => list.filter((x) => x.id !== id))
-      setSnack({ text: t('הטיול נמחק על ידי מי שיצר אותו.') })
-    })
+    )
   }, [trip?.id])
 
   // A message with nothing to tap goes away on its own; one that offers an
@@ -671,7 +673,7 @@ export function TripProvider({ children }) {
           continue
         }
         const next = [...list, {
-          id: `c${Date.now()}-${list.length}`,
+          id: newId('c'),
           name: (hit.name || query.split(',')[0]).trim(),
           he,
           desc: desc ?? '',
@@ -769,7 +771,7 @@ export function TripProvider({ children }) {
       .slice(0, 5)
     if (fresh.length === 0) return []
     const now = Date.now()
-    const added = fresh.map((text, i) => ({ id: `m${now}-${i}`, text, at: now }))
+    const added = fresh.map((text) => ({ id: newId('m'), text, at: now }))
     await updateList('memory', (list) => [...list.filter((m) => !added.some((a) => a.id === m.id)), ...added])
     breadcrumb('action', `agent remembered ${fresh.length} fact(s)`)
     return fresh
@@ -1085,7 +1087,7 @@ export function TripProvider({ children }) {
   const addStop = (day, stop) => {
     const list = daysRef.current[day] ?? []
     if (list.some((s) => s.name === stop.name)) return
-    const next = [...list, { ...stop, id: Date.now() }].sort((a, b) =>
+    const next = [...list, { ...stop, id: newId('s') }].sort((a, b) =>
       String(a.time).localeCompare(String(b.time))
     )
     breadcrumb('action', `add stop to day ${day}`)
@@ -1148,7 +1150,7 @@ export function TripProvider({ children }) {
 
   const addReservation = (r) => {
     if (!trip) return null
-    const entry = { ...r, id: `r${Date.now()}`, createdAt: Date.now() }
+    const entry = { ...r, id: newId('r'), createdAt: Date.now() }
     updateList('reservations', (list) => [entry, ...list.filter((x) => x.id !== entry.id)])
     breadcrumb('action', `reservation noted: ${r.place}`)
     return entry
@@ -1332,7 +1334,7 @@ export function TripProvider({ children }) {
     const trimmed = text.trim()
     if (!trimmed || !trip) return
     logActivity(trip.id, { type: 'note', message: t('{name} הוסיף/ה הערה: {note}', { name: whoami(), note: trimmed }) })
-    const note = { id: `n${Date.now()}`, text: trimmed }
+    const note = { id: newId('n'), text: trimmed }
     return updateList('notes', (list) => [...list.filter((n) => n.id !== note.id), note])
   }
 

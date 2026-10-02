@@ -290,9 +290,14 @@ export function mutateTripList(tripId, field, change) {
  * reservations and families — was read once when the app opened. A second
  * member never saw the first one's expense until they reloaded, and the
  * share sheet's "updates appear for everyone" was true of the itinerary
- * alone. `onChange(null)` means the trip no longer exists.
+ * alone.
+ *
+ * `onLost()` means this account can no longer read the trip. That is also
+ * how a deletion arrives: the rules check membership on the document, and a
+ * document that no longer exists has no members, so the listener is refused
+ * rather than told the trip is gone.
  */
-export function watchTrip(tripId, onChange) {
+export function watchTrip(tripId, onChange, onLost) {
   if (!hasFirebase || !tripId) return () => {}
 
   let stop = () => {}
@@ -306,16 +311,36 @@ export function watchTrip(tripId, onChange) {
     const subscribe = () => {
       stop = FS.onSnapshot(
         FS.doc(db, 'trips', tripId),
-        (snap) => onChange(snap.exists() ? { id: snap.id, ...snap.data() } : null),
+        (snap) => {
+          // Only the server's word resets the retry. A resubscription first
+          // replays the offline cache — the trip as it was — and counting
+          // that as success made a deleted trip loop forever between the
+          // cached copy and the refusal, never reaching onLost.
+          if (!snap.metadata.fromCache) retried = false
+          if (snap.exists()) onChange({ id: snap.id, ...snap.data() })
+          else if (!snap.metadata.fromCache) onLost?.()
+        },
         (err) => {
+          if (err.code !== 'permission-denied' || cancelled) {
+            record({ kind: 'db', message: `watchTrip: ${err.message}`, stack: err.stack })
+            return
+          }
           // Same sign-in race watchRoutes() describes: one retry covers the
           // moment between a new uid taking over and it joining the trip.
-          if (err.code === 'permission-denied' && !retried && !cancelled) {
+          if (!retried) {
             retried = true
             setTimeout(() => { if (!cancelled) subscribe() }, 1500)
             return
           }
-          record({ kind: 'db', message: `watchTrip: ${err.message}`, stack: err.stack })
+          // Refused twice. Ask once more, plainly, before telling anyone the
+          // trip is gone — a slow sign-in should not look like a deletion.
+          setTimeout(() => {
+            if (cancelled) return
+            FS.getDoc(FS.doc(db, 'trips', tripId)).then(
+              (snap) => (snap.exists() ? subscribe() : onLost?.()),
+              (e) => (e?.code === 'permission-denied' ? onLost?.() : subscribe())
+            )
+          }, 3000)
         }
       )
     }

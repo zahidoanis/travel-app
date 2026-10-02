@@ -623,7 +623,7 @@ export default {
   "{place} הוסר/ה מיום {day}": "{place} was removed from day {day}",
   "{place} הועבר/ה ליום {day}": "{place} was moved to day {day}",
   "לא הצלחנו להצטרף לטיול מהקישור. ייתכן שהטיול נמחק, או שאין חיבור לאינטרנט.": "We couldn't join the trip from that link. It may have been deleted, or there's no connection.",
-  "הטיול נמחק על ידי מי שיצר אותו.": "The trip was deleted by the person who created it.",
+  "הטיול כבר לא זמין — ייתכן שמי שיצר אותו מחק אותו.": "This trip is no longer available — the person who created it may have deleted it.",
   "המסלול מתעדכן אצל כולם בזמן אמת — הקישור למטה מצרף אתכם לטיול.": "The itinerary updates for everyone in real time — the link below adds you to the trip.",
   "התכנון ליום {day}": "The plan for day {day}",
   "אתם חייבים": "You owe",
