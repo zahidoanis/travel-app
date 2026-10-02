@@ -1,0 +1,39 @@
+# Runs on every push and pull request. Everything here works without any
+# secret or real Firebase project: the security rules are tested against the
+# local emulators under a demo project id.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # The Firestore emulator is a Java program.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - run: npm ci
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Every UI string has an English translation
+        run: npm run i18n:check
+
+      - name: Build
+        run: npm run build
+
+      - name: Security rules, against the Firestore emulator
+        run: npx --yes firebase-tools@13 emulators:exec --only auth,firestore --project demo-tripai "npm run rules:test"
