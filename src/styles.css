@@ -2121,3 +2121,25 @@ a.contact-row:hover { background: var(--tint-2); color: var(--text); }
 }
 .edit-tabs::-webkit-scrollbar { display: none; }
 .edit-tabs .pill { flex: none; padding: 7px 13px; font-size: 12.5px; }
+
+/* ---------- Web, not native ---------- */
+
+/* Pulling down at the top of the page reloads it in mobile browsers — a
+   native app would do nothing, or refresh a list. Here a reload throws away
+   the conversation with the agent and anything half-typed, and the trip is
+   live already, so there is nothing for it to refresh. The browser's own
+   reload button still works. */
+html, body { overscroll-behavior-y: contain; }
+
+/* The sheet's handle row is dragged to close it (Sheet.jsx); the browser
+   must not take that vertical drag for a scroll. */
+.sheet-handle { touch-action: none; cursor: grab; }
+.sheet.dragging { transition: none; animation: none; }
+
+/* iOS zooms the whole page into any focused field under 16px. The phone-
+   width rule earlier sets 16px on input elements, but .field (15px) is more
+   specific and won, so it never applied to most fields — on any touch screen,
+   every field is 16px. */
+@media (pointer: coarse) {
+  .field, .field-bare, .chat-bar input, input, select, textarea { font-size: 16px; }
+}
