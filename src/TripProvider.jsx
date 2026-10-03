@@ -1338,14 +1338,18 @@ export function TripProvider({ children }) {
     const trimmed = text.trim()
     if (!trimmed || !trip) return
     logActivity(trip.id, { type: 'note', message: t('{name} הוסיף/ה הערה: {note}', { name: whoami(), note: trimmed }) })
-    const note = { id: newId('n'), text: trimmed }
+    // Who and when, shown under the note: on a shared trip "door code 4821"
+    // is only useful once you know whose door, and from when.
+    const author = (user && !user.anonymous && user.name) || families.find((f) => f.id === myFamily)?.name || ''
+    const note = { id: newId('n'), text: trimmed, at: Date.now(), by: author }
     return updateList('notes', (list) => [...list.filter((n) => n.id !== note.id), note])
   }
 
   const updateNote = (id, text) => {
     const trimmed = text.trim()
     if (!trimmed || !trip) return
-    return updateList('notes', (list) => list.map((n) => (n.id === id ? { ...n, text: trimmed } : n)))
+    const editedAt = Date.now()
+    return updateList('notes', (list) => list.map((n) => (n.id === id ? { ...n, text: trimmed, editedAt } : n)))
   }
 
   const removeNote = (id) => {

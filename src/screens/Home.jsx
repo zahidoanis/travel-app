@@ -12,6 +12,7 @@ import { geocode } from '../lib/geocode'
 import { CITIES } from '../cities'
 import WeatherSheet from '../components/WeatherSheet'
 import NoteSheet from '../components/NoteSheet'
+import NotesList from '../components/NotesList'
 import { useConfirm } from '../components/Confirm'
 import { todayISO, nowHHMM } from '../lib/dates'
 import { t, tn, lang } from '../i18n'
@@ -288,19 +289,7 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
         </div>
 
         {TRIP.notes.length > 0 ? (
-          <div className="card" style={{ paddingBlock: 4 }}>
-            {TRIP.notes.map((n) => (
-              <button
-                key={n.id}
-                className="expense-row"
-                style={{ width: '100%', textAlign: 'start' }}
-                onClick={() => setNoteEditing({ isNew: false, id: n.id, text: n.text })}
-                aria-label={t('ערוך הערה')}
-              >
-                <span className="tiny" style={{ lineHeight: 1.6 }}>{n.text}</span>
-              </button>
-            ))}
-          </div>
+          <NotesList notes={TRIP.notes} onEdit={(n) => setNoteEditing({ isNew: false, id: n.id, text: n.text })} />
         ) : (
           <p className="tiny">{t('אין עדיין הערות. לדוגמה: פרטי נהג, קוד לדירה, מספר הזמנה.')}</p>
         )}

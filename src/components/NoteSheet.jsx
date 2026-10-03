@@ -33,7 +33,10 @@ export default function NoteSheet({ open, isNew, initialText, onClose, onSave, o
     <Sheet open={open} title={isNew ? t('הערה חדשה') : t('עריכת הערה')} onClose={onClose}>
       <textarea
         className="field"
-        rows={3}
+        // Grows with what is written, up to a point, instead of a fixed
+        // three lines with a scrollbar inside a sheet that itself scrolls.
+        rows={Math.min(10, Math.max(3, text.split('\n').length + 1))}
+        maxLength={1000}
         style={{ resize: 'vertical', lineHeight: 1.6 }}
         value={text}
         onChange={(e) => setText(e.target.value)}

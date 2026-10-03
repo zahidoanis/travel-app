@@ -659,5 +659,6 @@ export default {
   "מה לערוך?": "What do you want to change?",
   "לא הוזן": "Not set",
   "עריכת הטיול": "Editing the trip",
-  "חלקי הטיול": "Parts of the trip"
+  "חלקי הטיול": "Parts of the trip",
+  "העתק את ההערה": "Copy this note"
 }
