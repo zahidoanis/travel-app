@@ -37,6 +37,9 @@ export default function Sheet({ open, title, onClose, children }) {
 
     const onKey = (e) => {
       if (stack[stack.length - 1] !== token) return
+      // A sheet left open on a screen that is now hidden (screens stay
+      // mounted between tabs) must not answer keys it cannot be seen for.
+      if (node && node.getClientRects().length === 0) return
       if (e.key === 'Escape') {
         close.current()
         return

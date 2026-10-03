@@ -71,7 +71,9 @@ export default function App() {
 /** Moves keyboard focus past the navigation, to the first control on screen. */
 function skipToMain(e) {
   e.preventDefault()
-  document.getElementById('main')?.querySelector('button, a[href], input, select, textarea, [tabindex]')?.focus()
+  // Only the screen on show: the others are kept mounted but hidden.
+  const shown = [...(document.getElementById('main')?.children ?? [])].find((el) => el.style.display !== 'none')
+  shown?.querySelector('button, a[href], input, select, textarea, [tabindex]')?.focus()
 }
 
 function Shell() {
@@ -81,6 +83,11 @@ function Shell() {
     profile, updateTrip, editStep, closeEdit,
   } = useTrip()
   const [tab, setTab] = useState('home')
+  // Every tab opened so far — those are the screens kept alive (see below).
+  const [visited, setVisited] = useState(() => new Set(['home']))
+  useEffect(() => {
+    setVisited((v) => (v.has(tab) ? v : new Set(v).add(tab)))
+  }, [tab])
   const [started, setStarted] = useState(false)
   const [saveError, setSaveError] = useState(null)
   useEffect(() => {
@@ -208,6 +215,33 @@ function Shell() {
 
   const onboarding = !isReal
 
+  const screenFor = (id) => {
+    switch (id) {
+      case 'home':
+        return (
+          <Home
+            onStartRoute={() => go('map')}
+            onOpenChat={() => go('chat')}
+            onOpenDays={() => go('days')}
+            onOpenFood={() => go('food')}
+            onOpenArrival={() => go('arrival')}
+            onOpenHotels={() => go('hotels')}
+            onOpenSummary={() => go('summary')}
+          />
+        )
+      case 'map': return <MapScreen />
+      case 'chat': return <Chat />
+      case 'finance': return <Finance />
+      case 'days': return <Days />
+      case 'reservations': return <Reservations />
+      case 'food': return <Restaurants />
+      case 'arrival': return <Arrival />
+      case 'hotels': return <Hotels />
+      case 'summary': return <Summary />
+      default: return null
+    }
+  }
+
   return (
     <div className="shell">
       <div className="app" dir={dir}>
@@ -254,29 +288,20 @@ function Shell() {
               <LegalLinks className="rail-legal" />
             </aside>
 
+            {/* A screen, once opened, stays mounted and is only hidden when
+                another tab is showing. Switching tabs used to unmount the
+                screen being left, so coming back refetched everything on it —
+                the weather, exchange rates, AI suggestions — and dropped the
+                scroll position. Data still updates live underneath (it comes
+                from TripProvider), so a kept screen is never stale. */}
             <main className="stage" id="main">
-              <ErrorBoundary scope={tab} key={tab}>
-                {tab === 'home' && (
-                  <Home
-                    onStartRoute={() => go('map')}
-                    onOpenChat={() => go('chat')}
-                    onOpenDays={() => go('days')}
-                    onOpenFood={() => go('food')}
-                    onOpenArrival={() => go('arrival')}
-                    onOpenHotels={() => go('hotels')}
-                    onOpenSummary={() => go('summary')}
-                  />
-                )}
-                {tab === 'map' && <MapScreen />}
-                {tab === 'chat' && <Chat />}
-                {tab === 'finance' && <Finance />}
-                {tab === 'days' && <Days />}
-                {tab === 'reservations' && <Reservations />}
-                {tab === 'food' && <Restaurants />}
-                {tab === 'arrival' && <Arrival />}
-                {tab === 'hotels' && <Hotels />}
-                {tab === 'summary' && <Summary />}
-              </ErrorBoundary>
+              {[...visited].map((id) => (
+                <div key={id} style={{ display: id === tab ? 'contents' : 'none' }}>
+                  <ErrorBoundary scope={id}>
+                    {screenFor(id)}
+                  </ErrorBoundary>
+                </div>
+              ))}
             </main>
 
             <BottomNav tab={tab} onChange={go} />
