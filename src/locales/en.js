@@ -585,4 +585,66 @@ export default {
   // Calendar header
   "בחר חודש": "Choose a month",
   "בחר שנה": "Choose a year",
+
+  // UX pass — navigation, top bar, account
+  "בית": "Home",
+  "הוצאות": "Expenses",
+  "רשימה": "List",
+  "הטיול שמור רק בדפדפן הזה — לחצו כדי לשמור אותו": "This trip is only saved in this browser — tap to save it",
+  "מחק את הטיול הזה": "Delete this trip",
+
+  // UX pass — home
+  "ראו את התכנון": "See the plan",
+  "נווטו לעצירה הבאה": "Navigate to the next stop",
+  "סיכום הטיול": "Trip summary",
+  "מלון": "Hotel",
+  "טיסה": "Flight",
+  "העדפות אוכל": "Food preferences",
+  "שתף טיול": "Share trip",
+  "שמרו את הטיול בחשבון": "Save the trip to an account",
+  "כרגע הוא שמור רק בדפדפן הזה. התחברות שומרת אותו לכל מכשיר.": "Right now it's only saved in this browser. Signing in keeps it on every device.",
+  "השלימו את הטיול": "Complete your trip",
+  "כמה פרטים שיעזרו לסוכן לדייק את ההמלצות": "A few details that help the agent tailor its suggestions",
+  "נוסע אחד": "1 traveler",
+  "{n} נוסעים": "{n} travelers",
+  "{n} משפחות": "{n} families",
+  "עוד בטיול": "More for this trip",
+
+  // UX pass — route (list + map)
+  "פעולות על {place}": "Actions for {place}",
+  "העבר ליום אחר": "Move to another day",
+  "הסר מהמסלול": "Remove from the plan",
+  "בנה מחדש": "Rebuild",
+  "\"{place}\" הוסר מהמסלול": "\"{place}\" was removed",
+  "בטל": "Undo",
+  "אין עדיין עצירות ביום הזה.": "No stops on this day yet.",
+
+  // UX pass — expenses, bookings
+  "חלוקת הוצאות מופיעה כשיש יותר מנוסע אחד. אפשר להוסיף נוסעים ב\"מי מטייל\" במסך הבית.": "Splitting expenses appears once there's more than one traveler. You can add travelers under \"Who's traveling\" on the home screen.",
+  "הוסף הוצאה ראשונה": "Add the first expense",
+  "עוד אין הזמנות": "No bookings yet",
+  "שמרו כאן כרטיסי טיסה, כניסות לאתרים והזמנות מסעדה — עם צילום של הכרטיס, כדי שיהיה בהישג יד ביום עצמו.": "Keep flight tickets, entry tickets and restaurant bookings here — with a photo of the ticket, so it's at hand on the day.",
+  "הוסף כרטיס או הזמנה": "Add a ticket or booking",
+  "אפשר גם להזמין ישירות מעצירה במסלול: ⋯ ← הזמנת מקום או כרטיסים.": "You can also book straight from a stop in the plan: ⋯ → Book a place or tickets.",
+
+  // UX pass — questionnaire
+  "כמה זמן?": "How long?",
+  "עכשיו בחר את תאריך החזרה": "Now pick the return date",
+  "למשל: אל על": "e.g. El Al",
+  "למשל: LY381": "e.g. LY381",
+  "לא ידוע עדיין": "Not known yet",
+  "בנו לי את המסלול": "Build my plan",
+  "כמה אתם — ואם נוסעות כמה משפחות יחד, כל אחת תקבל לו\"ז והוצאות משלה.": "How many of you — and if several families are traveling together, each one gets its own schedule and expenses.",
+  "עוד לא הוספתם פרטי טיסה.": "You haven't added flight details yet.",
+  "הוסף פרטי טיסה": "Add flight details",
+
+  // UX pass — welcome
+  "סוכן AI שמתכנן איתכם": "An AI agent that plans with you",
+  "שואלים בצ'אט, מקבלים המלצות — וכל מקום נכנס למסלול בלחיצה. הוא גם זוכר מה אתם אוהבים.": "Ask in the chat, get suggestions — and add any place to your plan in one tap. It remembers what you like, too.",
+  "מסלול יומי על המפה": "A day-by-day plan on the map",
+  "כל יום עם שעות, מקומות אמיתיים, מזג אוויר וניווט": "Every day with times, real places, weather and navigation",
+  "כבר תכננתם ב-Google Maps?": "Already planned in Google Maps?",
+  "מדביקים קישור, והמסלול נכנס מחולק לימים": "Paste a link and your route comes in, split into days",
+  "קישור אחד בוואטסאפ — וכולם רואים את אותו מסלול, מתעדכן בזמן אמת": "One link on WhatsApp — and everyone sees the same plan, updated live",
+  "חינם לחלוטין · ללא הרשמה · ארבע שאלות קצרות": "Completely free · no sign-up · four short questions",
 }

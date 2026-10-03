@@ -13,7 +13,14 @@ import { t, tn } from '../i18n'
 // there is no way to run code when a tab closes to mark it inactive itself.
 const PRESENCE_STALE_MS = 10 * 60 * 1000
 
-export default function MapScreen() {
+/**
+ * `embedded` — the map half of the desktop route split: no top bar or day
+ * strip of its own (the list beside it has both), and one card for the
+ * focused stop instead of the phone's swipeable deck. `focusId` /
+ * `onFocusStop` keep it pointed at the same stop as the list.
+ * `onAddStop` is the + button; `switcher` is the phone's "list" pill.
+ */
+export default function MapScreen({ embedded = false, focusId = null, onFocusStop, onAddStop, switcher = null }) {
   const {
     stops: ALL_STOPS, days, activeDay, setActiveDay, planning, trip,
     families, activeFamily, switchFamily,
@@ -69,6 +76,14 @@ export default function MapScreen() {
   // to always start fresh regardless — not worth trusting every future id
   // scheme to stay collision-free.
   useEffect(() => { setActiveId(null) }, [activeDay])
+
+  // The list beside the map (desktop) picked a stop.
+  useEffect(() => { if (focusId != null) setActiveId(focusId) }, [focusId])
+
+  const pick = (id) => {
+    setActiveId(id)
+    onFocusStop?.(id)
+  }
 
   // The itinerary is regenerated per destination, so the active id has to
   // follow it rather than being captured once at mount.
@@ -133,11 +148,15 @@ export default function MapScreen() {
   if (STOPS.length === 0) {
     return (
       <div className="map-screen" style={{ display: 'grid', placeItems: 'center' }}>
-        <div style={{ position: 'relative', zIndex: 10 }}>
-          <TopBar floating />
-        </div>
-        {familySwitcher}
-        {daySwitcher}
+        {!embedded && (
+          <>
+            <div style={{ position: 'relative', zIndex: 10 }}>
+              <TopBar floating />
+            </div>
+            {familySwitcher}
+            {daySwitcher}
+          </>
+        )}
         <div className="card" style={{ textAlign: 'center', maxWidth: 300 }}>
           {planning ? (
             <>
@@ -148,10 +167,11 @@ export default function MapScreen() {
             <p className="sub">
               {unlocated > 0
                 ? t('העצירות ביום הזה עדיין בלי מיקום על המפה — אפשר לערוך אותן ולבחור מקום מהרשימה.')
-                : t('אין עדיין עצירות במסלול. חזור למסך הבית ובנה מסלול.')}
+                : t('אין עדיין עצירות ביום הזה.')}
             </p>
           )}
         </div>
+        {switcher && <div className="view-switch-wrap on-map">{switcher}</div>}
       </div>
     )
   }
@@ -161,7 +181,7 @@ export default function MapScreen() {
       <MapCanvas
         stops={STOPS}
         activeId={activeId}
-        onPinClick={setActiveId}
+        onPinClick={pick}
         provider={provider}
         hotels={locatedStays}
         people={livePeople}
@@ -169,16 +189,25 @@ export default function MapScreen() {
         locateSignal={myLoc?.seq}
       />
 
-      <div style={{ position: 'relative', zIndex: 10 }}>
-        <TopBar floating />
-      </div>
+      {!embedded && (
+        <>
+          <div style={{ position: 'relative', zIndex: 10 }}>
+            <TopBar floating />
+          </div>
+          {familySwitcher}
+          {daySwitcher}
+        </>
+      )}
 
-      {familySwitcher}
-      {daySwitcher}
-
-      <div className="map-tools">
+      <div className={`map-tools ${embedded ? 'embedded' : ''}`}>
         <button className="map-tool" onClick={locateMe} aria-label={t('מרכז על המיקום שלי')}><Locate size={18} /></button>
-        <button className="map-tool" aria-label={t('הוסף עצירה')}><Plus size={18} /></button>
+        {/* Used to be a + with no handler at all — now it opens the list's
+            add-a-stop form. */}
+        {onAddStop && (
+          <button className="map-tool" onClick={onAddStop} aria-label={t('הוסף עצירה')} title={t('הוסף עצירה')}>
+            <Plus size={18} />
+          </button>
+        )}
         <button
           className={`map-tool ${sharingLocation ? 'on' : ''}`}
           onClick={toggleLocationSharing}
@@ -190,9 +219,9 @@ export default function MapScreen() {
         </button>
       </div>
 
-      <div className="stop-deck">
+      <div className={`stop-deck ${embedded ? 'single' : ''}`}>
         <div className="hscroll" ref={deckRef}>
-          {STOPS.map((s) => {
+          {(embedded ? STOPS.filter((s) => s.id === activeId) : STOPS).map((s) => {
             const on = s.id === activeId
             const cat = CATEGORIES[s.cat]
             return (
@@ -200,14 +229,14 @@ export default function MapScreen() {
                 key={s.id}
                 data-stop={s.id}
                 className={`stop-card glass ${on ? 'active' : ''}`}
-                onClick={() => setActiveId(s.id)}
+                onClick={() => pick(s.id)}
               >
                 <div className="between" style={{ marginBottom: 9 }}>
                   <span className="tiny row" style={{ gap: 5 }}>
                     <span className="num">{s.time}</span>
                     <Clock size={13} />
                   </span>
-                  <span className="star"><span className="num">{s.rating}</span><Star size={13} /></span>
+                  {s.rating ? <span className="star"><span className="num">{s.rating}</span><Star size={13} /></span> : null}
                 </div>
 
                 <h3 className="h3" style={{ fontSize: 16, marginBottom: 6 }}>{s.he}</h3>
@@ -246,7 +275,7 @@ export default function MapScreen() {
           {/* The hotel is not one of today's stops — it doesn't belong to
               any one day — so it rides along at the end of every day's deck
               instead, reachable regardless of which stop you scrolled to. */}
-          {locatedStays.map((h) => (
+          {!embedded && locatedStays.map((h) => (
             <div key={h.label} className="stop-card glass">
               <div className="between" style={{ marginBottom: 9 }}>
                 <span className="tiny row" style={{ gap: 5 }}>
@@ -269,6 +298,8 @@ export default function MapScreen() {
         </div>
       </div>
 
+      {switcher && <div className="view-switch-wrap on-map">{switcher}</div>}
+
       <Sheet open={Boolean(details)} title={details?.he ?? ''} onClose={() => setDetails(null)}>
         {details && (
           <>
@@ -280,7 +311,7 @@ export default function MapScreen() {
               }}
             />
             <div className="between" style={{ marginBottom: 14 }}>
-              <span className="star"><Star size={14} /><span className="num">{details.rating}</span></span>
+              {details.rating ? <span className="star"><Star size={14} /><span className="num">{details.rating}</span></span> : <span />}
               <span className="badge">{CATEGORIES[details.cat].label}</span>
             </div>
             <p className="sub" style={{ marginBottom: 16 }}>{details.desc}</p>

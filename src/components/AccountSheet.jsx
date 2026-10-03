@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import Sheet from './Sheet'
-import { Check, Users, Info, X, Plus, Pencil, Share } from './Icons'
+import { Check, Users, Info, X, Plus, Pencil, Share, Trash } from './Icons'
 import { useTrip } from '../TripProvider'
 import { joinTrip, claimOwnership } from '../lib/db'
 import { signInWithGoogle, signOutUser, hasFirebase } from '../lib/firebase'
@@ -71,6 +71,11 @@ export default function AccountSheet({ open, onClose }) {
   }
 
   const signedIn = user && !user.anonymous
+  const ownsCurrent = Boolean(trip && user && trip.ownerId === user.uid)
+  const askDeleteCurrent = () => {
+    setDeleteError(null)
+    setDeletingTrip({ id: trip.id, destination: trip.city, destinationEn: trip.cityEn, country: trip.country })
+  }
 
   const planAnother = () => {
     startNewTrip()
@@ -177,6 +182,12 @@ export default function AccountSheet({ open, onClose }) {
             <p className="tiny" style={{ marginTop: 10 }}>
               {t('בלי להתחבר, הטיול הנוכחי לא יופיע יותר ברשימה — ההתחברות למעלה היא הדרך היחידה לשמור גישה לשניהם.')}
             </p>
+            {ownsCurrent && (
+              <button className="btn btn-ghost btn-block danger-text" onClick={askDeleteCurrent} style={{ marginTop: 14 }}>
+                <Trash size={16} />
+                {t('מחק את הטיול הזה')}
+              </button>
+            )}
           </div>
         </>
       )}
@@ -236,7 +247,6 @@ export default function AccountSheet({ open, onClose }) {
                       {tr.id === trip?.id && <Check size={16} />}
                       <button
                         className="icon-btn"
-                        style={{ width: 32, height: 32 }}
                         onClick={() => shareTripRow(tr)}
                         aria-label={t('שתף את הטיול ל{city}', { city: placeNames(tr).city })}
                       >
@@ -244,7 +254,6 @@ export default function AccountSheet({ open, onClose }) {
                       </button>
                       <button
                         className="icon-btn"
-                        style={{ width: 32, height: 32 }}
                         onClick={() => editTripRow(tr)}
                         aria-label={t('ערוך את הטיול ל{city}', { city: placeNames(tr).city })}
                       >
@@ -256,7 +265,6 @@ export default function AccountSheet({ open, onClose }) {
                       {tr.ownerId === user.uid && (
                         <button
                           className="icon-btn"
-                          style={{ width: 32, height: 32 }}
                           onClick={() => { setDeleteError(null); setDeletingTrip(tr) }}
                           aria-label={t('מחק את הטיול ל{city}', { city: placeNames(tr).city })}
                         >
@@ -281,7 +289,7 @@ export default function AccountSheet({ open, onClose }) {
       )}
 
       <div style={{ marginTop: 22, display: 'flex', justifyContent: 'center' }}>
-        <LangToggle />
+        <LangToggle up />
       </div>
     </Sheet>
 

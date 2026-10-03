@@ -123,10 +123,11 @@ export default function Restaurants() {
         </div>
 
         <button
-          className="btn btn-primary btn-block"
+          className={`btn btn-block ${loading ? 'btn-ghost' : 'btn-primary'}`}
           style={{ marginTop: 16 }}
           onClick={() => find()}
           disabled={loading || !hasAI}
+          aria-busy={loading}
         >
           {loading ? (
             <><span className="typing"><i /><i /><i /></span> {t('מחפש ב{city}...', { city: trip.city })}</>
@@ -144,6 +145,15 @@ export default function Restaurants() {
         {error && <p className="tiny" style={{ color: 'var(--rose)', marginTop: 12 }}>{error}</p>}
 
         <div className="col" style={{ gap: 10, marginTop: 20 }}>
+          {/* While searching: the shape of the cards that are coming. */}
+          {loading && list.length === 0 && [0, 1, 2].map((i) => (
+            <div key={i} className="card skeleton-card" aria-hidden="true">
+              <span className="skeleton" style={{ width: '50%', height: 16 }} />
+              <span className="skeleton" style={{ width: '30%', height: 10, marginTop: 8 }} />
+              <span className="skeleton" style={{ width: '92%', height: 10, marginTop: 14 }} />
+              <span className="skeleton" style={{ width: '70%', height: 10, marginTop: 6 }} />
+            </div>
+          ))}
           {list.map((r) => {
             const on = added.includes(r.name)
             return (

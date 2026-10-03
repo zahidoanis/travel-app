@@ -1,13 +1,16 @@
-import { Sparkles, MapPin, Users, Wallet, ArrowLeft } from '../components/Icons'
+import { Sparkles, MapPin, Users, Route, ArrowLeft } from '../components/Icons'
 import { hasFirebase } from '../lib/firebase'
 import { t } from '../i18n'
 import LangToggle from '../components/LangToggle'
 
+// The four things this app does that a list of links doesn't — the agent,
+// the plan on a map, bringing an existing Google Maps plan in, and one
+// shared trip for everyone.
 const FEATURES = [
-  { Icon: Sparkles, title: t('מסלול שנבנה בשבילך'), sub: t('סוכן AI מתכנן כל יום לפי הסגנון והתקציב שלך') },
-  { Icon: MapPin, title: t('מפה חיה'), sub: t('כל עצירה עם מיקום אמיתי, ניווט וזמני הגעה') },
-  { Icon: Users, title: t('טיול משותף'), sub: t('שתפו בוואטסאפ — מסלול אחד לכולם, ועדכון מופיע אצל כולם מיד') },
-  { Icon: Wallet, title: t('הכל מתחשבן'), sub: t('המרת מטבע וחלוקת הוצאות בין כולם') },
+  { Icon: Sparkles, title: t('סוכן AI שמתכנן איתכם'), sub: t("שואלים בצ'אט, מקבלים המלצות — וכל מקום נכנס למסלול בלחיצה. הוא גם זוכר מה אתם אוהבים.") },
+  { Icon: MapPin, title: t('מסלול יומי על המפה'), sub: t('כל יום עם שעות, מקומות אמיתיים, מזג אוויר וניווט') },
+  { Icon: Route, title: t('כבר תכננתם ב-Google Maps?'), sub: t('מדביקים קישור, והמסלול נכנס מחולק לימים') },
+  { Icon: Users, title: t('טיול משותף'), sub: t('קישור אחד בוואטסאפ — וכולם רואים את אותו מסלול, מתעדכן בזמן אמת') },
 ]
 
 export default function Welcome({ onStart, onSignIn }) {
@@ -56,7 +59,7 @@ export default function Welcome({ onStart, onSignIn }) {
           <ArrowLeft size={19} />
         </button>
         <p className="tiny welcome-note">
-          {t('חינם לחלוטין · ללא הרשמה · שש שאלות קצרות')}
+          {t('חינם לחלוטין · ללא הרשמה · ארבע שאלות קצרות')}
         </p>
         {/* Not a wall — planning first without an account still works exactly
             as before. This is for someone who already has trips on a Google

@@ -317,3 +317,34 @@ export const Printer = make(
     <rect x="6" y="14" width="12" height="8" rx="1" />
   </>
 )
+
+export const HomeIcon = make(
+  <>
+    <path d="M3.5 10.5 12 3.5l8.5 7" />
+    <path d="M5.5 9v11h13V9" />
+    <path d="M10 20v-6h4v6" />
+  </>
+)
+
+/** "More actions" — three dots in a row. */
+export const More = make(
+  <>
+    <circle cx="5" cy="12" r="1.3" />
+    <circle cx="12" cy="12" r="1.3" />
+    <circle cx="19" cy="12" r="1.3" />
+  </>
+)
+
+export const Trash = make(
+  <>
+    <path d="M4 7h16M10 11v6M14 11v6" />
+    <path d="M6 7l1 13h10l1-13M9 7V4h6v3" />
+  </>
+)
+
+export const ListIcon = make(
+  <>
+    <path d="M9 6h11M9 12h11M9 18h11" />
+    <path d="M4.5 6h.01M4.5 12h.01M4.5 18h.01" />
+  </>
+)

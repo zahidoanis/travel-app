@@ -668,7 +668,11 @@ export function TripProvider({ children }) {
       ? await fetchTripWeather(trip).catch(() => null)
       : null
 
-    const system = systemPrompt({ trip, stops, days, families, memory: trip.memory, weather })
+    // The user's own clock, not the destination's: before the trip they're
+    // at home, and once there a phone's clock has moved to local time anyway.
+    // The opener once said "good morning" at 18:45 for a trip weeks out.
+    const userTime = new Date().toTimeString().slice(0, 5)
+    const system = systemPrompt({ trip, stops, days, families, memory: trip.memory, weather, userTime })
 
     try {
       // Streamed onto the screen as it arrives — waiting 6-12 seconds on

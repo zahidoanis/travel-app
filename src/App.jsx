@@ -5,10 +5,9 @@ import ErrorBoundary from './components/ErrorBoundary'
 import Welcome from './screens/Welcome'
 import Onboarding from './screens/Onboarding'
 import Home from './screens/Home'
-import MapScreen from './screens/MapScreen'
 import Chat from './screens/Chat'
 import Finance from './screens/Finance'
-import Days from './screens/Days'
+import Route from './screens/Route'
 import Reservations from './screens/Reservations'
 import Restaurants from './screens/Restaurants'
 import Arrival from './screens/Arrival'
@@ -45,6 +44,9 @@ function Shell() {
     profile, updateTrip, editStep, closeEdit,
   } = useTrip()
   const [tab, setTab] = useState('home')
+  // Which half of the route tab a phone shows — the list or the map. Kept
+  // here so Home can open straight onto the map ("navigate to the next stop").
+  const [routeView, setRouteView] = useState('list')
   const [started, setStarted] = useState(false)
   const [saveError, setSaveError] = useState(null)
   useEffect(() => {
@@ -54,6 +56,8 @@ function Shell() {
   }, [saveError])
 
   const go = (next) => {
+    // The old standalone map tab is now the map half of the route tab.
+    if (next === 'map') { setRouteView('map'); next = 'days' }
     if (next === tab) return
     breadcrumb('nav', `tab -> ${next}`)
     setTab(next)
@@ -222,17 +226,16 @@ function Shell() {
                   <Home
                     onStartRoute={() => go('map')}
                     onOpenChat={() => go('chat')}
-                    onOpenDays={() => go('days')}
+                    onOpenDays={() => { setRouteView('list'); go('days') }}
                     onOpenFood={() => go('food')}
                     onOpenArrival={() => go('arrival')}
                     onOpenHotels={() => go('hotels')}
                     onOpenSummary={() => go('summary')}
                   />
                 )}
-                {tab === 'map' && <MapScreen />}
                 {tab === 'chat' && <Chat />}
                 {tab === 'finance' && <Finance />}
-                {tab === 'days' && <Days />}
+                {tab === 'days' && <Route view={routeView} onViewChange={setRouteView} />}
                 {tab === 'reservations' && <Reservations />}
                 {tab === 'food' && <Restaurants />}
                 {tab === 'arrival' && <Arrival />}

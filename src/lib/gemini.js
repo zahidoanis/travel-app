@@ -73,8 +73,32 @@ function weatherBlock(weather) {
   return ''
 }
 
+/**
+ * Where the trip is in time, said plainly. "היום: יום 1 מתוך 5" alone read
+ * as "you're there now" — the opener wished a trip 17 days out a good first
+ * day.
+ */
+function tripPhase(trip) {
+  const day = (iso) => {
+    if (!iso) return null
+    const [y, m, d] = iso.split('-').map(Number)
+    return new Date(y, m - 1, d)
+  }
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const from = day(trip.from)
+  const to = day(trip.to)
+  if (!from) return `היום הפתוח בתכנון: יום ${trip.day} מתוך ${trip.totalDays}.`
+  const until = Math.round((from - today) / 86400000)
+  if (until > 0) {
+    return `הטיול עוד לא התחיל: הוא מתחיל בעוד ${until} ${until === 1 ? 'יום' : 'ימים'} (${trip.from}) ונמשך ${trip.totalDays} ימים. המשתמש מתכנן מראש — הוא עדיין לא שם, אז אל תדבר כאילו הוא כבר בטיול. היום הפתוח בתכנון: יום ${trip.day}.`
+  }
+  if (to && to < today) return `הטיול כבר הסתיים (${trip.from} עד ${trip.to}).`
+  return `הטיול מתרחש עכשיו. היום: יום ${trip.day} מתוך ${trip.totalDays}.`
+}
+
 /** Builds the agent's standing instructions, grounded in the actual trip. */
-export function systemPrompt({ trip, stops, days = {}, families, memory = [], weather }) {
+export function systemPrompt({ trip, stops, days = {}, families, memory = [], weather, userTime }) {
   const line = (s, i) => `${i + 1}. ${s.time} — ${s.he}${s.desc ? ` (${s.desc})` : ''}`
   const itinerary = stops.map(line).join('\n') || 'ריק'
 
@@ -100,8 +124,9 @@ export function systemPrompt({ trip, stops, days = {}, families, memory = [], we
 
   return `אתה סוכן הנסיעות של TripAI. אתה עוזר לקבוצה שמטיילת ב${trip.city}, ${trip.country}.
 
-היום: יום ${trip.day} מתוך ${trip.totalDays}.
-
+${tripPhase(trip)}
+${userTime ? `השעה אצל המשתמש עכשיו: ${userTime} (לפי השעון במכשיר שלו). כשמברכים "בוקר טוב" / "ערב טוב" — לפי השעה הזו, לא לפי ניחוש.
+` : ''}
 הלו"ז של היום הפתוח:
 ${itinerary}
 
@@ -165,7 +190,7 @@ REMEMBER: <עובדה קצרה, בגוף שלישי>
  */
 export const OPENER_PROMPT =
   '(הודעת מערכת, לא מהמשתמש: המשתמש פתח עכשיו את הצ\'אט. פתח אתה את השיחה. ' +
-  'ברכה קצרה שמתאימה לשעה המקומית ביעד אם היא ידועה לך, ואז התייחסות קונקרטית אחת למצב שלהם עכשיו — ' +
+  'ברכה קצרה שמתאימה לשעה אצל המשתמש (היא מופיעה בהוראות), ואז התייחסות קונקרטית אחת למצב שלהם עכשיו — ' +
   'מה מחכה היום או בעצירה הבאה, מזג האוויר אם הוא משנה משהו, או יום ריק שכדאי למלא — ' +
   'והצעה יזומה אחת או שאלה אחת. 2-3 משפטים, חם ואישי. אל תציג את עצמך ואל תפרט מה אתה יודע לעשות. ' +
   'בסוף שורת SUGGEST כרגיל.)'

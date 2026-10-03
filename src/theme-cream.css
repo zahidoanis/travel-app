@@ -30,17 +30,21 @@
   --ink-2:         #D4B170;
   --on-ink:        #2B2124;
 
-  --accent:        #A8703F;
-  --accent-2:      #B98150;
+  /* Darkened 2026-10-03 for text use: #A8703F measured 3.86:1 on the
+     cream ground, under the 4.5:1 body-text minimum. Now ~5:1. */
+  --accent:        #8F5F36;
+  --accent-2:      #A8703F;
   --accent-soft:   rgba(168, 112, 63, 0.10);
-  --lav:           #8C6A32;
+  --lav:           #84642F;
   --amber:         #9A6B12;
-  --gold:          #8C6A32;
+  --gold:          #84642F;
   --gold-soft:     rgba(201, 164, 92, 0.14);
 
   --text:          #2B2124;
   --text-2:        #54474A;
-  --muted:         #86767A;
+  /* Was #86767A — 3.99:1, below the 4.5:1 minimum for the secondary
+     text it sets everywhere. Now 5.1:1. */
+  --muted:         #736569;
   --muted-2:       #B3A6A2;
 
   --shadow-sm:     0 1px 2px rgba(60, 40, 20, 0.06);
@@ -124,7 +128,8 @@
    bottom carries the white serif greeting, and the card's rounded bottom
    edge sits on the cream instead of fading into it. */
 [data-theme="cream"] .hero.has-photo {
-  min-height: 430px;
+  /* Was 430px — half a phone screen, pushing the day's plan below the fold. */
+  min-height: 370px;
   border: none;
   box-shadow: 0 16px 40px rgba(60, 40, 20, 0.18);
 }
@@ -222,3 +227,32 @@
 [data-theme="cream"] .wordmark-rule { background: linear-gradient(90deg, transparent, rgba(201, 164, 92, 0.7), transparent); }
 [data-theme="cream"] .welcome-feature-icon { background: var(--gold-soft); border-color: rgba(201, 164, 92, 0.35); color: #8C6A32; }
 [data-theme="cream"] .welcome-cta { background: linear-gradient(0deg, var(--bg) 62%, rgba(251, 246, 238, 0)); }
+
+/* ---------- UX pass 2026-10-03: the last violet from the classic theme ---------- */
+
+/* Category tags, the "active agent" label and the old rail highlight all
+   carried a hard-coded violet border from the classic palette. */
+[data-theme="cream"] .badge {
+  color: var(--lav); background: var(--gold-soft);
+  border-color: rgba(201, 164, 92, 0.4);
+}
+[data-theme="cream"] .ai-status.live { color: var(--lav); border-color: rgba(201, 164, 92, 0.4); background: var(--gold-soft); }
+[data-theme="cream"] .rail-item.active { color: var(--text); background: var(--tint-2); }
+[data-theme="cream"] .rail-brand {
+  background-image: linear-gradient(120deg, #84642F 10%, #C9A45C 90%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+[data-theme="cream"] .rail { background: #F6EFE3; }
+
+/* A gentle hover on the gold button — the base rule (brightness 1.35) was
+   made for the near-black classic button and turned this one lemon-yellow. */
+@media (hover: hover) {
+  [data-theme="cream"] .btn-primary:hover { filter: brightness(1.05); }
+}
+
+[data-theme="cream"] .stop-item.focused .stop-body { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
+
+/* "Good evening," runs about twice as wide as "ערב טוב," — at the Hebrew
+   size the English greeting took three lines of the photo. */
+[dir="ltr"] [data-theme="cream"] .hero.has-photo .hero-title,
+[data-theme="cream"] [dir="ltr"] .hero.has-photo .hero-title { font-size: clamp(38px, 11.5vw, 54px); }
