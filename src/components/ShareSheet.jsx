@@ -9,7 +9,10 @@ import { inviteText, inviteUrl, shareTrip, copyText } from '../lib/share'
 import { t, tn } from '../i18n'
 
 export default function ShareSheet({ open, stops, onClose }) {
-  const { trip: TRIP, families: FAMILIES, updateTrip } = useTrip()
+  const { trip: TRIP, families: FAMILIES, updateTrip, canEdit } = useTrip()
+  // What the people this link reaches may do. A viewer can only pass on
+  // the view-only link.
+  const [viewOnly, setViewOnly] = useState(!canEdit)
   const confirm = useConfirm()
   const [resetDone, setResetDone] = useState(false)
   const [copied, setCopied] = useState(null)
@@ -17,7 +20,14 @@ export default function ShareSheet({ open, stops, onClose }) {
   if (!TRIP) return null
 
   const text = inviteText(TRIP, stops, TRIP.id)
-  const url = inviteUrl(TRIP.id, TRIP.inviteToken)
+  // Trips made before view-only links have no viewToken yet; the first
+  // editor to ask for one creates it.
+  const chooseViewOnly = async (next) => {
+    setViewOnly(next)
+    if (next && !TRIP.viewToken && canEdit) await updateTrip({ viewToken: newId() })
+  }
+  const url = viewOnly ? inviteUrl(TRIP.id, TRIP.viewToken, true) : inviteUrl(TRIP.id, TRIP.inviteToken)
+  const ready = !viewOnly || Boolean(TRIP.viewToken)
 
   // A link sent to the wrong group, or forwarded further than meant, used to
   // be a key nobody could take back. A new token makes every earlier link
@@ -30,7 +40,7 @@ export default function ShareSheet({ open, stops, onClose }) {
       danger: false,
     })
     if (!ok) return
-    await updateTrip({ inviteToken: newId() })
+    await updateTrip({ inviteToken: newId(), viewToken: newId() })
     setResetDone(true)
     setTimeout(() => setResetDone(false), 2400)
   }
@@ -48,6 +58,28 @@ export default function ShareSheet({ open, stops, onClose }) {
       <p className="sub" style={{ marginBottom: 16 }}>
         {t('כל מי שיצטרף רואה את אותו מסלול, ועדכונים מופיעים אצל כולם.')}
       </p>
+
+      {/* Two links, two levels of access. Grandparents following along, or
+          a group chat that should see the plan but not rearrange it, get
+          the view-only one. Enforced by the security rules, not only here. */}
+      {canEdit && (
+        <>
+          <span className="label">{t('מי שיצטרף בקישור יוכל')}</span>
+          <div className="split-toggle share-access" role="radiogroup" aria-label={t('מי שיצטרף בקישור יוכל')}>
+            <button role="radio" aria-checked={!viewOnly} className={!viewOnly ? 'on' : ''} onClick={() => chooseViewOnly(false)}>
+              {t('לערוך')}
+            </button>
+            <button role="radio" aria-checked={viewOnly} className={viewOnly ? 'on' : ''} onClick={() => chooseViewOnly(true)}>
+              {t('רק לצפות')}
+            </button>
+          </div>
+        </>
+      )}
+      {!canEdit && (
+        <p className="tiny" style={{ marginBottom: 14 }}>
+          {t('יש לך הרשאת צפייה, ולכן אפשר לשתף רק קישור לצפייה.')}
+        </p>
+      )}
 
       {/* Message preview — text and url ship as separate fields (see
           shareTrip), but shown together here since that's what the
@@ -73,6 +105,7 @@ export default function ShareSheet({ open, stops, onClose }) {
         className="btn btn-block"
         style={{ background: '#25D366', color: '#06281A', marginBottom: 10 }}
         onClick={() => shareTrip(text, url)}
+        disabled={!ready}
       >
         <WhatsApp size={19} />
         {t('שלח בוואטסאפ')}
@@ -83,13 +116,15 @@ export default function ShareSheet({ open, stops, onClose }) {
           second button with nowhere of its own to be used. The join field
           in the account sheet now reads a pasted link just as well as a
           bare code, so the link alone covers every way of sharing this. */}
-      <button className="btn btn-ghost btn-block" style={{ marginBottom: 8 }} onClick={copy}>
+      <button className="btn btn-ghost btn-block" style={{ marginBottom: 8 }} onClick={copy} disabled={!ready}>
         {copied ? <Check size={16} /> : <LinkIcon size={16} />}
         {copied ? t('הקישור הועתק') : t('העתק קישור')}
       </button>
-      <button className="erase-link" style={{ marginBottom: 18, marginTop: 4 }} onClick={resetLink}>
-        {resetDone ? t('נוצר קישור חדש — הקודם כבר לא עובד') : t('הקישור הגיע למי שלא צריך? צור קישור חדש')}
-      </button>
+      {canEdit ? (
+        <button className="erase-link" style={{ marginBottom: 18, marginTop: 4 }} onClick={resetLink}>
+          {resetDone ? t('נוצר קישור חדש — הקודם כבר לא עובד') : t('הקישור הגיע למי שלא צריך? צור קישור חדש')}
+        </button>
+      ) : <div style={{ height: 14 }} />}
 
       <div className="row" style={{ gap: 8, marginBottom: 12 }}>
         <span style={{ color: 'var(--lav)' }}><Users size={17} /></span>

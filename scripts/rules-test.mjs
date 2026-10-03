@@ -118,6 +118,30 @@ await expect('a member replaces the token', true, () => updateDoc(doc(member.db,
 await expect('join with the old token', false, () => joinAs(stranger, 'tokened', { [`joinedWith.${stranger.uid}`]: 'secret-1' }))
 await expect('join with the new token', true, () => joinAs(stranger, 'tokened', { [`joinedWith.${stranger.uid}`]: 'secret-2' }))
 
+console.log('\nview-only links')
+await trip('shared', { inviteToken: 'edit-1', viewToken: 'view-1' })
+const viewer = await person()
+await expect('join as a viewer with the view token', true, () => updateDoc(doc(viewer.db, 'trips', 'shared'), {
+  [`members.${viewer.uid}`]: 'viewer', memberIds: arrayUnion(viewer.uid), [`joinedWith.${viewer.uid}`]: 'view-1',
+}))
+const sneaky = await person()
+await expect('join as an editor with the view token', false, () => updateDoc(doc(sneaky.db, 'trips', 'shared'), {
+  [`members.${sneaky.uid}`]: 'editor', memberIds: arrayUnion(sneaky.uid), [`joinedWith.${sneaky.uid}`]: 'view-1',
+}))
+await expect('a viewer reads the trip', true, () => getDoc(doc(viewer.db, 'trips', 'shared')))
+await expect('a viewer edits the trip', false, () => updateDoc(doc(viewer.db, 'trips', 'shared'), { destination: 'Rome' }))
+await expect('a viewer makes themselves an editor', false, () => updateDoc(doc(viewer.db, 'trips', 'shared'), { [`members.${viewer.uid}`]: 'editor' }))
+await expect('a viewer writes a day plan', false, () => setDoc(doc(viewer.db, 'trips', 'shared', 'families', 'p1', 'routes', 'day-1'), { stops: [] }))
+await expect('a viewer reads a day plan', true, () => getDoc(doc(viewer.db, 'trips', 'shared', 'families', 'p1', 'routes', 'day-1')))
+await expect('a viewer shares their own location', true, () => setDoc(doc(viewer.db, 'trips', 'shared', 'presence', viewer.uid), { lat: 1, lng: 1 }))
+await expect("a viewer writes someone else's location", false, () => setDoc(doc(viewer.db, 'trips', 'shared', 'presence', member.uid), { lat: 1, lng: 1 }))
+await expect('an editor still edits', true, () => updateDoc(doc(member.db, 'trips', 'shared'), { destination: 'Rome' }))
+await expect('an editor makes a viewer an editor', true, () => updateDoc(doc(member.db, 'trips', 'shared'), { [`members.${viewer.uid}`]: 'editor' }))
+await expect('…and back', true, () => updateDoc(doc(member.db, 'trips', 'shared'), { [`members.${viewer.uid}`]: 'viewer' }))
+await expect('a viewer leaves the trip', true, () => updateDoc(doc(viewer.db, 'trips', 'shared'), {
+  memberIds: [owner.uid, member.uid], [`members.${viewer.uid}`]: deleteField(),
+}))
+
 console.log('\nleaving and deleting')
 await trip('leave')
 await expect('a member removes themselves', true, () => updateDoc(doc(member.db, 'trips', 'leave'), {

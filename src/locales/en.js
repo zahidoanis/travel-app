@@ -660,5 +660,12 @@ export default {
   "לא הוזן": "Not set",
   "עריכת הטיול": "Editing the trip",
   "חלקי הטיול": "Parts of the trip",
-  "העתק את ההערה": "Copy this note"
+  "העתק את ההערה": "Copy this note",
+  "יש לך הרשאת צפייה בלבד בטיול הזה — אפשר לראות, אבל לא לשנות.": "You have view-only access to this trip — you can look, but not change anything.",
+  "צפייה בלבד": "View only",
+  "מי שיצטרף בקישור יוכל": "People who join with this link can",
+  "לערוך": "Edit",
+  "רק לצפות": "Only view",
+  "יש לך הרשאת צפייה, ולכן אפשר לשתף רק קישור לצפייה.": "You have view-only access, so you can only share a view-only link.",
+  "אפשר לראות את הטיול, לא לשנות אותו": "You can see the trip, not change it"
 }

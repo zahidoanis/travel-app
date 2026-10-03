@@ -21,7 +21,15 @@ import LangToggle from './LangToggle'
  * wired up — so it is gone rather than showing a number nobody measured.
  */
 export default function TopBar({ variant = 'centered', floating = false }) {
-  const { trip, syncState, user, openAccount, openNotifications, unreadCount } = useTrip()
+  const { trip, syncState, user, openAccount, openNotifications, unreadCount, canEdit } = useTrip()
+
+  // Said once, at the top of every screen, rather than discovered by trying
+  // to change something.
+  const viewOnly = !canEdit && (
+    <span className="badge badge-live view-only" title={t('אפשר לראות את הטיול, לא לשנות אותו')}>
+      {t('צפייה בלבד')}
+    </span>
+  )
 
   const label = (
     <span className="topbar-title">
@@ -69,7 +77,7 @@ export default function TopBar({ variant = 'centered', floating = false }) {
           {label}
         </div>
         <div className="row" style={{ gap: 8 }}>
-          <SyncBadge state={syncState} day={trip} onSave={openAccount} />
+          {viewOnly || <SyncBadge state={syncState} day={trip} onSave={openAccount} />}
           <LangToggle compact />
           {account}
         </div>
@@ -86,6 +94,7 @@ export default function TopBar({ variant = 'centered', floating = false }) {
           {label}
         </div>
         <div className="row" style={{ gap: 10 }}>
+          {viewOnly}
           <LangToggle compact />
           {account}
           <span className="brand">TripAI</span>
@@ -99,6 +108,7 @@ export default function TopBar({ variant = 'centered', floating = false }) {
       {pin}
       {label}
       <div className="row" style={{ gap: 8 }}>
+        {viewOnly}
         <LangToggle compact />
         {bell}
         {account}

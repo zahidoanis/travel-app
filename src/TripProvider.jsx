@@ -10,7 +10,7 @@ import { todayISO, daysBetween } from './lib/dates'
 import { newId } from './lib/ids'
 import { useConfirm } from './components/Confirm'
 import { onUser, hasFirebase } from './lib/firebase'
-import { invitedTripId, invitedToken } from './lib/share'
+import { invitedTripId, invitedToken, invitedRole } from './lib/share'
 import { geocode, geocodeNear } from './lib/geocode'
 import { importedStops, importSpan } from './lib/mapImport'
 import { hasAI, systemPrompt, streamReply, OPENER_PROMPT } from './lib/gemini'
@@ -84,6 +84,8 @@ function toTrip(raw) {
     id: raw.id,
     code: raw.code ?? '',
     inviteToken: raw.inviteToken ?? null,
+    viewToken: raw.viewToken ?? null,
+    members: raw.members ?? {},
     ownerId: raw.ownerId ?? null,
     city,
     cityEn,
@@ -288,6 +290,19 @@ export function TripProvider({ children }) {
   const sharedWatch = useRef(null)
 
   const trip = useMemo(() => toTrip(raw), [raw])
+
+  // What this account may do on the trip. Someone who joined with a
+  // view-only link can see everything and change nothing; the rules enforce
+  // that on the server, and readOnly() below says so here instead of
+  // letting the change appear and then silently fail to save. Without a
+  // backend everything is local, and yours.
+  const role = !hasFirebase ? 'owner' : (trip?.members?.[user?.uid] ?? 'editor')
+  const canEdit = role !== 'viewer'
+  const readOnly = () => {
+    if (canEdit) return false
+    setSnack({ text: t('יש לך הרשאת צפייה בלבד בטיול הזה — אפשר לראות, אבל לא לשנות.') })
+    return true
+  }
   const families = useMemo(() => toFamilies(raw), [raw])
   const isReal = Boolean(trip)
 
@@ -336,7 +351,7 @@ export function TripProvider({ children }) {
     if (trip) localStorage.setItem(`tripai.myFamily.${trip.id}`, id)
     setMyFamilyId(id)
     switchFamily(id)
-    if (trip && !families.find((f) => f.id === id)?.joined) {
+    if (trip && canEdit && !families.find((f) => f.id === id)?.joined) {
       updateList('parties', (list) => list.map((p) => (p.id === id ? { ...p, joined: true } : p)))
     }
   }
@@ -347,7 +362,7 @@ export function TripProvider({ children }) {
    * details rather than having the trip's creator guess on their behalf.
    */
   const addFamily = async ({ name, members, arriveAt, departAt }) => {
-    if (!trip) return null
+    if (!trip || readOnly()) return null
     const id = newId('p')
     const party = {
       id,
@@ -373,7 +388,7 @@ export function TripProvider({ children }) {
    * the same document once both flags are set.
    */
   const toggleSharedDay = (day) => {
-    if (!trip || !activeFamily) return
+    if (!trip || !activeFamily || readOnly()) return
     // Decided once, here — not inside the change, which may run again on a
     // newer copy of the list and must not flip the day back.
     const turnOn = !sharedDaySet.has(day)
@@ -435,7 +450,7 @@ export function TripProvider({ children }) {
         // Arriving through a WhatsApp link joins that trip, even if this
         // device already had one of its own.
         if (invited && invited !== profile.currentTripId) {
-          const joined = await joinTrip(invited, invitedToken())
+          const joined = await joinTrip(invited, invitedToken(), invitedRole())
           if (joined && !cancelled) {
             setRaw(joined)
             setJustJoined(true)
@@ -766,6 +781,7 @@ export function TripProvider({ children }) {
   /** Adds what the agent learned (REMEMBER lines) to the trip, skipping
    *  anything it already knows. Returns the facts actually added. */
   const rememberFacts = async (facts) => {
+    if (!canEdit) return []
     const known = new Set((trip?.memory ?? []).map((m) => m.text.trim().toLowerCase()))
     const fresh = [...new Set(facts.map((f) => f.trim()).filter(Boolean))]
       .filter((f) => !known.has(f.toLowerCase()))
@@ -971,7 +987,7 @@ export function TripProvider({ children }) {
     if (!trip || !activeFamily || loading) return
     // Only for your own family. Tapping another family's pill just to look
     // at their plan used to have the agent write one into their days.
-    if (activeFamily !== myFamily) return
+    if (activeFamily !== myFamily || !canEdit) return
     const bucket = sharedDaySet.has(trip.day) ? 'shared' : activeFamily
     listRoutes(trip.id, bucket).then((routes) => {
       if (routes.some((r) => r.day === trip.day && r.stops?.length)) return
@@ -982,6 +998,7 @@ export function TripProvider({ children }) {
 
   const plan = async (day = activeDay, { instructions = '' } = {}) => {
     if (planning || !trip || !activeFamily) return { ok: false, count: 0, warning: 'busy' }
+    if (readOnly()) return { ok: false, count: 0, warning: t('צפייה בלבד') }
     setPlanning(true)
     setPlanWarning(null)
 
@@ -1061,6 +1078,7 @@ export function TripProvider({ children }) {
   // made without one (adding, reordering) drops any undo still on offer:
   // going back to the older snapshot now would silently discard it.
   const setDayStops = (day, next, undoable) => {
+    if (readOnly()) return
     if (undoBatch.current) undoBatch.current[day] ??= daysRef.current[day] ?? []
     else if (undoable) noteChange(undoable, { [day]: daysRef.current[day] ?? [] })
     else dropUndo()
@@ -1122,7 +1140,7 @@ export function TripProvider({ children }) {
 
   /** Moves one stop to another day, keeping both days in time order. */
   const moveStopToDay = (fromDay, id, toDay) => {
-    if (fromDay === toDay) return
+    if (fromDay === toDay || readOnly()) return
     const source = daysRef.current[fromDay] ?? []
     const destination = daysRef.current[toDay] ?? []
     const stop = source.find((s) => s.id === id)
@@ -1153,7 +1171,7 @@ export function TripProvider({ children }) {
   const reservations = trip?.reservations ?? []
 
   const addReservation = (r) => {
-    if (!trip) return null
+    if (!trip || readOnly()) return null
     const entry = { ...r, id: newId('r'), createdAt: Date.now() }
     updateList('reservations', (list) => [entry, ...list.filter((x) => x.id !== entry.id)])
     breadcrumb('action', `reservation noted: ${r.place}`)
@@ -1161,7 +1179,7 @@ export function TripProvider({ children }) {
   }
 
   const removeReservation = (id) => {
-    if (!trip) return
+    if (!trip || readOnly()) return
     deleteTicketPhoto(trip.id, id) // best-effort — an orphaned file costs nothing to leave, but no reason to
     return updateList('reservations', (list) => list.filter((r) => r.id !== id))
   }
@@ -1299,7 +1317,7 @@ export function TripProvider({ children }) {
   }
 
   const updateTrip = async (patch) => {
-    if (!trip) return false
+    if (!trip || readOnly()) return false
     setRaw((r) => ({ ...r, ...patch }))
     setSyncing(true)
     // The local view above updates optimistically either way — that part of
@@ -1320,7 +1338,7 @@ export function TripProvider({ children }) {
    * it must not depend on anything but the list it is given.
    */
   const updateList = async (field, change) => {
-    if (!trip) return false
+    if (!trip || readOnly()) return false
     setRaw((r) => (r ? { ...r, [field]: change(r[field] ?? []) } : r))
     setSyncing(true)
     const ok = await mutateTripList(trip.id, field, change)
@@ -1400,7 +1418,7 @@ export function TripProvider({ children }) {
 
   const value = {
     user, trip, trips, loading, syncState, skipWelcome,
-    stops, days, activeDay, setActiveDay, activeFamily, switchFamily, myFamily,
+    stops, days, activeDay, setActiveDay, activeFamily, switchFamily, myFamily, role, canEdit,
     sharedDaySet, toggleSharedDay, setMyFamily, addFamily,
     snack, runSnackAction, dismissSnack: () => setSnack(null),
     families, isReal, planning, planWarning,

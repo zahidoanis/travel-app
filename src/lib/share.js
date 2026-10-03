@@ -13,19 +13,27 @@ import { t } from '../i18n'
  * inviteToken; trips made before tokens existed have none, and their link is
  * the id alone until a member resets it.
  */
-export function inviteUrl(tripId, token) {
+export function inviteUrl(tripId, token, viewOnly = false) {
   const base =
     typeof window !== 'undefined'
       ? `${window.location.origin}${window.location.pathname}`
       : ''
   const k = token ? `&k=${encodeURIComponent(token)}` : ''
-  return `${base}?trip=${encodeURIComponent(tripId)}${k}`
+  // Which token this is; the rules check that it really is that one.
+  const r = viewOnly ? '&r=v' : ''
+  return `${base}?trip=${encodeURIComponent(tripId)}${k}${r}`
 }
 
 /** Reads the invite code back out when someone opens a shared link. */
 export function invitedTripId() {
   if (typeof window === 'undefined') return null
   return new URLSearchParams(window.location.search).get('trip')
+}
+
+/** 'viewer' for a view-only link, 'editor' otherwise. */
+export function invitedRole() {
+  if (typeof window === 'undefined') return 'editor'
+  return new URLSearchParams(window.location.search).get('r') === 'v' ? 'viewer' : 'editor'
 }
 
 /** The invite token from a shared link, if it carried one. */

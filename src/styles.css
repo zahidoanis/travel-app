@@ -2157,3 +2157,9 @@ html, body { overscroll-behavior-y: contain; }
 }
 .note-text a { color: var(--text); text-decoration: underline; text-underline-offset: 3px; font-weight: 500; }
 .note-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+
+/* ---------- Share: who can edit ---------- */
+
+.share-access { display: flex; margin-bottom: 14px; }
+.share-access button { flex: 1; padding-block: 8px; }
+.view-only { color: var(--amber); white-space: nowrap; }

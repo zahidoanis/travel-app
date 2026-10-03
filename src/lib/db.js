@@ -181,6 +181,8 @@ export function createTrip(details) {
         // The secret half of the invite link (see firebase.rules,
         // holdsInvite). Replacing it is how a leaked link is revoked.
         inviteToken: newId(),
+        // The view-only link's token — joining with it makes you a viewer.
+        viewToken: newId(),
         ownerId: uid,
         members: { [uid]: 'owner' },
         memberIds: [uid],
@@ -538,7 +540,7 @@ export function listTrips() {
  * editor, and nothing else. Recorded under this account's own uid in
  * `joinedWith` so that one person's token cannot let in the next.
  */
-export function joinTrip(tripId, token) {
+export function joinTrip(tripId, token, role = 'editor') {
   breadcrumb('data', `joinTrip ${tripId}`)
 
   return guarded(
@@ -547,7 +549,7 @@ export function joinTrip(tripId, token) {
       const ref = FS.doc(db, 'trips', tripId)
 
       await FS.updateDoc(ref, {
-        [`members.${uid}`]: 'editor',
+        [`members.${uid}`]: role === 'viewer' ? 'viewer' : 'editor',
         memberIds: FS.arrayUnion(uid),
         ...(token ? { [`joinedWith.${uid}`]: token } : {}),
       })
