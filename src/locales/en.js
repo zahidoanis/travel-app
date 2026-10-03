@@ -669,5 +669,14 @@ export default {
   "יש לך הרשאת צפייה, ולכן אפשר לשתף רק קישור לצפייה.": "You have view-only access, so you can only share a view-only link.",
   "אפשר לראות את הטיול, לא לשנות אותו": "You can see the trip, not change it",
   "תמונות וביקורות": "Photos and reviews",
-  "הצטרפתם בקישור לצפייה: אפשר לראות הכל, ולא לשנות.": "You joined with a view-only link: you can see everything, but not change it."
+  "הצטרפתם בקישור לצפייה: אפשר לראות הכל, ולא לשנות.": "You joined with a view-only link: you can see everything, but not change it.",
+  "עברתם לטיול או למשפחה אחרים באמצע — לא שיניתי כלום.": "You switched to another trip or family midway, so I didn’t change anything.",
+  "השינוי לא נשמר. בדקו את החיבור ונסו שוב.": "That change wasn’t saved. Check your connection and try again.",
+  "לא הצלחנו ליצור את הטיול. בדקו את החיבור ונסו שוב.": "We couldn’t create the trip. Check your connection and try again.",
+  "יש הוצאות על {names}": "There are expenses under {names}",
+  "הסרה של משפחה או נוסעים ששילמו על הוצאות תשבש את חלוקת ההוצאות. כדאי לעדכן או למחוק את ההוצאות האלה קודם.": "Removing a family or travellers who paid for expenses will throw off the split. Update or delete those expenses first.",
+  "שמור בכל זאת": "Save anyway",
+  "לשנות את היעד ל{place}?": "Change the destination to {place}?",
+  "תוכנית הימים והמלונות שייכים ל{place}, ולכן יימחקו. אפשר יהיה לבנות את הימים מחדש.": "The day plans and hotels belong to {place}, so they will be deleted. You can build the days again.",
+  "שנה יעד": "Change destination"
 }

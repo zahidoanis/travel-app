@@ -97,9 +97,15 @@ function stripUndefined(value) {
 }
 
 /** Wraps a Firestore call so a failure degrades instead of throwing upward. */
-async function guarded(name, fn, fallback) {
+//
+// `local` runs when there is no backend at all (local mode). `failed`
+// gives the result when the backend refuses or errors — it used to be
+// `local` too, so a rejected save in Firebase mode was written to this
+// device's storage instead and reported as done: nobody else ever saw it,
+// and it disappeared on the next update from the server.
+async function guarded(name, fn, local, failed = () => false) {
   const fb = await firebase()
-  if (!fb) return fallback()
+  if (!fb) return local()
 
   const done = watchdog(`db.${name}`, 12000)
   try {
@@ -111,11 +117,23 @@ async function guarded(name, fn, fallback) {
       stack: err?.stack,
       context: { operation: name, code: err?.code ?? null },
     })
-    return fallback()
+    return failed()
   } finally {
     done()
   }
 }
+
+/**
+ * A write, waited for only so long. Firestore resolves a write when the
+ * server acknowledges it — offline, that is never, so every awaited save
+ * hung: the trip editor could not be saved or closed, creating a trip
+ * spun forever, an invite link stayed on the loading screen. The write is
+ * already in the local cache and goes out on reconnection, so after a few
+ * seconds it is treated as done. A refusal that arrives in time still
+ * throws.
+ */
+const acked = (write, ms = 4000) =>
+  Promise.race([write, new Promise((resolve) => setTimeout(() => resolve('queued'), ms))])
 
 /* ------------------------------------------------------------------ *
  * profile — small now: who you are and which trip you are looking at
@@ -128,7 +146,8 @@ export function loadProfile() {
       const snap = await FS.getDoc(FS.doc(db, 'users', uid))
       return { ...(snap.exists() ? snap.data() : {}), uid }
     },
-    () => ({ ...localGet('profile', {}), uid: 'local' })
+    () => ({ ...localGet('profile', {}), uid: 'local' }),
+    () => ({})
   )
 }
 
@@ -136,11 +155,11 @@ export function saveProfile(patch) {
   return guarded(
     'saveProfile',
     async ({ db, uid, FS }) => {
-      await FS.setDoc(
+      await acked(FS.setDoc(
         FS.doc(db, 'users', uid),
         { ...patch, updatedAt: FS.serverTimestamp() },
         { merge: true }
-      )
+      ))
       return true
     },
     () => {
@@ -174,7 +193,7 @@ export function createTrip(details) {
       const ref = FS.doc(FS.collection(db, 'trips'))
       const code = joinCode()
 
-      await FS.setDoc(ref, {
+      await acked(FS.setDoc(ref, {
         ...stripUndefined(details),
         id: ref.id,
         code,
@@ -183,7 +202,7 @@ export function createTrip(details) {
         memberIds: [uid],
         createdAt: FS.serverTimestamp(),
         updatedAt: FS.serverTimestamp(),
-      })
+      }))
       // The invite links' tokens, kept off the trip document (which every
       // member can read) — see secrets/ in firebase.rules. Written after the
       // trip, because the rules check this account's role on it.
@@ -198,7 +217,8 @@ export function createTrip(details) {
       localSet(`trip.${id}`, { ...details, id, code, memberIds: ['local'] })
       localSet('profile', { ...localGet('profile', {}), currentTripId: id })
       return { id, code }
-    }
+    },
+    () => null
   )
 }
 
@@ -211,7 +231,8 @@ export function loadTrip(tripId) {
       const snap = await FS.getDoc(FS.doc(db, 'trips', tripId))
       return snap.exists() ? { id: snap.id, ...snap.data() } : null
     },
-    () => localGet(`trip.${tripId}`, null)
+    () => localGet(`trip.${tripId}`, null),
+    () => null
   )
 }
 
@@ -222,11 +243,11 @@ export function saveTrip(tripId, patch) {
       // Stripped before adding the server-timestamp sentinel, not after —
       // recursing into that sentinel object would tear out the internal
       // fields that make it a FieldValue rather than a plain object.
-      await FS.setDoc(
+      await acked(FS.setDoc(
         FS.doc(db, 'trips', tripId),
         { ...stripUndefined(patch), updatedAt: FS.serverTimestamp() },
         { merge: true }
-      )
+      ))
       return true
     },
     () => {
@@ -543,7 +564,8 @@ export function listTrips() {
       const current = localGet('profile', {}).currentTripId
       const one = current ? localGet(`trip.${current}`, null) : null
       return one ? [one] : []
-    }
+    },
+    () => []
   )
 }
 
@@ -585,7 +607,10 @@ export function joinTrip(tripId, token, role = 'editor') {
         [`members.${uid}`]: role === 'viewer' ? 'viewer' : 'editor',
         memberIds: FS.arrayUnion(uid),
       })
-      await batch.commit()
+      // Not waited for past a few seconds: offline, a join can only be
+      // checked by the server once the connection returns, and the invite
+      // link used to leave the app on its loading screen until then.
+      await acked(batch.commit())
 
       await saveProfile({ currentTripId: tripId })
       const snap = await FS.getDoc(ref)
@@ -602,8 +627,8 @@ export function joinTrip(tripId, token, role = 'editor') {
 async function writeInviteTokens(db, FS, tripId) {
   const edit = newId()
   const view = newId()
-  await FS.setDoc(FS.doc(db, 'trips', tripId, 'secrets', 'edit'), { token: edit })
-  await FS.setDoc(FS.doc(db, 'trips', tripId, 'secrets', 'view'), { token: view })
+  await acked(FS.setDoc(FS.doc(db, 'trips', tripId, 'secrets', 'edit'), { token: edit }))
+  await acked(FS.setDoc(FS.doc(db, 'trips', tripId, 'secrets', 'view'), { token: view }))
   return { edit, view }
 }
 
@@ -623,6 +648,7 @@ export function inviteTokens(tripId) {
       const [edit, view] = await Promise.all([read('edit'), read('view')])
       return { edit, view }
     },
+    () => ({ edit: null, view: null }),
     () => ({ edit: null, view: null })
   )
 }
@@ -637,6 +663,7 @@ export function resetInviteTokens(tripId) {
   return guarded(
     'resetInviteTokens',
     async ({ db, FS }) => writeInviteTokens(db, FS, tripId),
+    () => ({ edit: null, view: null }),
     () => ({ edit: null, view: null })
   )
 }
@@ -714,7 +741,10 @@ export function listRoutes(tripId, familyId) {
       )
       return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
     },
-    () => localGet(`routes.${tripId}.${familyId}`, [])
+    () => localGet(`routes.${tripId}.${familyId}`, []),
+    // null, not []: "could not read" must not look like "nothing planned",
+    // or the caller plans a day that may already have a plan.
+    () => null
   )
 }
 
@@ -725,17 +755,80 @@ export function saveRoute(tripId, familyId, route) {
     'saveRoute',
     async ({ db, FS }) => {
       const id = route.id ?? `day-${route.day}`
-      await FS.setDoc(
+      await acked(FS.setDoc(
         FS.doc(db, 'trips', tripId, 'families', familyId, 'routes', id),
-        { ...route, id, updatedAt: FS.serverTimestamp() },
+        { ...stripUndefined(route), id, updatedAt: FS.serverTimestamp() },
         { merge: true }
-      )
+      ))
       return true
     },
     () => {
       const id = route.id ?? `day-${route.day}`
       const all = localGet(`routes.${tripId}.${familyId}`, []).filter((r) => r.id !== id)
       localSet(`routes.${tripId}.${familyId}`, [...all, { ...route, id }].sort((a, b) => a.day - b.day))
+      return false
+    }
+  )
+}
+
+/**
+ * Empties the day plans of the given buckets (family ids, 'shared') — when
+ * the trip's destination changes, the old city's stops mean nothing.
+ */
+export function clearRoutes(tripId, familyIds) {
+  if (!tripId) return Promise.resolve(false)
+  return guarded(
+    'clearRoutes',
+    async ({ db, FS }) => {
+      for (const id of familyIds) {
+        const snap = await FS.getDocs(FS.collection(db, 'trips', tripId, 'families', id, 'routes'))
+        await acked(Promise.all(snap.docs.map((d) => FS.deleteDoc(d.ref))))
+      }
+      return true
+    },
+    () => {
+      for (const id of familyIds) localSet(`routes.${tripId}.${id}`, [])
+      return false
+    }
+  )
+}
+
+/**
+ * Changes one day's stops on top of the server's current list, inside a
+ * transaction — the day-plan counterpart of mutateTripList. `change` gets
+ * the stops as they are on the server and returns the new list; it can run
+ * more than once, so it must depend only on what it is given. (TripProvider
+ * passes a three-way merge, see lib/merge.js, so two people editing the same
+ * day — a shared day especially — no longer overwrite each other.)
+ */
+export function mutateRoute(tripId, familyId, day, change, meta = {}) {
+  if (!tripId || !familyId) return Promise.resolve(false)
+  const id = `day-${day}`
+
+  return guarded(
+    'mutateRoute',
+    async ({ db, FS }) => {
+      const ref = FS.doc(db, 'trips', tripId, 'families', familyId, 'routes', id)
+      const write = (stops) => ({ ...stripUndefined(meta), id, day, stops: stripUndefined(stops), updatedAt: FS.serverTimestamp() })
+      try {
+        await FS.runTransaction(db, async (tx) => {
+          const snap = await tx.get(ref)
+          tx.set(ref, write(change(snap.exists() ? snap.data().stops ?? [] : [])), { merge: true })
+        })
+      } catch (err) {
+        if (err?.code !== 'unavailable') throw err
+        // Offline: apply to the cached copy and queue it, as mutateTripList does.
+        const cached = await FS.getDocFromCache(ref).catch(() => null)
+        FS.setDoc(ref, write(change(cached?.exists() ? cached.data().stops ?? [] : [])), { merge: true })
+          .catch((e) => record({ kind: 'db', message: `queued day ${day} write failed: ${e?.message ?? e}` }))
+      }
+      return true
+    },
+    () => {
+      const all = localGet(`routes.${tripId}.${familyId}`, [])
+      const current = all.find((r) => r.id === id)?.stops ?? []
+      const next = { ...meta, id, day, stops: change(current) }
+      localSet(`routes.${tripId}.${familyId}`, [...all.filter((r) => r.id !== id), next].sort((a, b) => a.day - b.day))
       return false
     }
   )
@@ -818,7 +911,8 @@ export function loadTicketPhoto(tripId, ticketId) {
       const snap = await FS.getDoc(FS.doc(db, 'trips', tripId, 'tickets', ticketId))
       return snap.exists() ? (snap.data().dataUrl ?? null) : null
     },
-    () => localGet(`ticket.${tripId}.${ticketId}`, null)
+    () => localGet(`ticket.${tripId}.${ticketId}`, null),
+    () => null
   )
 }
 
@@ -827,10 +921,10 @@ export function saveTicketPhoto(tripId, ticketId, dataUrl) {
   return guarded(
     'saveTicketPhoto',
     async ({ db, FS }) => {
-      await FS.setDoc(FS.doc(db, 'trips', tripId, 'tickets', ticketId), {
+      await acked(FS.setDoc(FS.doc(db, 'trips', tripId, 'tickets', ticketId), {
         dataUrl,
         updatedAt: FS.serverTimestamp(),
-      })
+      }))
       return true
     },
     () => {

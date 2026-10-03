@@ -15,6 +15,7 @@ import { geocodeAll } from './geocode'
 import { record, breadcrumb, watchdog } from './telemetry'
 import { CATEGORIES, TRAVEL_STYLES } from '../data'
 import { t } from '../i18n'
+import { newId } from './ids'
 
 const CATEGORY_IDS = Object.keys(CATEGORIES)
 
@@ -91,7 +92,9 @@ export async function buildItinerary({ trip, families, already = [], instruction
         // way) but the "which stop is active" state didn't actually change
         // — the old id still matched something in the new day's list — so
         // the bottom card carousel kept showing the previous day's stop.
-        id: `d${trip.day}-${i + 1}`,
+        // Unique per build, too: saving merges by id (lib/merge.js), and a
+        // rebuilt day reusing "d3-1" read as the old first stop, edited.
+        id: newId(`d${trip.day}-${i + 1}-`),
         // Display the place, not the whole "Place, City, Country" search string.
         name: r.name.split(',')[0].trim(),
         he: r.he || r.name,

@@ -4,10 +4,11 @@ import { buildItinerary, normaliseCategory } from './lib/itinerary'
 import {
   loadProfile, saveProfile, createTrip, loadTrip, saveTrip, listTrips, joinTrip,
   listRoutes, saveRoute, watchRoutes, deleteTrip, logActivity, watchActivity,
-  updatePresence, watchPresence, deleteTicketPhoto, watchTrip, mutateTripList,
+  updatePresence, watchPresence, deleteTicketPhoto, watchTrip, mutateTripList, mutateRoute, clearRoutes,
 } from './lib/db'
 import { todayISO, daysBetween } from './lib/dates'
 import { newId } from './lib/ids'
+import { mergeList } from './lib/merge'
 import { useConfirm } from './components/Confirm'
 import { onUser, hasFirebase, currentUser } from './lib/firebase'
 import { invitedTripId, invitedToken, invitedRole } from './lib/share'
@@ -24,6 +25,8 @@ import { t } from './i18n'
 // feature, not just this one — a location fires far more often than a
 // person actually needs their dot on the map to move.
 const PRESENCE_WRITE_MS = 45000
+
+const stopKey = (s) => s.id ?? `${s.name}|${s.time}`
 
 /**
  * Single source of truth for the current trip.
@@ -44,11 +47,15 @@ export const useTrip = () => {
 }
 
 /**
- * The trip's own from/to (set early in onboarding, before any family beyond
- * the first even exists) is only ever a starting guess — a second family
- * arriving earlier or staying later is exactly as real a part of the trip,
- * so the range everything else is computed against has to be the union
- * across every family's arrival/departure, not just the nominal dates.
+ * The range every day number is counted from: the trip's own dates.
+ *
+ * It used to be the union with every family's arrival and departure, so a
+ * family's dates could move the trip's first day. Day plans are stored by
+ * day number, so typing an arrival one day early (or a mistyped year) moved
+ * every stored day onto a different date — Tuesday's plan suddenly showing
+ * on Monday, for everyone. A family's dates now only bound which of the
+ * trip's days they are there for (see toFamilies). They still fill in for
+ * dates the trip itself does not have.
  */
 function effectiveRange(raw) {
   let from = raw?.from ?? null
@@ -56,8 +63,8 @@ function effectiveRange(raw) {
   for (const p of raw?.parties ?? []) {
     const arrive = p.arriveAt?.split('T')[0]
     const depart = p.departAt?.split('T')[0]
-    if (arrive && (!from || arrive < from)) from = arrive
-    if (depart && (!to || depart > to)) to = depart
+    if (!raw?.from && arrive && (!from || arrive < from)) from = arrive
+    if (!raw?.to && depart && (!to || depart > to)) to = depart
   }
   return { from, to }
 }
@@ -139,8 +146,12 @@ function toFamilies(raw) {
     // every "X נוסעים" figure across the app undercount (or read zero).
     const named = (p.members ?? [])
       .map((m) => ({ name: memberName(m).trim(), age: memberAge(m) }))
-    const arriveDay = dayNumberFromDate(effectiveFrom, p.arriveAt) ?? 1
-    const rawDepartDay = dayNumberFromDate(effectiveFrom, p.departAt)
+    // Within the trip: a family arriving before it starts is there from day 1.
+    const { to: effectiveTo } = effectiveRange(raw)
+    const last = effectiveFrom && effectiveTo ? Math.max(1, daysBetween(effectiveFrom, effectiveTo) + 1) : Infinity
+    const within = (n) => (n == null ? null : Math.min(last, Math.max(1, n)))
+    const arriveDay = within(dayNumberFromDate(effectiveFrom, p.arriveAt)) ?? 1
+    const rawDepartDay = within(dayNumberFromDate(effectiveFrom, p.departAt))
     return {
       id: p.id,
       name: p.name,
@@ -273,7 +284,7 @@ export function TripProvider({ children }) {
   // action — "stop removed · undo", "that invite link is no longer valid".
   // When the message is about a change to the itinerary it also carries
   // what the days held before, so the action can put them back:
-  // { text, action?, undo?: { family, days: { [day]: stops } } }
+  // { text, action?, undo?: { tripId, family, days: { [day]: { before, after } } } }
   // One step of undo, alive for as long as the message is — not a history.
   const [snack, setSnack] = useState(null)
   const dropUndo = () => setSnack((s) => (s?.undo ? null : s))
@@ -365,7 +376,12 @@ export function TripProvider({ children }) {
     const party = {
       id,
       name: name.trim(),
-      members: members.map((m) => m.trim()).filter(Boolean).map((m) => ({ name: m, age: '' })),
+      // Names are optional; a family with none typed is still one traveller,
+      // not zero — which counted them out of every split.
+      members: (() => {
+        const named = members.map((m) => m.trim()).filter(Boolean).map((m) => ({ name: m, age: '' }))
+        return named.length > 0 ? named : [{ name: '', age: '' }]
+      })(),
       color: PARTY_COLORS[(raw.parties?.length ?? 0) % PARTY_COLORS.length],
       arriveAt: arriveAt || null,
       departAt: departAt || null,
@@ -377,6 +393,16 @@ export function TripProvider({ children }) {
 
   const activeFamilyObj = families.find((f) => f.id === activeFamily) ?? null
   const sharedDaySet = new Set(activeFamilyObj?.sharedDays ?? [])
+
+  // Which trip and whose plan is on screen right now — for work that
+  // awaits (building a day, the agent's reply, a geocode) to check, once
+  // it is done, that it is still writing where it started. Planning a day
+  // and switching family before it finished used to save the new plan into
+  // the other family's day.
+  const here = () => ({ tripId: trip?.id, family: activeFamily, shared: sharedDaySet, city: trip?.city })
+  const liveRef = useRef({})
+  liveRef.current = { tripId: trip?.id, family: activeFamily }
+  const moved = (at) => liveRef.current.tripId !== at.tripId || liveRef.current.family !== at.family
 
   /**
    * Opts one day in or out of the shared plan, for whichever family is
@@ -535,6 +561,11 @@ export function TripProvider({ children }) {
     if (trip) setActiveDay(trip.day)
   }, [trip?.id])
 
+  // Shortening the trip must not leave the screen on a day that is gone.
+  useEffect(() => {
+    if (trip && activeDay > trip.totalDays) setActiveDay(trip.totalDays)
+  }, [trip?.totalDays])
+
   // Live, so a stop someone else in the same family adds shows up without a
   // refresh. Keyed on activeFamily too — switching whose plan is showing is
   // a different set of documents entirely, not a filter over one shared set.
@@ -632,13 +663,13 @@ export function TripProvider({ children }) {
   // Matches the model's reply in whichever language the UI asked it to use.
   const CLAIM = /(הוספתי|עדכנתי|בניתי|שיניתי|הסרתי|תכננתי מחדש|הכנסתי|מחקתי|\bI(?:'ve| have)? (?:added|updated|rebuilt|changed|removed|replanned|moved|deleted)\b)/i // i18n-ignore
 
-  const runChatActions = async (actions) => {
+  const runChatActions = async (actions, at) => {
     const report = []
-    // A working copy per day — several actions on the same day in one reply
-    // would otherwise each start from the same stale list and overwrite one
-    // another.
-    const work = {}
-    const listFor = (day) => (work[day] ??= [...(daysRef.current[day] ?? [])])
+    // Read fresh each time, after every await. Each change goes into
+    // daysRef straight away (applyLocalDay), so several actions on one day
+    // build on each other; and a stop added by hand while the agent was
+    // geocoding is not erased by a list read before it.
+    const listFor = (day) => [...(daysRef.current[day] ?? [])]
     const inRange = (d) => Number.isInteger(d) && d >= 1 && d <= trip.totalDays
 
     // Everything this reply changes is collected as one undo step. Without
@@ -647,6 +678,13 @@ export function TripProvider({ children }) {
     undoBatch.current = {}
 
     for (const { kind, args } of actions) {
+      // Switched to another trip or family while the agent was answering (or
+      // while a confirm was open): its changes were meant for the plan that
+      // was showing when the question was asked, not this one.
+      if (moved(at)) {
+        report.push(`• ${t('עברתם לטיול או למשפחה אחרים באמצע — לא שיניתי כלום.')}`)
+        break
+      }
       const parts = args.split('|').map((p) => p.trim())
 
       if (kind === 'PLAN_DAYS') {
@@ -675,8 +713,6 @@ export function TripProvider({ children }) {
           report.push(r.ok
             ? `✓ ${t('בניתי מחדש את יום {day} ({n} עצירות)', { day, n: r.count })}`
             : `✗ ${t('לא הצלחתי לבנות את יום {day}', { day })}${why}`)
-          // The day was replaced wholesale — a stale working copy would undo it.
-          delete work[day]
         }
       }
 
@@ -687,8 +723,8 @@ export function TripProvider({ children }) {
           report.push(`✗ ${t('לא הבנתי איזו עצירה להוסיף')}`)
           continue
         }
-        const list = listFor(day)
-        if (list.some((s) => (s.he ?? s.name) === he)) {
+        const already = () => listFor(day).some((s) => (s.he ?? s.name) === he)
+        if (already()) {
           report.push(`• ${t('{place} כבר ביום {day}', { place: he, day })}`)
           continue
         }
@@ -697,7 +733,15 @@ export function TripProvider({ children }) {
           report.push(`✗ ${t('לא הצלחתי לאתר את "{place}" על המפה — לא הוספתי', { place: he })}`)
           continue
         }
-        const next = [...list, {
+        if (moved(at)) {
+          report.push(`• ${t('עברתם לטיול או למשפחה אחרים באמצע — לא שיניתי כלום.')}`)
+          break
+        }
+        if (already()) {
+          report.push(`• ${t('{place} כבר ביום {day}', { place: he, day })}`)
+          continue
+        }
+        const next = [...listFor(day), {
           id: newId('c'),
           name: (hit.name || query.split(',')[0]).trim(),
           he,
@@ -708,7 +752,6 @@ export function TripProvider({ children }) {
           lat: hit.lat,
           lng: hit.lng,
         }].sort((a, b) => String(a.time).localeCompare(String(b.time)))
-        work[day] = next
         setDayStops(day, next)
         report.push(`✓ ${t('הוספתי את {place} ליום {day}', { place: he, day })}`)
       }
@@ -734,8 +777,14 @@ export function TripProvider({ children }) {
           report.push(`• ${t('{place} נשאר ביום {day}', { place: target, day })}`)
           continue
         }
-        const [gone] = list.splice(at, 1)
-        setDayStops(day, [...list])
+        if (moved(at)) {
+          report.push(`• ${t('עברתם לטיול או למשפחה אחרים באמצע — לא שיניתי כלום.')}`)
+          break
+        }
+        // By id, from the list as it is now — the confirm may have stayed
+        // open while the day changed.
+        const gone = list[at]
+        setDayStops(day, listFor(day).filter((s) => s.id !== gone.id))
         report.push(`✓ ${t('הסרתי את {place} מיום {day}', { place: gone.he ?? gone.name, day })}`)
       }
 
@@ -761,7 +810,7 @@ export function TripProvider({ children }) {
     const before = undoBatch.current
     undoBatch.current = null
     if (Object.keys(before).length > 0) {
-      setSnack({ text: t('הסוכן שינה את המסלול'), action: t('בטל'), undo: { family: activeFamily, days: before } })
+      setSnack({ text: t('הסוכן שינה את המסלול'), action: t('בטל'), undo: { tripId: at.tripId, family: at.family, days: before } })
     }
     return report
   }
@@ -814,6 +863,7 @@ export function TripProvider({ children }) {
   const forgetMemory = (id) => updateList('memory', (list) => list.filter((m) => m.id !== id))
 
   const askAgent = async (history, { opener = false } = {}) => {
+    const at = here()
     const controller = new AbortController()
     chatAbort.current = controller
     setChatError(null)
@@ -879,7 +929,11 @@ export function TripProvider({ children }) {
       let finalText
       if (actions.length > 0) {
         breadcrumb('action', `chat actions: ${actions.map((a) => a.kind).join(',')}`)
-        const report = await runChatActions(actions)
+        // A viewer's agent can suggest, not change: say so instead of
+        // reporting changes that the rules then refuse.
+        const report = canEdit
+          ? await runChatActions(actions, at)
+          : [`• ${t('יש לך הרשאת צפייה בלבד בטיול הזה — אפשר לראות, אבל לא לשנות.')}`]
         const done = report.some((r) => r.startsWith('✓'))
         // The app's own account of what happened — never the model's.
         finalText = report.join('\n') + (done ? `\n\n${t('אפשר לראות את זה במסך "מסלול הטיול".')}` : '')
@@ -960,9 +1014,14 @@ export function TripProvider({ children }) {
   }, [trip?.id])
 
   const sharingKey = trip ? `tripai.shareLoc.${trip.id}` : null
-  const [sharingLocation, setSharingLocation] = useState(false)
+  // Stored with the trip it belongs to. A plain boolean stayed "on" for one
+  // render after switching trips — long enough for the location watcher to
+  // start, and send this device's position to a trip it was never shared with.
+  const [sharingFor, setSharingFor] = useState({ key: null, on: false })
+  const sharingLocation = sharingFor.key === sharingKey && sharingFor.on
+  const setSharingLocation = (on) => setSharingFor({ key: sharingKey, on })
   useEffect(() => {
-    setSharingLocation(sharingKey ? localStorage.getItem(sharingKey) === '1' : false)
+    setSharingFor({ key: sharingKey, on: sharingKey ? localStorage.getItem(sharingKey) === '1' : false })
   }, [sharingKey])
 
   const lastWriteAt = useRef(0)
@@ -1007,9 +1066,19 @@ export function TripProvider({ children }) {
     // Only for your own family. Tapping another family's pill just to look
     // at their plan used to have the agent write one into their days.
     if (activeFamily !== myFamily || !canEdit) return
+    // Not a day this family is there for.
+    const fam = families.find((f) => f.id === activeFamily)
+    if (fam && (trip.day < fam.arriveDay || (fam.departDay != null && trip.day > fam.departDay))) return
+    // Once per day per device. Someone who cleared the day on purpose found
+    // it planned again the next time the app opened.
     const bucket = sharedDaySet.has(trip.day) ? 'shared' : activeFamily
+    const onceKey = `tripai.autoplanned.${trip.id}.${bucket}.${trip.day}`
+    try { if (localStorage.getItem(onceKey)) return } catch { /* storage blocked: plan anyway */ }
     listRoutes(trip.id, bucket).then((routes) => {
-      if (routes.some((r) => r.day === trip.day && r.stops?.length)) return
+      // null: could not read. Not the same as "nothing planned" — planning
+      // then would replace a plan that may well be there.
+      if (!routes || routes.some((r) => r.day === trip.day && r.stops?.length)) return
+      try { localStorage.setItem(onceKey, '1') } catch { /* fine */ }
       plan(trip.day)
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1021,12 +1090,15 @@ export function TripProvider({ children }) {
     setPlanning(true)
     setPlanWarning(null)
 
+    const at = here()
+    const before = daysRef.current[day] ?? []
     const planningFamily = families.find((f) => f.id === activeFamily)
     // What this family already has on its OTHER days — without this, asking
     // for several days in one go (the chat's "plan 4 days") generated each
     // one blind to the rest, and a well-known city's "obvious" top picks
-    // landed on more than one day.
-    const already = Object.entries(days)
+    // landed on more than one day. Read through daysRef, since the chat
+    // plans several days one after another from a single render.
+    const already = Object.entries(daysRef.current)
       .filter(([d]) => Number(d) !== day)
       .flatMap(([, list]) => list.map((s) => s.he || s.name))
 
@@ -1039,21 +1111,49 @@ export function TripProvider({ children }) {
     })
 
     if (fresh.length > 0) {
-      noteChange(t('יום {day} נבנה מחדש', { day }), { [day]: daysRef.current[day] ?? [] })
-      applyLocalDay(day, fresh)
-      persist(day, fresh)
+      if (moved(at)) {
+        // Switched trip or family while it was being built: saved where it
+        // was asked for, and nothing on this screen is touched.
+        persist(day, fresh, before, at)
+      } else {
+        // Replaces what the day held when planning began. A stop someone
+        // added while it was being built is kept.
+        const now = daysRef.current[day] ?? []
+        const after = mergeList(now, before, fresh, stopKey)
+        noteChange(t('יום {day} נבנה מחדש', { day }), { [day]: { before: now, after } })
+        applyLocalDay(day, after)
+        persist(day, fresh, before, at)
+      }
     }
     setPlanWarning(warning ?? null)
     setPlanning(false)
     return { ok: fresh.length > 0, count: fresh.length, warning: warning ?? null }
   }
 
-  const persist = async (day, next) => {
-    if (!trip || !activeFamily) return
+  /**
+   * Saves one day: what changed from `prev` to `next` is applied to the
+   * server's current list (lib/merge.js), in a transaction. The whole list
+   * used to be written back, so two people editing one day — a shared day
+   * especially — erased each other's stops. `at` is where the change was
+   * made (here(), unless the caller captured it before an await).
+   */
+  const persist = async (day, next, prev, at = here()) => {
+    if (!at.tripId || !at.family) return
     setSyncing(true)
-    const bucket = sharedDaySet.has(day) ? 'shared' : activeFamily
-    await saveRoute(trip.id, bucket, { day, city: trip.city, stops: next })
+    const bucket = at.shared.has(day) ? 'shared' : at.family
+    const ok = await mutateRoute(
+      at.tripId, bucket, day,
+      (server) => mergeList(server, prev ?? server, next, stopKey),
+      { city: at.city }
+    )
     setSyncing(false)
+    if (ok || !hasFirebase) return
+    // Refused or failed: say so, and put back what the server really has —
+    // nothing else would correct the screen, since nothing changed there.
+    setSnack({ text: t('השינוי לא נשמר. בדקו את החיבור ונסו שוב.') })
+    const routes = await listRoutes(at.tripId, bucket)
+    if (!routes || moved(at)) return
+    applyLocalDay(day, routes.find((r) => r.day === day)?.stops ?? [])
   }
 
   /** Updates whichever local bucket (own or shared) actually backs this day,
@@ -1065,31 +1165,40 @@ export function TripProvider({ children }) {
   }
 
   /**
-   * Records what some days held before a change, so it can be taken back.
-   * `before` is { [day]: stops }. Inside a batch (an agent reply touching
-   * several days) it is only collected — the first snapshot of each day
-   * wins, since that is the state to go back to. Otherwise it becomes the
-   * message at the bottom of the screen, with its undo. Nothing is offered
-   * when there was nothing there to lose.
+   * Records a change to some days, so it can be taken back: `changes` is
+   * { [day]: { before, after } }, the day's stops on either side of it.
+   * Inside a batch (an agent reply touching several days) it is only
+   * collected — the first `before` and the last `after` of each day.
+   * Otherwise it becomes the message at the bottom of the screen, with its
+   * undo. Nothing is offered when there was nothing there to lose.
    */
-  const noteChange = (text, before) => {
+  const noteChange = (text, changes) => {
     if (undoBatch.current) {
-      for (const [day, list] of Object.entries(before)) undoBatch.current[day] ??= list
+      for (const [day, { before, after }] of Object.entries(changes)) {
+        (undoBatch.current[day] ??= { before }).after = after
+      }
       return
     }
-    if (!Object.values(before).some((list) => list.length > 0)) return
-    setSnack({ text, action: t('בטל'), undo: { family: activeFamily, days: before } })
+    if (!Object.values(changes).some(({ before }) => before.length > 0)) return
+    setSnack({ text, action: t('בטל'), undo: { tripId: trip?.id, family: activeFamily, days: changes } })
   }
 
-  /** Puts back the days the current message remembers. */
+  /**
+   * Takes back the change the current message remembers — that change
+   * only. It is applied in reverse (from its `after` back to its `before`)
+   * on top of the day as it is now, so what someone else did to the day
+   * meanwhile stays done. Writing `before` back as it was brought back a
+   * stop another member had removed in between.
+   */
   const runSnackAction = () => {
     const undo = snack?.undo
     setSnack(null)
-    if (!undo || undo.family !== activeFamily) return
+    if (!undo || undo.family !== activeFamily || undo.tripId !== trip?.id || readOnly()) return
     breadcrumb('action', 'undo itinerary change')
-    for (const [day, list] of Object.entries(undo.days)) {
-      applyLocalDay(Number(day), list)
-      persist(Number(day), list)
+    for (const [day, { before, after }] of Object.entries(undo.days)) {
+      const now = daysRef.current[day] ?? []
+      applyLocalDay(Number(day), mergeList(now, after, before, stopKey))
+      persist(Number(day), before, after)
     }
   }
 
@@ -1098,11 +1207,11 @@ export function TripProvider({ children }) {
   // going back to the older snapshot now would silently discard it.
   const setDayStops = (day, next, undoable) => {
     if (readOnly()) return
-    if (undoBatch.current) undoBatch.current[day] ??= daysRef.current[day] ?? []
-    else if (undoable) noteChange(undoable, { [day]: daysRef.current[day] ?? [] })
+    const prev = daysRef.current[day] ?? []
+    if (undoBatch.current || undoable) noteChange(undoable, { [day]: { before: prev, after: next } })
     else dropUndo()
     applyLocalDay(day, next)
-    persist(day, next)
+    persist(day, next, prev)
   }
 
   const moveStop = (day, id, delta) => {
@@ -1173,12 +1282,12 @@ export function TripProvider({ children }) {
     breadcrumb('action', `move stop ${fromDay} -> ${toDay}`)
     noteChange(
       t('{place} הועבר/ה ליום {day}', { place: stop.he ?? stop.name, day: toDay }),
-      { [fromDay]: source, [toDay]: destination }
+      { [fromDay]: { before: source, after: remaining }, [toDay]: { before: destination, after: target } }
     )
     applyLocalDay(fromDay, remaining)
     applyLocalDay(toDay, target)
-    persist(fromDay, remaining)
-    persist(toDay, target)
+    persist(fromDay, remaining, source)
+    persist(toDay, target, destination)
   }
 
   /* ---- reservations ----
@@ -1244,7 +1353,13 @@ export function TripProvider({ children }) {
       if (!located.to || located.to < iso) located = { ...located, to: iso }
     }
 
-    const { id, code } = await createTrip(located)
+    const made = await createTrip(located)
+    if (!made) {
+      setSyncing(false)
+      setSnack({ text: t('לא הצלחנו ליצור את הטיול. בדקו את החיבור ונסו שוב.') })
+      return false
+    }
+    const { id, code } = made
 
     // A trip imported from Google Maps arrives with its days already
     // planned. Saved before the trip is set as current, so the "nothing
@@ -1272,6 +1387,7 @@ export function TripProvider({ children }) {
     setTrips((list) => [created, ...list.filter((x) => x.id !== id)])
     setSyncing(false)
     breadcrumb('lifecycle', `trip created: ${answers.destination}`)
+    return true
   }
 
   /**
@@ -1350,6 +1466,74 @@ export function TripProvider({ children }) {
   }
 
   /**
+   * Saves the trip editor. `base` is the trip as the editor opened on it,
+   * `answers` what it holds now. Only what was changed in the editor is
+   * written: fields that differ from `base`, and the families and hotels
+   * merged into the server's current lists (lib/merge.js). The whole form
+   * used to be written back, so a family that joined while the editor was
+   * open — or a day someone marked "together" — was erased by saving it.
+   *
+   * Returns true when saved, false when the save failed, and null when the
+   * user backed out at one of the confirms (the editor then stays open).
+   */
+  const saveTripEdit = async (base, answers) => {
+    if (!trip || readOnly()) return false
+    const { nights, travellers, imported, parties = [], stays = [], ...rest } = answers
+    const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null)
+    const patch = Object.fromEntries(Object.entries(rest).filter(([k, v]) => !same(v, base[k])))
+
+    // A family, or travellers, that expenses were recorded against. A
+    // payer is "<family id>-m<position>", so the money would be left
+    // pointing at nobody, or at someone else.
+    const charged = (pid) => trip.expenses.some((e) => String(e.payer ?? '').startsWith(`${pid}-`))
+    const losing = (base.parties ?? []).filter((was) => {
+      if (!charged(was.id)) return false
+      const now = parties.find((p) => p.id === was.id)
+      return !now || (now.members?.length ?? 0) < (was.members?.length ?? 0)
+    })
+    if (losing.length > 0) {
+      const ok = await confirm({
+        title: t('יש הוצאות על {names}', { names: losing.map((p) => p.name || t('משפחה')).join(', ') }),
+        body: t('הסרה של משפחה או נוסעים ששילמו על הוצאות תשבש את חלוקת ההוצאות. כדאי לעדכן או למחוק את ההוצאות האלה קודם.'),
+        action: t('שמור בכל זאת'),
+      })
+      if (!ok) return null
+    }
+
+    // A new destination: the old city's day plans and hotels mean nothing.
+    const newPlace = 'destination' in patch && Boolean(base.destination)
+    if (newPlace) {
+      const ok = await confirm({
+        title: t('לשנות את היעד ל{place}?', { place: patch.destination }),
+        body: t('תוכנית הימים והמלונות שייכים ל{place}, ולכן יימחקו. אפשר יהיה לבנות את הימים מחדש.', { place: base.destination }),
+        action: t('שנה יעד'),
+      })
+      if (!ok) return null
+    }
+
+    // The outbound flight is on the first day; moving the trip moves it.
+    if (patch.from && base.from && answers.flight?.date === base.from) {
+      patch.flight = { ...answers.flight, date: patch.from }
+    }
+
+    const results = []
+    if (Object.keys(patch).length > 0) results.push(await updateTrip(patch))
+    if (!same(parties, base.parties)) {
+      results.push(await updateList('parties', (server) => mergeList(server, base.parties ?? [], parties)))
+    }
+    if (newPlace) {
+      results.push(await updateList('stays', () => []))
+      const buckets = [...new Set([...(raw.parties ?? []).map((p) => p.id), ...parties.map((p) => p.id), 'shared'])]
+      results.push(await clearRoutes(trip.id, buckets))
+      setOwnDays({})
+      setSharedRoutes({})
+    } else if (!same(stays, base.stays)) {
+      results.push(await updateList('stays', (server) => mergeList(server, base.stays ?? [], stays, (s) => s.label)))
+    }
+    return !hasFirebase || results.every(Boolean)
+  }
+
+  /**
    * Changes one of the trip's lists — expenses, notes, reservations, stays,
    * parties, memory. `change` takes the list and returns the new one; it is
    * applied here to the copy on screen (so the edit shows at once) and then
@@ -1360,8 +1544,15 @@ export function TripProvider({ children }) {
     if (!trip || readOnly()) return false
     setRaw((r) => (r ? { ...r, [field]: change(r[field] ?? []) } : r))
     setSyncing(true)
-    const ok = await mutateTripList(trip.id, field, change)
+    const id = trip.id
+    const ok = await mutateTripList(id, field, change)
     setSyncing(false)
+    if (!ok && hasFirebase) {
+      // The change is already on screen; without this it stayed there,
+      // looking saved, until the next reload quietly took it away.
+      setSnack({ text: t('השינוי לא נשמר. בדקו את החיבור ונסו שוב.') })
+      loadTrip(id).then((doc) => doc && setRaw((current) => (current?.id === id ? doc : current)))
+    }
     return ok
   }
 
@@ -1443,7 +1634,7 @@ export function TripProvider({ children }) {
     families, isReal, planning, planWarning,
     plan, moveStop, addStop, removeStop, updateStop, moveStopToDay,
     reservations, addReservation, removeReservation,
-    profile: raw, completeOnboarding, switchTrip, updateTrip, startNewTrip, removeTrip,
+    profile: raw, completeOnboarding, switchTrip, updateTrip, saveTripEdit, startNewTrip, removeTrip,
     addNote, updateNote, removeNote,
     addExpense, updateExpense, removeExpense,
     addStay, updateStay, removeStay,

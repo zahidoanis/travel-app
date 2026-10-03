@@ -18,6 +18,7 @@ import { normaliseCategory } from './itinerary'
 import { CITIES } from '../cities'
 import { record } from './telemetry'
 import { t } from '../i18n'
+import { newId } from './ids'
 
 const PROXY = import.meta.env?.VITE_AI_PROXY_URL ?? ''
 
@@ -258,7 +259,7 @@ export async function importedStops(imported) {
     const k = (out[day] ??= []).length
     const hour = 9 * 60 + k * 90
     out[day].push({
-      id: `d${day}-imp${k + 1}`,
+      id: newId(`d${day}-imp${k + 1}-`),
       name: plainName(p.name),
       he: e?.he || plainName(p.name),
       desc: e?.desc || p.desc || '',

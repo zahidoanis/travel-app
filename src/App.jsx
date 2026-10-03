@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import BottomNav, { TABS, RAIL_ONLY } from './components/BottomNav'
 import { User } from './components/Icons'
 import ErrorBoundary from './components/ErrorBoundary'
@@ -81,8 +81,11 @@ function Shell() {
   const {
     isReal, completeOnboarding, loading, user, syncState, skipWelcome,
     accountOpen, openAccount, closeAccount,
-    profile, updateTrip, editStep, closeEdit,
+    profile, saveTripEdit, editStep, closeEdit,
   } = useTrip()
+  // The trip as the editor opened on it — what saving compares against, to
+  // write only what was changed there (see saveTripEdit).
+  const editBase = useRef(null)
   const [tab, setTab] = useState('home')
   // The trip editor covers the whole screen, so Back should leave the
   // editor, not the screen behind it — same reasoning as Sheet.jsx. Opening
@@ -106,6 +109,7 @@ function Shell() {
     })
     return () => {
       live = false
+      editBase.current = null
       window.removeEventListener('popstate', onPop)
       if (!popped && history.state?.edit) history.back()
     }
@@ -199,19 +203,12 @@ function Shell() {
       flight: profile.flight ?? { airline: '', number: '', arrivalAirport: '', date: '' },
       stays: profile.stays ?? [],
     }
+    editBase.current ??= editInitial
     const saveEdit = async (answers) => {
-      const { nights, travellers, ...patch } = answers
-      const ok = await updateTrip(patch)
-      // `false` means "no backend configured" as often as it means "the
-      // write actually failed" — updateTrip() can't tell those apart, so
-      // this decides based on whether a backend exists at all. Only the
-      // real failure gets a message; local-only mode always looked like
-      // this and isn't an error.
-      if (ok || !hasFirebase) {
-        closeEdit()
-      } else {
-        setSaveError(t('השמירה נכשלה. בדוק חיבור לאינטרנט ונסה שוב.'))
-      }
+      const ok = await saveTripEdit(editBase.current, answers)
+      if (ok === null) return // backed out at a confirm: keep editing
+      if (ok) closeEdit()
+      else setSaveError(t('השמירה נכשלה. בדוק חיבור לאינטרנט ונסה שוב.'))
     }
 
     return (
@@ -238,6 +235,10 @@ function Shell() {
               />
             </div>
           </ErrorBoundary>
+          {/* The editor's confirms and messages — these were only drawn
+              behind it, on the main screen. */}
+          <ConfirmHost />
+          <Snack />
         </div>
       </div>
     )
