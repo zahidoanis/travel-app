@@ -4,7 +4,7 @@ import PlaceSheet from '../components/PlaceSheet'
 import PlacePhoto from '../components/PlacePhoto'
 import Sheet from '../components/Sheet'
 import { normaliseCategory } from '../lib/itinerary'
-import { AlertTriangle, Bookmark, Bot, MapPin, Mic, Plus, Send, X } from '../components/Icons'
+import { AlertTriangle, Bookmark, Bot, Link, MapPin, Mic, Plus, Send, X } from '../components/Icons'
 import { useTrip } from '../TripProvider'
 import { hasAI } from '../lib/gemini'
 import { useSpeech } from '../lib/speech'
@@ -23,7 +23,39 @@ import { t } from '../i18n'
 // A third shape is the agent's own place markup, [[shown name|Place, City,
 // Country]] (see systemPrompt): it becomes a button that opens the place on
 // a map, ready to add to a day.
-const LINK_RE = /\[\[([^\]|]+)\|([^\]]+)\]\]|\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s]+)/g
+//
+// Every web link renders as a short labelled chip, never the raw address —
+// a full Viator URL (150 characters of tracking parameters) read as noise
+// on a desktop, and a tour the model wrapped as a [[place]] opened the
+// map instead of the booking page on a phone.
+const LINK_RE = /\[\[([^\]|]+)\|([^\]]+)\]\]|\[([^\]]+)\]\((https?:\/\/[^)]+)\)|(https?:\/\/[^\s<>"]+)/g
+
+const isUrl = (s) => /^https?:\/\//i.test(s)
+/** Spaces cut a link in half; Viator's URLs have been seen to carry them. */
+const cleanUrl = (u) => u.trim().replace(/ /g, '%20')
+/** A bare URL picks up the sentence's punctuation — "(…?x=1)." */
+const trimUrl = (u) => u.replace(/[).,;:!?'"»]+$/, '')
+
+/** Where a link goes, in a few words — for a bare URL with no label. */
+function linkLabel(url) {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, '')
+    if (/(^|\.)viator\.com$/.test(host)) return t('הזמנה ב-Viator')
+    if (/(^|\.)google\.[a-z.]+$/.test(host) || host === 'maps.app.goo.gl') return 'Google Maps'
+    return host
+  } catch {
+    return t('קישור')
+  }
+}
+
+function ExtLink({ url, label }) {
+  return (
+    <a className="ext-link" href={url} target="_blank" rel="noopener noreferrer">
+      <Link size={12} />
+      {label}
+    </a>
+  )
+}
 
 function linkify(text, onPlace) {
   const nodes = []
@@ -33,16 +65,22 @@ function linkify(text, onPlace) {
   for (let m = LINK_RE.exec(text); m; m = LINK_RE.exec(text)) {
     if (m.index > last) nodes.push(text.slice(last, m.index))
     const [, placeLabel, placeQuery, label, mdUrl, bareUrl] = m
-    if (placeLabel) {
+    if (placeLabel && isUrl(placeQuery.trim())) {
+      // A bookable tour written in place syntax — it's a link, not a pin.
+      nodes.push(<ExtLink key={key++} url={cleanUrl(placeQuery)} label={placeLabel.trim()} />)
+    } else if (placeLabel) {
       const place = { label: placeLabel.trim(), query: placeQuery.trim() }
       nodes.push(
         <button key={key++} className="place-link" onClick={() => onPlace(place)}>
           <MapPin size={12} />{place.label}
         </button>
       )
+    } else if (mdUrl) {
+      nodes.push(<ExtLink key={key++} url={cleanUrl(mdUrl)} label={label.trim()} />)
     } else {
-      const url = mdUrl ?? bareUrl
-      nodes.push(<a key={key++} href={url} target="_blank" rel="noopener noreferrer">{label ?? url}</a>)
+      const url = trimUrl(bareUrl)
+      nodes.push(<ExtLink key={key++} url={url} label={linkLabel(url)} />)
+      if (bareUrl.length > url.length) nodes.push(bareUrl.slice(url.length))
     }
     last = LINK_RE.lastIndex
   }
@@ -60,6 +98,7 @@ function PlaceCards({ text, onOpen }) {
   const places = []
   for (const m of text.matchAll(/\[\[([^\]|]+)\|([^\]]+)\]\]/g)) {
     const place = { label: m[1].trim(), query: m[2].trim() }
+    if (isUrl(place.query)) continue // a tour's booking link, not a place
     if (!places.some((p) => p.query === place.query)) places.push(place)
   }
   if (places.length === 0) return null

@@ -2148,3 +2148,13 @@ a.contact-row:hover { background: var(--tint-2); color: var(--text); }
 .maps-rating strong { color: var(--text); font-size: 14px; }
 .maps-rating-src { color: var(--muted); font-size: 12px; }
 .maps-rating:hover .maps-rating-src { text-decoration: underline; }
+
+/* A web link in a chat reply: a short labelled chip, never a raw URL. */
+.bubble a.ext-link {
+  display: inline; padding: 1px 8px; margin: 0 1px;
+  border-radius: 8px; -webkit-box-decoration-break: clone; box-decoration-break: clone;
+  background: var(--gold-soft); border: 1px solid rgba(201, 164, 92, 0.35);
+  color: var(--lav); font-weight: 600; text-decoration: none; word-break: normal;
+}
+.bubble a.ext-link svg { display: inline; vertical-align: -2px; margin-inline-end: 4px; }
+.bubble a.ext-link:hover { border-color: var(--ink); }

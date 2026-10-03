@@ -291,7 +291,8 @@ export default {
                 'תוצאות אמיתיות מ-Viator (אטרקציות/סיורים אמיתיים שאפשר להזמין), רלוונטיות לשאלה האחרונה:\n' +
                 found +
                 '\n\nיש לך עכשיו גישה למידע הזה — אלה מקומות אמיתיים עם מחיר ודירוג אמיתיים, לא הצעות כלליות. ' +
-                'כשאתה מציע אחד מהם, כלול את הקישור (productUrl) בדיוק כפי שהוא, בלי לשנות אותו — זה קישור הזמנה אמיתי. ' +
+                'כשאתה מציע אחד מהם, כתוב אותו כקישור בפורמט [שם הסיור](productUrl) — עם הקישור בדיוק כפי שהוא, בלי לשנות אותו, זה קישור הזמנה אמיתי. ' +
+                'לעולם אל תכתוב את הכתובת חשופה בטקסט, ואל תכתוב סיור בתחביר [[...]] של מקומות — סיור הוא לא מקום על המפה. ' +
                 'אם אף תוצאה לא רלוונטית לשאלה (למשל שאלו על מסעדות), פשוט התעלם מהן וענה כרגיל — ' +
                 'ובשום מקרה אל תמציא סיור או מחיר שלא מופיעים כאן.',
             },
@@ -545,7 +546,9 @@ async function viatorSearch(env, userText, cityContext) {
           price != null ? `החל מ-$${price}` : null,
           rating ? `דירוג ${rating.toFixed(1)}${reviewCount ? ` (${reviewCount} ביקורות)` : ''}` : null,
         ].filter(Boolean).join(' · ')
-        return `- ${p.title}${bits ? `: ${bits}` : ''} — ${p.productUrl}`
+        // Viator's URLs can carry raw spaces ("Must-See Landmarks"), which cut a
+        // link in half wherever it's rendered — encode them here, once.
+        return `- ${p.title}${bits ? `: ${bits}` : ''} — ${p.productUrl.trim().replace(/ /g, '%20')}`
       })
     return lines.length > 0 ? lines.join('\n') : null
   } catch {

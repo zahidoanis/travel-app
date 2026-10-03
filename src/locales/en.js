@@ -652,6 +652,9 @@ export default {
   "ביקורות": "reviews",
   "דירוגים, מחירים וכתובות מ-Google Maps. ההסבר ליד כל מסעדה נכתב על ידי הסוכן — ודאו שעות פתיחה לפני שמגיעים.": "Ratings, prices and addresses from Google Maps. The note under each restaurant was written by the agent — check opening hours before you go.",
 
+  "הזמנה ב-Viator": "Book on Viator",
+  "קישור": "Link",
+
   // Planning every day of the trip
   "בבנייה…": "Building…",
   "בנה את כל הימים הריקים ({n})": "Build all empty days ({n})",
