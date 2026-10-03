@@ -23,6 +23,7 @@ import LegalLinks from './components/LegalLinks'
 import Legal from './screens/Legal'
 import { useLegalRoute } from './legal/route'
 import { ConfirmProvider, ConfirmHost } from './components/Confirm'
+import { historySettled } from './components/Sheet'
 import Snack from './components/Snack'
 import { initTelemetry, breadcrumb, attachSink } from './lib/telemetry'
 import { hasFirebase } from './lib/firebase'
@@ -83,6 +84,35 @@ function Shell() {
     profile, updateTrip, editStep, closeEdit,
   } = useTrip()
   const [tab, setTab] = useState('home')
+  // The trip editor covers the whole screen, so Back should leave the
+  // editor, not the screen behind it — same reasoning as Sheet.jsx. Opening
+  // it adds a history entry; Back closes it; closing it any other way (save,
+  // the X) takes the entry off again.
+  useEffect(() => {
+    if (!editStep) return
+    let popped = false
+    let live = true
+    const onPop = (e) => {
+      if (e.state?.edit) return
+      popped = true
+      closeEdit()
+    }
+    // After any sheet that closed to open the editor has taken its own
+    // entry off (see historySettled in Sheet.jsx).
+    historySettled().then(() => {
+      if (!live) return
+      history.pushState({ ...history.state, edit: true }, '')
+      window.addEventListener('popstate', onPop)
+    })
+    return () => {
+      live = false
+      window.removeEventListener('popstate', onPop)
+      if (!popped && history.state?.edit) history.back()
+    }
+    // Only opening and closing matter, not moving between sections.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [Boolean(editStep)])
+
   // Every tab opened so far — those are the screens kept alive (see below).
   const [visited, setVisited] = useState(() => new Set(['home']))
   useEffect(() => {

@@ -20,16 +20,38 @@ const DISMISS_PX = 90
 // collected, and one history.go() goes back to just below the lowest sheet
 // that closed.
 const closing = new Set()
+let settled = null
 function takeOffHistory(depth) {
   closing.add(depth)
   if (closing.size > 1) return
-  setTimeout(() => {
-    const lowest = Math.min(...closing)
-    closing.clear()
-    const top = history.state?.sheet ?? 0
-    if (top >= lowest) history.go(-(top - lowest + 1))
-  }, 0)
+  settled = new Promise((resolve) => {
+    setTimeout(() => {
+      const lowest = Math.min(...closing)
+      closing.clear()
+      const top = history.state?.sheet ?? 0
+      if (top < lowest) {
+        settled = null
+        resolve()
+        return
+      }
+      const landed = () => {
+        window.removeEventListener('popstate', landed)
+        settled = null
+        resolve()
+      }
+      window.addEventListener('popstate', landed)
+      history.go(-(top - lowest + 1))
+    }, 0)
+  })
 }
+
+/**
+ * Resolves once closed sheets have taken their history entries off. Anything
+ * else that adds an entry of its own at the same moment (the trip editor,
+ * opened from a menu that closes) must wait for this, or the step back
+ * meant for the sheets would take its entry too.
+ */
+export const historySettled = () => settled ?? Promise.resolve()
 
 /**
  * Bottom sheet modal. Closes on Escape, on scrim click, on the browser's
