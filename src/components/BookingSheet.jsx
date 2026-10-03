@@ -4,7 +4,7 @@ import {
   Phone, Globe, Clock, Users, Calendar, Check, Navigation, Ticket, Info,
 } from './Icons'
 import { useTrip } from '../TripProvider'
-import { search } from '../lib/geocode'
+import { searchNear } from '../lib/geocode'
 import { breadcrumb } from '../lib/telemetry'
 import { t } from '../i18n'
 
@@ -38,14 +38,14 @@ export default function BookingSheet({ open, place, kind = 'food', onClose }) {
     setDetails(null)
     setSaved(false)
 
-    search(`${place.name}, ${trip?.city ?? ''}`, 1, undefined, true)
+    searchNear(place.name, trip, 1, true)
       .then((hits) => {
         if (!cancelled) setDetails(hits[0] ?? null)
       })
       .finally(() => !cancelled && setLoading(false))
 
     return () => { cancelled = true }
-  }, [open, place, trip?.city])
+  }, [open, place, trip?.id])
 
   if (!place) return null
 

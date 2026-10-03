@@ -629,12 +629,24 @@ input, select, textarea { font: inherit; color: inherit; }
 .map-pin:hover { transform: scale(1.1); }
 .map-pin.active { transform: scale(1.22); }
 
-.map-tools {
-  position: absolute; z-index: 10;
-  /* Below the day strip, not level with it — both sat at 76px before the
-     strip existed and would otherwise land on top of each other. */
-  inset-inline-end: 14px; inset-block-start: 130px;
+.map-tools { display: flex; flex-direction: column; gap: 8px; align-self: flex-end; margin-inline-end: 14px; }
+
+/* Everything that floats over the top of the map, stacked in one column
+   under the top bar so nothing can overlap anything else. The column itself
+   lets touches through to the map; only its contents take them. */
+.map-overlay {
+  position: absolute; z-index: 10; inset-inline: 0;
+  inset-block-start: calc(64px + env(safe-area-inset-top));
   display: flex; flex-direction: column; gap: 8px;
+  pointer-events: none;
+}
+.map-overlay > * { pointer-events: auto; }
+.map-overlay .day-strip, .map-overlay .family-strip { position: static; }
+.map-notice {
+  align-self: center; max-width: calc(100% - 28px);
+  padding: 9px 14px; border-radius: var(--r-md);
+  background: #24212B; color: #fff; font-size: 13px; line-height: 1.5;
+  box-shadow: var(--shadow-lg);
 }
 
 /* Which day's stops the map is showing — the map had no day of its own
@@ -646,7 +658,9 @@ input, select, textarea { font: inherit; color: inherit; }
 .day-strip .hscroll { padding-block: 0; }
 /* Sits above .day-strip when a trip has more than one family — most trips
    have only one, and never render this at all. */
-.family-strip { position: absolute; z-index: 10; inset-inline: 0; inset-block-start: 16px; }
+/* Below the top bar, not on it: at 16px it sat over the city name and the
+   account button. */
+.family-strip { position: absolute; z-index: 10; inset-inline: 0; inset-block-start: calc(64px + env(safe-area-inset-top)); }
 .family-strip .hscroll { padding-block: 0; }
 .family-strip .pill { background: var(--card); box-shadow: var(--shadow-sm); }
 .family-strip .pill.on { background: linear-gradient(135deg, var(--accent-2), var(--accent)); }
@@ -672,10 +686,14 @@ input, select, textarea { font: inherit; color: inherit; }
 .stop-card {
   width: 268px; border-radius: var(--r-lg); padding: 14px; text-align: start;
   box-shadow: var(--shadow-lg);
-  transition: border-color 0.24s, transform 0.24s var(--ease), opacity 0.24s;
-  opacity: 0.5; transform: scale(0.94);
+  transition: border-color 0.24s, transform 0.24s var(--ease), box-shadow 0.24s;
+  /* Solid, not see-through: every card is readable and tappable as it is.
+     The selected one is marked by its border and a lift, not by fading the
+     others to half — which read as disabled, as if each needed selecting
+     before it could be used. */
+  background: var(--card); transform: scale(0.96);
 }
-.stop-card.active { opacity: 1; transform: scale(1); border-color: rgba(124,92,255,0.55); }
+.stop-card.active { transform: scale(1); border-color: rgba(124,92,255,0.55); box-shadow: 0 0 0 2px var(--accent), var(--shadow-lg); }
 
 .star { color: var(--amber); display: inline-flex; align-items: center; gap: 3px; font-size: 12.5px; font-weight: 700; }
 

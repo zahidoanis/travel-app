@@ -11,7 +11,7 @@ import { newId } from './lib/ids'
 import { useConfirm } from './components/Confirm'
 import { onUser, hasFirebase } from './lib/firebase'
 import { invitedTripId, invitedToken } from './lib/share'
-import { geocode } from './lib/geocode'
+import { geocode, geocodeNear } from './lib/geocode'
 import { importedStops, importSpan } from './lib/mapImport'
 import { hasAI, systemPrompt, streamReply, OPENER_PROMPT } from './lib/gemini'
 import { fetchForecast, fetchClimateAverage } from './lib/weather'
@@ -668,7 +668,7 @@ export function TripProvider({ children }) {
           report.push(`• ${t('{place} כבר ביום {day}', { place: he, day })}`)
           continue
         }
-        const hit = (await geocode(query)) ?? (await geocode(he, trip.cityEn ?? trip.city))
+        const hit = (await geocodeNear(query, trip)) ?? (await geocodeNear(he, trip))
         if (!hit) {
           report.push(`✗ ${t('לא הצלחתי לאתר את "{place}" על המפה — לא הוספתי', { place: he })}`)
           continue

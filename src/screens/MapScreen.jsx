@@ -4,6 +4,7 @@ import MapCanvas from '../components/MapCanvas'
 import Sheet from '../components/Sheet'
 import { Star, Info, Navigation, Clock, Locate, MapPin, Bed } from '../components/Icons'
 import { categoryOf } from '../data'
+import { distanceKm } from '../lib/geocode'
 import { useTrip } from '../TripProvider'
 import { navigateUrl } from '../lib/staticMap'
 import { t, tn } from '../i18n'
@@ -51,11 +52,41 @@ export default function MapScreen() {
 
   // One-shot, unlike the live-sharing toggle — this just jumps the view to
   // where you are right now, nothing is written anywhere or kept running.
+  //
+  // The map only has tiles around today's stops, so someone far from them —
+  // still at home before the trip, or in another part of the country — used
+  // to press this and see the dot nowhere, as if the location were wrong.
+  // Now that case says how far away they are, and a refused or failed
+  // location request says so instead of doing nothing.
+  const [notice, setNotice] = useState(null)
+  useEffect(() => {
+    if (!notice) return
+    const timer = setTimeout(() => setNotice(null), 5000)
+    return () => clearTimeout(timer)
+  }, [notice])
+
   const locateMe = () => {
-    if (typeof navigator === 'undefined' || !navigator.geolocation) return
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setNotice(t('הדפדפן הזה לא מאפשר לאתר מיקום.'))
+      return
+    }
     navigator.geolocation.getCurrentPosition(
-      (pos) => setMyLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude, seq: Date.now() }),
-      () => {},
+      (pos) => {
+        const here = { lat: pos.coords.latitude, lng: pos.coords.longitude }
+        const nearest = Math.min(...STOPS.map((s) => distanceKm(here, s)))
+        if (STOPS.length > 0 && nearest > 25) {
+          // Stay on the route: sliding toward someone 3,000 km away only
+          // reaches the edge of the loaded map, which looks like a wrong
+          // location rather than a far one.
+          setNotice(t('אתם במרחק {km} ק״מ מהמסלול של היום, מחוץ לאזור שהמפה מציגה.', { km: Math.round(nearest).toLocaleString() }))
+          setMyLoc(null)
+          return
+        }
+        setMyLoc({ ...here, seq: Date.now() })
+      },
+      (err) => setNotice(err?.code === 1
+        ? t('אין הרשאה למיקום. אפשר להפעיל אותה בהגדרות הדפדפן.')
+        : t('לא הצלחנו לקבל את המיקום. נסו שוב בעוד רגע.')),
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
     )
   }
@@ -136,8 +167,10 @@ export default function MapScreen() {
         <div style={{ position: 'relative', zIndex: 10 }}>
           <TopBar floating />
         </div>
-        {familySwitcher}
-        {daySwitcher}
+        <div className="map-overlay">
+          {familySwitcher}
+          {daySwitcher}
+        </div>
         <div className="card" style={{ textAlign: 'center', maxWidth: 300 }}>
           {planning ? (
             <>
@@ -173,8 +206,13 @@ export default function MapScreen() {
         <TopBar floating />
       </div>
 
+      {/* One column under the top bar: families, days, then the tools.
+          They used to be positioned separately, at fixed heights that
+          collided — the family buttons sat on the top bar itself. */}
+      <div className="map-overlay">
       {familySwitcher}
       {daySwitcher}
+      {notice && <div className="map-notice" role="status">{notice}</div>}
 
       <div className="map-tools">
         <button className="map-tool" onClick={locateMe} aria-label={t('מרכז על המיקום שלי')}><Locate size={18} /></button>
@@ -188,6 +226,7 @@ export default function MapScreen() {
         >
           <MapPin size={18} />
         </button>
+      </div>
       </div>
 
       <div className="stop-deck">
@@ -207,7 +246,9 @@ export default function MapScreen() {
                     <span className="num">{s.time}</span>
                     <Clock size={13} />
                   </span>
-                  <span className="star"><span className="num">{s.rating}</span><Star size={13} /></span>
+                  {s.rating != null && (
+                    <span className="star"><span className="num">{s.rating}</span><Star size={13} /></span>
+                  )}
                 </div>
 
                 <h3 className="h3" style={{ fontSize: 16, marginBottom: 6 }}>{s.he}</h3>

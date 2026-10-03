@@ -5,7 +5,7 @@ import {
 } from '../components/Icons'
 import { TRAVEL_STYLES, DESTINATIONS, PARTY_COLORS, CUISINES, memberAge, TIME_OPTIONS } from '../data'
 import { hasAI, complete, parseRows } from '../lib/gemini'
-import { search, geocode } from '../lib/geocode'
+import { search, geocode, searchNear, geocodeNear } from '../lib/geocode'
 import { CITIES, searchCities } from '../cities'
 import { breadcrumb, watchdog } from '../lib/telemetry'
 import DateRangeCalendar from '../components/DateRangeCalendar'
@@ -181,7 +181,7 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
     breadcrumb('action', 'locate booked hotel')
 
     // Scoped to the destination so "Hilton" resolves in the right city.
-    const hits = await search(`${q}, ${answers.destination}`, 5)
+    const hits = await searchNear(q, answers, 5)
     setHotelHits(hits)
     if (hits.length === 0) setHotelError(t('לא מצאתי מלון בשם הזה ביעד. נסה שם מדויק יותר.'))
     setLocating(false)
@@ -1069,7 +1069,7 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                               return
                             }
                             setLocating(true)
-                            const hit = await geocode(`${h.name}, ${answers.destination}`)
+                            const hit = await geocodeNear(h.name, answers)
                             setLocating(false)
                             addStay({
                               name: h.name,

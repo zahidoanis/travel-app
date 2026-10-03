@@ -2,7 +2,7 @@ import { useState } from 'react'
 import TopBar from '../components/TopBar'
 import { Bed, MapPin, X, Plus } from '../components/Icons'
 import { useTrip } from '../TripProvider'
-import { search } from '../lib/geocode'
+import { searchNear } from '../lib/geocode'
 import { useConfirm } from '../components/Confirm'
 import { t } from '../i18n'
 
@@ -34,7 +34,7 @@ export default function Hotels() {
     setLocating(true)
     setError(null)
     setHits([])
-    const results = await search(`${q}, ${trip.city}`, 5)
+    const results = await searchNear(q, trip, 5)
     setHits(results)
     if (results.length === 0) setError(t('לא מצאתי מלון בשם הזה ביעד. נסה שם מדויק יותר.'))
     setLocating(false)

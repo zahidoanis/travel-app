@@ -105,6 +105,52 @@ export async function geocode(query, context = '') {
   return hit ?? null
 }
 
+/** Kilometres between two points (haversine). */
+export function distanceKm(a, b) {
+  const rad = (d) => (d * Math.PI) / 180
+  const dLat = rad(b.lat - a.lat)
+  const dLng = rad(b.lng - a.lng)
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2
+  return 6371 * 2 * Math.asin(Math.sqrt(h))
+}
+
+/** Within a day trip of the destination. Anything further is another place
+ *  with the same name. */
+const NEAR_KM = 120
+const near = (hit, origin) =>
+  origin?.lat == null || origin?.lng == null || distanceKm(hit, origin) <= NEAR_KM
+
+/** The destination's name in Latin letters when there is one. Hebrew names
+ *  geocode badly — "פראג" once matched a bus stop in Or Akiva — and the
+ *  English one is stored alongside it for exactly this. */
+const cityOf = (trip) => trip?.cityEn || trip?.destinationEn || trip?.city || trip?.destination || ''
+
+/**
+ * Candidates for a place on this trip: searched with the destination's
+ * English name, and only those near the destination kept.
+ *
+ * Several screens used to search "<name>, <Hebrew city>" or the bare name
+ * and take the first answer, so a restaurant, hotel or suggestion could land
+ * on a namesake in another city or country — that is how a stop ended up in
+ * the wrong place on the map. `trip` is anything with lat/lng and
+ * cityEn/city (or onboarding's destinationEn/destination).
+ */
+export async function searchNear(query, trip, limit = 5, details = false) {
+  const city = cityOf(trip)
+  const scoped = city && !query.toLowerCase().includes(city.toLowerCase()) ? `${query}, ${city}` : query
+  let hits = (await search(scoped, limit, undefined, details)).filter((h) => near(h, trip))
+  if (hits.length === 0 && scoped !== query) {
+    hits = (await search(query, limit, undefined, details)).filter((h) => near(h, trip))
+  }
+  return hits
+}
+
+/** The best single match near the trip, or null. */
+export async function geocodeNear(query, trip) {
+  const [hit] = await searchNear(query, trip, 3)
+  return hit ?? null
+}
+
 /**
  * Geocodes a list in order. Entries that cannot be resolved keep null
  * coordinates so the caller can decide — we drop them rather than guessing.

@@ -643,5 +643,9 @@ export default {
   "צור קישור חדש": "Create new link",
   "נוצר קישור חדש — הקודם כבר לא עובד": "New link created — the old one no longer works",
   "הקישור הגיע למי שלא צריך? צור קישור חדש": "Link reached the wrong people? Create a new one",
-  "התשובה נקטעה באמצע. אפשר לכתוב \"תמשיך\".": "The answer was cut off. You can write \"continue\"."
+  "התשובה נקטעה באמצע. אפשר לכתוב \"תמשיך\".": "The answer was cut off. You can write \"continue\".",
+  "הדפדפן הזה לא מאפשר לאתר מיקום.": "This browser can't share your location.",
+  "אתם במרחק {km} ק״מ מהמסלול של היום, מחוץ לאזור שהמפה מציגה.": "You're {km} km from today's route, outside the area the map shows.",
+  "אין הרשאה למיקום. אפשר להפעיל אותה בהגדרות הדפדפן.": "Location permission is off. You can turn it on in your browser settings.",
+  "לא הצלחנו לקבל את המיקום. נסו שוב בעוד רגע.": "Couldn't get your location. Try again in a moment."
 }

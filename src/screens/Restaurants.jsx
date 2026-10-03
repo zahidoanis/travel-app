@@ -5,7 +5,7 @@ import BookingSheet from '../components/BookingSheet'
 import { CUISINES } from '../data'
 import { useTrip } from '../TripProvider'
 import { hasAI, complete, parseRows } from '../lib/gemini'
-import { geocode } from '../lib/geocode'
+import { geocodeNear } from '../lib/geocode'
 import { navigateUrl } from '../lib/staticMap'
 import { breadcrumb, watchdog } from '../lib/telemetry'
 import { t } from '../i18n'
@@ -84,7 +84,7 @@ export default function Restaurants() {
   /** Adds a restaurant to the current day, positioned at a mealtime. */
   const addToDay = async (r) => {
     setAdding(r.name)
-    const hit = await geocode(`${r.name}, ${trip.city}`)
+    const hit = await geocodeNear(r.name, trip)
     setAdding(null)
 
     if (!hit) {

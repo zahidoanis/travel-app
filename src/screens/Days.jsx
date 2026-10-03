@@ -7,7 +7,7 @@ import { CATEGORIES } from '../data'
 import BookingSheet from '../components/BookingSheet'
 import { useTrip } from '../TripProvider'
 import { hasAI, complete, parseRows } from '../lib/gemini'
-import { geocode, search } from '../lib/geocode'
+import { geocode, search, geocodeNear } from '../lib/geocode'
 import { breadcrumb, watchdog } from '../lib/telemetry'
 import { useConfirm } from '../components/Confirm'
 import { t, tn, locale } from '../i18n'
@@ -223,7 +223,7 @@ export default function Days() {
   /** A suggestion only joins the day once it has a real position. */
   const accept = async (row) => {
     setAdding(row.name)
-    const hit = await geocode(row.name)
+    const hit = await geocodeNear(row.name, trip)
     setAdding(null)
 
     if (!hit) {
