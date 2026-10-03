@@ -647,5 +647,6 @@ export default {
   "הדפדפן הזה לא מאפשר לאתר מיקום.": "This browser can't share your location.",
   "אתם במרחק {km} ק״מ מהמסלול של היום, מחוץ לאזור שהמפה מציגה.": "You're {km} km from today's route, outside the area the map shows.",
   "אין הרשאה למיקום. אפשר להפעיל אותה בהגדרות הדפדפן.": "Location permission is off. You can turn it on in your browser settings.",
-  "לא הצלחנו לקבל את המיקום. נסו שוב בעוד רגע.": "Couldn't get your location. Try again in a moment."
+  "לא הצלחנו לקבל את המיקום. נסו שוב בעוד רגע.": "Couldn't get your location. Try again in a moment.",
+  "שפה: {name}": "Language: {name}"
 }

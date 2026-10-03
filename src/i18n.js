@@ -18,29 +18,17 @@ import en from './locales/en'
 const KEY = 'tripai.lang'
 export const LANGS = ['he', 'en']
 
-function fromBrowser() {
-  const prefs = typeof navigator !== 'undefined' ? (navigator.languages ?? [navigator.language]) : []
-  return prefs.some((l) => /^(he|iw)\b/i.test(l ?? '')) ? 'he' : 'en'
-}
-
+// Hebrew unless someone has chosen otherwise. Guessing from the browser's
+// language switched Hebrew speakers whose phone or computer happens to be
+// set to English into an English app they never asked for — and the choice
+// was then remembered as if it had been theirs. The language menu (see
+// LangToggle) is how someone who wants English gets it.
 function detect() {
   try {
     const saved = localStorage.getItem(KEY)
-    if (LANGS.includes(saved)) return saved
-    // First visit since English existed. Anyone with TripAI data already on
-    // this device was using the app in Hebrew — keep them there instead of
-    // flipping them to English just because their browser is set that way.
-    let returning = false
-    for (let i = 0; i < localStorage.length; i++) {
-      if (localStorage.key(i)?.startsWith('tripai.')) returning = true
-    }
-    const pick = returning ? 'he' : fromBrowser()
-    // Remembered, so the answer can't drift on a later visit (e.g. once
-    // telemetry has written its own tripai.* key for a new English user).
-    localStorage.setItem(KEY, pick)
-    return pick
+    return LANGS.includes(saved) ? saved : 'he'
   } catch {
-    return fromBrowser() // private mode / storage blocked
+    return 'he' // private mode / storage blocked
   }
 }
 
