@@ -79,7 +79,8 @@ export function record(input) {
       breadcrumbs: breadcrumbs.slice(-MAX_BREADCRUMBS),
       session: sessionId,
       uptime: Date.now() - startedAt,
-      url: typeof location !== 'undefined' ? location.pathname + location.search : null,
+      // The path only: the query string can carry an invite link's token.
+      url: typeof location !== 'undefined' ? location.pathname : null,
       count: 1,
       sent: false,
     }

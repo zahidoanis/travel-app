@@ -178,17 +178,16 @@ export function createTrip(details) {
         ...stripUndefined(details),
         id: ref.id,
         code,
-        // The secret half of the invite link (see firebase.rules,
-        // holdsInvite). Replacing it is how a leaked link is revoked.
-        inviteToken: newId(),
-        // The view-only link's token — joining with it makes you a viewer.
-        viewToken: newId(),
         ownerId: uid,
         members: { [uid]: 'owner' },
         memberIds: [uid],
         createdAt: FS.serverTimestamp(),
         updatedAt: FS.serverTimestamp(),
       })
+      // The invite links' tokens, kept off the trip document (which every
+      // member can read) — see secrets/ in firebase.rules. Written after the
+      // trip, because the rules check this account's role on it.
+      await writeInviteTokens(db, FS, ref.id)
 
       await saveProfile({ currentTripId: ref.id })
       return { id: ref.id, code }
@@ -410,14 +409,20 @@ async function purgeTrip(db, FS, tripId, data) {
     ['tickets'],
     ['activity'],
     ['presence'],
+    ['joins'],
     // A family is a path segment, not a document, so it cannot be listed —
-    // the ids come from the trip's own parties.
-    ...(data.parties ?? []).filter((p) => p?.id).map((p) => ['families', p.id, 'routes']),
+    // the ids come from the trip's own parties, plus the shared bucket that
+    // days planned together live in (it was missed, and outlived the trip).
+    ...[...(data.parties ?? []).map((p) => p?.id).filter(Boolean), 'shared']
+      .map((id) => ['families', id, 'routes']),
   ]
   for (const path of paths) {
     const snap = await FS.getDocs(FS.collection(db, 'trips', tripId, ...path))
     await Promise.all(snap.docs.map((d) => FS.deleteDoc(d.ref)))
   }
+  // The invite tokens, by name: the rules allow reading these two documents
+  // but not listing the collection.
+  await Promise.all(['edit', 'view'].map((name) => FS.deleteDoc(FS.doc(db, 'trips', tripId, 'secrets', name))))
   await FS.deleteDoc(FS.doc(db, 'trips', tripId))
 }
 
@@ -463,20 +468,30 @@ export function deleteAccountData() {
           const data = doc.data()
           const others = (data.memberIds ?? []).filter((id) => id !== uid)
 
-          if (others.length === 0) {
-            // Deleting is owner-only in the rules. A sole member who is not
+          const roleOf = (id) => data.members?.[id] ?? 'editor'
+          const mine = roleOf(uid)
+          // Who could take the trip over: someone who can edit it. Ownership
+          // used to go to whoever happened to be first in the member list —
+          // a viewer, as often as not, who then could edit and delete the
+          // trip for everyone.
+          const successor = others.find((id) => roleOf(id) !== 'viewer')
+
+          // Nobody else, or only viewers, and it is yours to delete: it goes.
+          // (A viewer cannot delete a trip, and simply leaves below.)
+          if (mine !== 'viewer' && (others.length === 0 || (data.ownerId === uid && !successor))) {
+            // Deleting is owner-only in the rules. A sole editor who is not
             // the owner (the owner left earlier) takes ownership first.
             if (data.ownerId !== uid) await FS.updateDoc(doc.ref, { ownerId: uid })
             await purgeTrip(db, FS, doc.id, data)
             continue
           }
 
-          await FS.deleteDoc(FS.doc(db, 'trips', doc.id, 'presence', uid))
+          await FS.deleteDoc(FS.doc(db, 'trips', doc.id, 'presence', uid)).catch(() => {})
           await FS.updateDoc(doc.ref, {
             memberIds: FS.arrayRemove(uid),
             [`members.${uid}`]: FS.deleteField(),
-            ...(data.ownerId === uid
-              ? { ownerId: others[0], [`members.${others[0]}`]: 'owner' }
+            ...(data.ownerId === uid && successor
+              ? { ownerId: successor, [`members.${successor}`]: 'owner' }
               : {}),
             updatedAt: FS.serverTimestamp(),
           })
@@ -535,10 +550,10 @@ export function listTrips() {
 /**
  * Adds this account to an existing trip.
  *
- * The link carries the trip id and, for trips that have one, the trip's
- * inviteToken; the rules let anyone holding both add themselves, as an
- * editor, and nothing else. Recorded under this account's own uid in
- * `joinedWith` so that one person's token cannot let in the next.
+ * The link carries the trip id and, for trips that have them, one of the
+ * trip's invite tokens (edit or view-only, see secrets/ in firebase.rules);
+ * the rules let anyone holding both add themselves — as an editor or a
+ * viewer, according to the token — and nothing else.
  */
 export function joinTrip(tripId, token, role = 'editor') {
   breadcrumb('data', `joinTrip ${tripId}`)
@@ -548,17 +563,81 @@ export function joinTrip(tripId, token, role = 'editor') {
     async ({ db, uid, FS }) => {
       const ref = FS.doc(db, 'trips', tripId)
 
-      await FS.updateDoc(ref, {
+      // Someone already on the trip opening its link again — or the other
+      // link — is just opening their trip. Joining again used to rewrite
+      // their role to the link's: an owner who tapped the view-only link
+      // shared in the family chat became a viewer of their own trip, for
+      // good. A non-member cannot read the trip, so the read failing is
+      // how "not a member yet" shows up here.
+      const existing = await FS.getDoc(ref).catch(() => null)
+      if (existing?.exists() && existing.data().memberIds?.includes(uid)) {
+        await saveProfile({ currentTripId: tripId })
+        return { id: existing.id, ...existing.data(), alreadyMember: true }
+      }
+
+      // The token goes into joins/{uid} in the same batch as the join, where
+      // the rules check it and no other member can read it.
+      const batch = FS.writeBatch(db)
+      if (token) {
+        batch.set(FS.doc(db, 'trips', tripId, 'joins', uid), { token, at: FS.serverTimestamp() })
+      }
+      batch.update(ref, {
         [`members.${uid}`]: role === 'viewer' ? 'viewer' : 'editor',
         memberIds: FS.arrayUnion(uid),
-        ...(token ? { [`joinedWith.${uid}`]: token } : {}),
       })
+      await batch.commit()
 
       await saveProfile({ currentTripId: tripId })
       const snap = await FS.getDoc(ref)
       return snap.exists() ? { id: snap.id, ...snap.data() } : null
     },
     () => null
+  )
+}
+
+/* ------------------------------------------------------------------ *
+ * invite links
+ * ------------------------------------------------------------------ */
+
+async function writeInviteTokens(db, FS, tripId) {
+  const edit = newId()
+  const view = newId()
+  await FS.setDoc(FS.doc(db, 'trips', tripId, 'secrets', 'edit'), { token: edit })
+  await FS.setDoc(FS.doc(db, 'trips', tripId, 'secrets', 'view'), { token: view })
+  return { edit, view }
+}
+
+/**
+ * The tokens for a trip's two invite links, as far as this account may see
+ * them: `{ edit, view }`, each a string or null. A viewer gets the view
+ * token only. A trip from before invite tokens has neither — its edit link
+ * is the bare trip id.
+ */
+export function inviteTokens(tripId) {
+  return guarded(
+    'inviteTokens',
+    async ({ db, FS }) => {
+      const read = (name) => FS.getDoc(FS.doc(db, 'trips', tripId, 'secrets', name))
+        .then((s) => (s.exists() ? s.data().token : null))
+        .catch(() => null)
+      const [edit, view] = await Promise.all([read('edit'), read('view')])
+      return { edit, view }
+    },
+    () => ({ edit: null, view: null })
+  )
+}
+
+/**
+ * New tokens for both links (an editor only). Every link sent before stops
+ * working; people already on the trip are not affected. Also how a trip
+ * from before tokens gets its links — after which joining by the bare id
+ * stops working too.
+ */
+export function resetInviteTokens(tripId) {
+  return guarded(
+    'resetInviteTokens',
+    async ({ db, FS }) => writeInviteTokens(db, FS, tripId),
+    () => ({ edit: null, view: null })
   )
 }
 
@@ -577,6 +656,24 @@ export function joinTrip(tripId, token, role = 'editor') {
  * `members`/`memberIds`, not `ownerId` — this write needs the caller to
  * already be a member.
  */
+/** Takes another uid off a trip's member list (an editor only). */
+export function removeMember(tripId, memberUid) {
+  if (!memberUid) return Promise.resolve(false)
+  return guarded(
+    'removeMember',
+    async ({ db, uid, FS }) => {
+      if (memberUid === uid) return false
+      await FS.updateDoc(FS.doc(db, 'trips', tripId), {
+        memberIds: FS.arrayRemove(memberUid),
+        [`members.${memberUid}`]: FS.deleteField(),
+        updatedAt: FS.serverTimestamp(),
+      })
+      return true
+    },
+    () => false
+  )
+}
+
 export function claimOwnership(tripId) {
   breadcrumb('data', `claimOwnership ${tripId}`)
 

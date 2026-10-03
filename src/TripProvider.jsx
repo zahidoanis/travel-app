@@ -9,7 +9,7 @@ import {
 import { todayISO, daysBetween } from './lib/dates'
 import { newId } from './lib/ids'
 import { useConfirm } from './components/Confirm'
-import { onUser, hasFirebase } from './lib/firebase'
+import { onUser, hasFirebase, currentUser } from './lib/firebase'
 import { invitedTripId, invitedToken, invitedRole } from './lib/share'
 import { geocode, geocodeNear } from './lib/geocode'
 import { importedStops, importSpan } from './lib/mapImport'
@@ -83,8 +83,6 @@ function toTrip(raw) {
   return {
     id: raw.id,
     code: raw.code ?? '',
-    inviteToken: raw.inviteToken ?? null,
-    viewToken: raw.viewToken ?? null,
     members: raw.members ?? {},
     ownerId: raw.ownerId ?? null,
     city,
@@ -445,18 +443,30 @@ export function TripProvider({ children }) {
     ;(async () => {
       try {
         const invited = invitedTripId()
+        const token = invitedToken()
+        const role = invitedRole()
+        // The link's work is done once it has been read. Left in the address
+        // bar it was joined again on every reload — and it carries the
+        // invite token, which belongs nowhere it can be copied from.
+        if (invited) history.replaceState(history.state, '', location.pathname)
         const profile = await loadProfile()
 
         // Arriving through a WhatsApp link joins that trip, even if this
-        // device already had one of its own.
+        // device already had one of its own. joinTrip leaves someone who is
+        // already a member exactly as they were.
         if (invited && invited !== profile.currentTripId) {
-          const joined = await joinTrip(invited, invitedToken(), invitedRole())
+          const joined = await joinTrip(invited, token, role)
           if (joined && !cancelled) {
             setRaw(joined)
-            setJustJoined(true)
             setLoading(false)
-            logActivity(joined.id, { type: 'join', message: t('{name} הצטרף/ה לטיול', { name: user?.name || t('מישהו') }) })
-            history.replaceState(null, '', location.pathname)
+            if (!joined.alreadyMember) {
+              setJustJoined(true)
+              // Viewers cannot write to the activity feed.
+              if (role !== 'viewer') {
+                const me = await currentUser()
+                logActivity(joined.id, { type: 'join', message: t('{name} הצטרף/ה לטיול', { name: me?.name || t('מישהו') }) })
+              }
+            }
             return
           }
           // The link did not work — the trip was deleted, or there is no
@@ -466,7 +476,6 @@ export function TripProvider({ children }) {
           // Say what happened and carry on with the trip they already had.
           if (!cancelled) {
             setSnack({ text: t('לא הצלחנו להצטרף לטיול מהקישור. ייתכן שהטיול נמחק, או שאין חיבור לאינטרנט.') })
-            history.replaceState(null, '', location.pathname)
           }
         }
 
@@ -783,7 +792,15 @@ export function TripProvider({ children }) {
   const rememberFacts = async (facts) => {
     if (!canEdit) return []
     const known = new Set((trip?.memory ?? []).map((m) => m.text.trim().toLowerCase()))
-    const fresh = [...new Set(facts.map((f) => f.trim()).filter(Boolean))]
+    // A fact about the group is a short sentence — never a link and never an
+    // instruction. Memory is fed into every later answer and shown to every
+    // member, so a "fact" carrying a URL (text planted in an imported map or
+    // a web result, echoed by the model) would become a standing phishing
+    // instruction.
+    const plausible = (f) => f.length <= 160
+      && !/https?:\/\/|www\.|\b[a-z0-9-]+\.(com|net|org|io|co|info|xyz|site)\b/i.test(f)
+      && !/\b(PLAN_DAYS|ADD_STOP|REMOVE_STOP|BOOKING_LINK|SUGGEST|REMEMBER)\b/i.test(f)
+    const fresh = [...new Set(facts.map((f) => f.trim()).filter(Boolean).filter(plausible))]
       .filter((f) => !known.has(f.toLowerCase()))
       .slice(0, 5)
     if (fresh.length === 0) return []
@@ -854,7 +871,9 @@ export function TripProvider({ children }) {
       // Markdown asterisks showed up literally in the bubble.
       const say = text.join('\n').replace(/\*\*/g, '').trim()
 
-      const noted = remember.length > 0 ? await rememberFacts(remember) : []
+      // The hidden opener is not the user speaking; nothing it prompts the
+      // model to "remember" is something the group said.
+      const noted = remember.length > 0 && !opener ? await rememberFacts(remember) : []
       const note = noted.length > 0 ? `\n\n📌 ${t('שמרתי לזיכרון: {facts}', { facts: noted.join(' · ') })}` : ''
 
       let finalText
@@ -1432,7 +1451,7 @@ export function TripProvider({ children }) {
     openAccount: () => setAccountOpen(true),
     closeAccount: () => setAccountOpen(false),
     editStep,
-    openEdit: (step = 'where') => setEditStep(step),
+    openEdit: (step = 'where') => { if (!readOnly()) setEditStep(step) },
     closeEdit: () => setEditStep(null),
     justJoined,
     dismissJustJoined: () => setJustJoined(false),

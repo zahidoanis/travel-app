@@ -10,13 +10,16 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function tripPath(tripId) {
+      return /databases/$(database)/documents/trips/$(tripId);
+    }
+
     function isMember(tripId) {
-      return signedIn()
-        && request.auth.uid in get(/databases/$(database)/documents/trips/$(tripId)).data.memberIds;
+      return signedIn() && request.auth.uid in get(tripPath(tripId)).data.memberIds;
     }
 
     // A member who may change things: everyone except a 'viewer'. Members
-    // from before roles existed have no viewer entry, and stay editors.
+    // from before roles existed have no entry, and stay editors.
     function canEdit(trip) {
       return signedIn()
         && request.auth.uid in trip.memberIds
@@ -33,46 +36,55 @@ service cloud.firestore {
     // A trip belongs to its members, not to one owner, because the same
     // document has to serve someone's laptop, their phone, and everyone they
     // invited.
+    //
+    // The trip document holds no secrets. Every member can read it, viewers
+    // included, so the invite links' tokens live under secrets/ (below) —
+    // when they lived on this document, anyone with a view-only link could
+    // read the edit link's token, leave, and come back as an editor.
     match /trips/{tripId} {
       allow read: if signedIn() && request.auth.uid in resource.data.memberIds;
 
-      // You may only create a trip you are already a member of.
+      // You may only create a trip whose sole member and owner is you — not
+      // one that lists other people, which would push it into their trip
+      // lists.
       allow create: if signedIn()
-                    && request.auth.uid in request.resource.data.memberIds
-                    && request.resource.data.ownerId == request.auth.uid;
+                    && request.resource.data.memberIds == [request.auth.uid]
+                    && request.resource.data.ownerId == request.auth.uid
+                    && request.resource.data.get('members', {}).keys().hasOnly([request.auth.uid]);
 
-      // Editors may edit freely; a viewer may only read, or leave. A
-      // non-member may make exactly one change: adding themselves. That is
-      // how the WhatsApp invite works — the link carries the trip id and,
-      // for trips made since invite tokens exist, one of the trip's tokens.
-      allow update: if signedIn() && (
-        canEdit(resource.data)
-        || leaving()
-        || (
-          request.auth.uid in request.resource.data.memberIds
+      // Editors may edit freely; a viewer may only read, or leave. Someone
+      // not on the trip may make exactly one change: adding themselves.
+      allow update: if signedIn() && (canEdit(resource.data) || leaving() || joining());
+
+      // Joining: not already a member (so a member cannot re-join to change
+      // role, and memberIds cannot gain a duplicate), adding only yourself,
+      // touching only your own entry in the members map, as an editor or a
+      // viewer — never an owner.
+      function joining() {
+        return !(request.auth.uid in resource.data.memberIds)
+          && request.auth.uid in request.resource.data.memberIds
           && request.resource.data.memberIds.hasAll(resource.data.memberIds)
           && request.resource.data.memberIds.size() == resource.data.memberIds.size() + 1
-          && request.resource.data.diff(resource.data)
-               .affectedKeys().hasOnly(['members', 'memberIds', 'joinedWith', 'updatedAt'])
-          // Only your own entry in the members map, as an editor or a
-          // viewer — never an owner, and never anyone else's entry.
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'memberIds', 'updatedAt'])
           && request.resource.data.get('members', {}).diff(resource.data.get('members', {}))
                .affectedKeys().hasOnly([request.auth.uid])
-          && holdsInvite(request.resource.data.members[request.auth.uid])
-        )
-      );
+          && holdsInvite(request.resource.data.members[request.auth.uid]);
+      }
 
-      // Which link you joined with decides what you may do: the trip's
-      // inviteToken makes you an editor, its viewToken a viewer. The token
-      // is written under your own uid in joinedWith — per person, so nobody
-      // can ride on a token an earlier joiner already stored. Any editor can
-      // replace the tokens, which is how a leaked link is revoked. Trips from
-      // before tokens have none and stay joinable by id, as editors, until
-      // someone resets their link.
+      // Which link you joined with decides what you may do. The token you
+      // hold is written, in the same batch as the join, to joins/{your uid}
+      // — a document no other member can read — and checked against
+      // secrets/edit or secrets/view. A trip with no secrets/edit (made
+      // before invite tokens) is joinable by its id, as an editor, until
+      // someone creates its links.
       function holdsInvite(role) {
-        let token = request.resource.data.get('joinedWith', {}).get(request.auth.uid, '');
-        return (role == 'editor' && (!('inviteToken' in resource.data) || token == resource.data.inviteToken))
-          || (role == 'viewer' && 'viewToken' in resource.data && token == resource.data.viewToken);
+        let mine = /databases/$(database)/documents/trips/$(tripId)/joins/$(request.auth.uid);
+        let edit = /databases/$(database)/documents/trips/$(tripId)/secrets/edit;
+        let view = /databases/$(database)/documents/trips/$(tripId)/secrets/view;
+        return (role == 'editor' && (!exists(edit)
+                  || (existsAfter(mine) && getAfter(mine).data.token == get(edit).data.token)))
+          || (role == 'viewer' && exists(view)
+                  && existsAfter(mine) && getAfter(mine).data.token == get(view).data.token);
       }
 
       // Taking yourself off the trip — what deleting your account does, and
@@ -92,33 +104,68 @@ service cloud.firestore {
       allow delete: if signedIn() && resource.data.ownerId == request.auth.uid;
 
       // Days, expenses and anything else nested under the trip follow the
-      // trip's membership.
+      // trip's membership: members read, editors write.
       //
       // The leading {sub} segment is load-bearing: a bare {document=**} here
       // also matches the trip document itself, and its `write` then grants
       // every member delete — quietly overriding the owner-only rule above,
       // because any matching allow is enough. Requiring one more path segment
-      // keeps this to the subcollections.
+      // keeps this to the subcollections. secrets, joins and presence are
+      // excluded here and have their own, stricter rules below — again
+      // because any matching allow would otherwise win.
       match /{sub}/{document=**} {
-        allow read: if isMember(tripId);
-        allow write: if canEdit(get(/databases/$(database)/documents/trips/$(tripId)).data);
+        allow read: if !(sub in ['secrets', 'joins']) && isMember(tripId);
+        allow write: if !(sub in ['secrets', 'joins', 'presence'])
+                     && canEdit(get(tripPath(tripId)).data);
       }
 
-      // Anyone on the trip, viewers included, may share — and stop sharing —
-      // their own live location.
+      // The invite links' tokens: the edit token only for those who can
+      // edit; the view token for every member, since a viewer may pass on
+      // the view-only link.
+      match /secrets/edit {
+        allow read, write: if canEdit(get(tripPath(tripId)).data);
+      }
+      match /secrets/view {
+        allow read: if isMember(tripId);
+        allow write: if canEdit(get(tripPath(tripId)).data);
+      }
+
+      // The token each person joined with. Created by the joiner alone, in
+      // the join batch; readable and removable by editors (who know the
+      // tokens anyway) and by its own writer, so a trip can be deleted
+      // completely.
+      match /joins/{uid} {
+        // update too: someone who left and comes back already has one.
+        allow create, update: if signedIn() && request.auth.uid == uid
+                      && request.resource.data.keys().hasOnly(['token', 'at'])
+                      && request.resource.data.token is string
+                      && request.resource.data.token.size() < 100;
+        allow read, delete: if signedIn()
+                            && (request.auth.uid == uid || canEdit(get(tripPath(tripId)).data));
+      }
+
+      // Live location: each member writes only their own — viewers too.
+      // Every member can read everyone's (through the rule above).
       match /presence/{uid} {
         allow write: if isMember(tripId) && request.auth.uid == uid;
+        // Removing (not faking) someone's location: what deleting the whole
+        // trip has to do.
+        allow delete: if canEdit(get(tripPath(tripId)).data);
       }
     }
 
     // ---- crash log -----------------------------------------------------
     // Write-only from the client: a device may report its own errors but must
     // not read them back or amend them, which keeps the log usable as
-    // evidence.
+    // evidence. Bounded, so it cannot be used to store anything large.
     match /diagnostics/{uid}/events/{eventId} {
       allow create: if signedIn()
                     && request.auth.uid == uid
-                    && request.resource.data.size() < 30;
+                    && request.resource.data.size() < 30
+                    && (!('message' in request.resource.data)
+                        || (request.resource.data.message is string && request.resource.data.message.size() <= 600))
+                    && (!('stack' in request.resource.data) || request.resource.data.stack == null
+                        || (request.resource.data.stack is string && request.resource.data.stack.size() <= 4100));
       allow read, update, delete: if false;
     }
 

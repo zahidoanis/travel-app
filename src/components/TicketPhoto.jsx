@@ -5,6 +5,7 @@ import { loadTicketPhoto, saveTicketPhoto, deleteTicketPhoto } from '../lib/db'
 import { hasFirebase } from '../lib/firebase'
 import { record } from '../lib/telemetry'
 import { useConfirm } from './Confirm'
+import { useTrip } from '../TripProvider'
 import { t } from '../i18n'
 
 /**
@@ -54,6 +55,7 @@ async function toCompressedDataUrl(file, maxDimension = 1400, targetBytes = 6500
 }
 
 export default function TicketPhoto({ tripId, ticketId }) {
+  const { canEdit } = useTrip()
   const [photo, setPhoto] = useState(null)
   const [busy, setBusy] = useState(false)
   const [viewing, setViewing] = useState(false)
@@ -110,7 +112,7 @@ export default function TicketPhoto({ tripId, ticketId }) {
         >
           <img src={photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         </button>
-      ) : (
+      ) : !canEdit ? null : (
         <label
           className="icon-btn"
           style={{ width: 30, height: 30, position: 'relative', cursor: busy ? 'default' : 'pointer' }}
@@ -131,7 +133,7 @@ export default function TicketPhoto({ tripId, ticketId }) {
         {photo && (
           <img src={photo} alt="" style={{ width: '100%', borderRadius: 'var(--r-md)', marginBottom: 16 }} />
         )}
-        <button className="btn btn-ghost btn-block" onClick={remove}>
+        <button className="btn btn-ghost btn-block" onClick={remove} hidden={!canEdit}>
           <X size={16} /> {t('הסר תמונה')}
         </button>
       </Sheet>

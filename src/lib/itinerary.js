@@ -10,7 +10,7 @@
  * it is bad at, which is remembering exact latitudes.
  */
 
-import { complete, parseRows, hasAI } from './gemini'
+import { complete, parseRows, hasAI, clean } from './gemini'
 import { geocodeAll } from './geocode'
 import { record, breadcrumb, watchdog } from './telemetry'
 import { CATEGORIES, TRAVEL_STYLES } from '../data'
@@ -60,11 +60,11 @@ export async function buildItinerary({ trip, families, already = [], instruction
         `נוסעים: ${families.reduce((n, f) => n + f.members.length, 0)}\n` + // i18n-ignore
         `אופי הטיול: ${styleNames || 'כללי'}\n` + // i18n-ignore
         (already.length > 0
-          ? `כבר מתוכננים בימים אחרים של אותו טיול — אל תציע אותם שוב: ${already.join(', ')}\n` // i18n-ignore
+          ? `כבר מתוכננים בימים אחרים של אותו טיול — אל תציע אותם שוב: ${already.map((a) => clean(a, 80)).join(', ')}\n` // i18n-ignore
           : '') +
         (instructions ? `הנחיות מפורשות מהמשתמש — חובה לכבד אותן: ${instructions}\n` : '') + // i18n-ignore
         // What the chat agent has learned about this group (REMEMBER lines).
-        (memory.length ? `מה שידוע על הקבוצה — התחשב בזה: ${memory.map((m) => m.text).join('; ')}\n` : '') + // i18n-ignore
+        (memory.length ? `מה שידוע על הקבוצה — התחשב בזה: ${memory.map((m) => clean(m.text, 200)).join('; ')}\n` : '') + // i18n-ignore
         '\nתכנן יום אחד, מ-09:00 עד הערב, עם מרחקי הליכה סבירים בין העצירות.', // i18n-ignore
     })
 

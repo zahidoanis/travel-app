@@ -2163,3 +2163,6 @@ html, body { overscroll-behavior-y: contain; }
 .share-access { display: flex; margin-bottom: 14px; }
 .share-access button { flex: 1; padding-block: 8px; }
 .view-only { color: var(--amber); white-space: nowrap; }
+
+/* Where a chat link really goes, after the label the model gave it. */
+.link-host { font-size: 0.85em; opacity: 0.8; font-weight: 400; }

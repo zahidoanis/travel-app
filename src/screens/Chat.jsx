@@ -29,14 +29,25 @@ import { t } from '../i18n'
 // lines of the bubble and read as noise.
 const LINK_RE = /\[\[([^\]|]+)\|([^\]]+)\]\]|\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s]+[^\s.,;:!?)\]'"])/g
 
+//
+// Each pattern pins the whole registrable domain, ending at the end of the
+// host. A pattern like /google\.[a-z.]+$/ used to accept
+// "google.com.evil.example" and label it "Google Maps" — a convincing
+// phishing link, and the model's output can be steered by web results or an
+// imported map's text.
+const COUNTRY = '[a-z]{2}'
 const SITES = [
-  [/(^|\.)google\.[a-z.]+$/, (u) => (u.pathname.startsWith('/maps') ? 'Google Maps' : 'Google')],
+  [new RegExp(`(^|\\.)google\\.(com|com\\.${COUNTRY}|co\\.${COUNTRY}|${COUNTRY})$`), (u) => (u.pathname.startsWith('/maps') ? 'Google Maps' : 'Google')],
   [/(^|\.)viator\.com$/, () => 'Viator'],
-  [/(^|\.)getyourguide\.[a-z.]+$/, () => 'GetYourGuide'],
+  [new RegExp(`(^|\\.)getyourguide\\.(com|${COUNTRY}|co\\.${COUNTRY})$`), () => 'GetYourGuide'],
   [/(^|\.)booking\.com$/, () => 'Booking.com'],
-  [/(^|\.)tripadvisor\.[a-z.]+$/, () => 'Tripadvisor'],
+  [new RegExp(`(^|\\.)tripadvisor\\.(com|${COUNTRY}|co\\.${COUNTRY}|com\\.${COUNTRY})$`), () => 'Tripadvisor'],
   [/(^|\.)wikipedia\.org$/, () => 'Wikipedia'],
 ]
+
+const hostOf = (href) => {
+  try { return new URL(href).hostname.replace(/^www\./, '') } catch { return href }
+}
 
 /** "Google Maps", "Viator", or else the bare host — what a link is, in a word. */
 function siteName(href) {
@@ -68,7 +79,11 @@ function linkify(text, onPlace) {
       const url = mdUrl ?? bareUrl
       nodes.push(
         <a key={key++} href={url} target="_blank" rel="noopener noreferrer" title={url} className="chat-link">
-          {label ?? siteName(url)}<span aria-hidden="true"> ↗</span>
+          {/* A label the model chose is followed by where the link really
+              goes: "[Booking.com](evil.example)" used to show only
+              "Booking.com". */}
+          {label ? <>{label} <span className="link-host">({hostOf(url)})</span></> : siteName(url)}
+          <span aria-hidden="true"> ↗</span>
         </a>
       )
     }

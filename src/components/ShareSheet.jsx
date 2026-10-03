@@ -1,15 +1,26 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Sheet from './Sheet'
 import { WhatsApp, Check, Users, Link as LinkIcon } from './Icons'
 import { headCount } from '../data'
 import { useTrip } from '../TripProvider'
 import { useConfirm } from './Confirm'
-import { newId } from '../lib/ids'
+import { inviteTokens, resetInviteTokens } from '../lib/db'
+import { hasFirebase } from '../lib/firebase'
 import { inviteText, inviteUrl, shareTrip, copyText } from '../lib/share'
 import { t, tn } from '../i18n'
 
 export default function ShareSheet({ open, stops, onClose }) {
-  const { trip: TRIP, families: FAMILIES, updateTrip, canEdit } = useTrip()
+  const { trip: TRIP, families: FAMILIES, canEdit } = useTrip()
+  // The links' tokens live apart from the trip (see secrets/ in
+  // firebase.rules) and are read when the sheet opens: a viewer can read
+  // only the view-only one.
+  const [tokens, setTokens] = useState({ edit: null, view: null })
+  useEffect(() => {
+    if (!open || !TRIP?.id || !hasFirebase) return
+    let live = true
+    inviteTokens(TRIP.id).then((found) => { if (live) setTokens(found) })
+    return () => { live = false }
+  }, [open, TRIP?.id])
   // What the people this link reaches may do. A viewer can only pass on
   // the view-only link.
   const [viewOnly, setViewOnly] = useState(!canEdit)
@@ -20,14 +31,14 @@ export default function ShareSheet({ open, stops, onClose }) {
   if (!TRIP) return null
 
   const text = inviteText(TRIP, stops, TRIP.id)
-  // Trips made before view-only links have no viewToken yet; the first
-  // editor to ask for one creates it.
+  // Trips made before view-only links have no tokens yet; the first editor
+  // to ask for a view-only link creates both.
   const chooseViewOnly = async (next) => {
     setViewOnly(next)
-    if (next && !TRIP.viewToken && canEdit) await updateTrip({ viewToken: newId() })
+    if (next && !tokens.view && canEdit && hasFirebase) setTokens(await resetInviteTokens(TRIP.id))
   }
-  const url = viewOnly ? inviteUrl(TRIP.id, TRIP.viewToken, true) : inviteUrl(TRIP.id, TRIP.inviteToken)
-  const ready = !viewOnly || Boolean(TRIP.viewToken)
+  const url = viewOnly ? inviteUrl(TRIP.id, tokens.view, true) : inviteUrl(TRIP.id, tokens.edit)
+  const ready = !hasFirebase || (viewOnly ? Boolean(tokens.view) : canEdit)
 
   // A link sent to the wrong group, or forwarded further than meant, used to
   // be a key nobody could take back. A new token makes every earlier link
@@ -40,7 +51,7 @@ export default function ShareSheet({ open, stops, onClose }) {
       danger: false,
     })
     if (!ok) return
-    await updateTrip({ inviteToken: newId(), viewToken: newId() })
+    setTokens(await resetInviteTokens(TRIP.id))
     setResetDone(true)
     setTimeout(() => setResetDone(false), 2400)
   }

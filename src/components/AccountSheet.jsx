@@ -2,7 +2,7 @@ import { useState } from 'react'
 import Sheet from './Sheet'
 import { Check, Users, Info, X, Plus, Pencil, Share } from './Icons'
 import { useTrip } from '../TripProvider'
-import { joinTrip, claimOwnership, deleteAccountData, clearLocalData } from '../lib/db'
+import { joinTrip, claimOwnership, removeMember, inviteTokens, deleteAccountData, clearLocalData } from '../lib/db'
 import { signInWithGoogle, signOutUser, deleteAuthAccount, hasFirebase } from '../lib/firebase'
 import { breadcrumb } from '../lib/telemetry'
 import { initials } from '../lib/text'
@@ -44,7 +44,15 @@ export default function AccountSheet({ open, onClose }) {
     setError(null)
     // Captured before signing in, because the uid can change underneath us.
     const carried = trip?.id
-    const wasOwner = trip?.ownerId === user?.uid
+    const oldUid = user?.uid
+    const wasOwner = trip?.ownerId === oldUid
+    // The account joins with the same rights this device had, and with the
+    // token for those rights — read now, while this device can still read
+    // it. It used to rejoin with the edit link whatever the role, which
+    // turned a viewer into an editor.
+    const carriedRole = trip?.members?.[oldUid] === 'viewer' ? 'viewer' : 'editor'
+    const tokens = carried ? await inviteTokens(carried) : {}
+    const carriedToken = carriedRole === 'viewer' ? tokens.view : tokens.edit
     try {
       const result = await signInWithGoogle()
       breadcrumb('lifecycle', `signed in${result.merged ? ' (merged)' : ''}`)
@@ -54,12 +62,16 @@ export default function AccountSheet({ open, onClose }) {
       // stay behind with the anonymous uid that made it, and this sheet
       // promises the opposite. Joining is the same path a shared link takes.
       if (result.merged && carried) {
-        await joinTrip(carried, trip?.inviteToken)
+        await joinTrip(carried, carriedToken, carriedRole)
         // Only when this device actually created the trip — a family member
         // who had merely joined someone else's shared trip must not walk
         // away owning it just because they were the one who happened to
         // sign in on this device.
         if (wasOwner) await claimOwnership(carried)
+        // The anonymous account this device used is gone for good; leaving
+        // it on the member list meant that deleting the real account later
+        // could hand the trip to it — an owner nobody can ever sign in as.
+        if (carriedRole !== 'viewer') await removeMember(carried, oldUid)
         breadcrumb('lifecycle', `carried trip ${carried} into the account`)
       }
 
@@ -140,11 +152,21 @@ export default function AccountSheet({ open, onClose }) {
   // Home — that needs today's stops loaded, which a trip elsewhere in this
   // list isn't. Just the destination and the join link, which is already
   // everything a recipient needs to get in.
-  const shareTripRow = (tr) => {
+  //
+  // The link matches what this account may do on that trip: a viewer passes
+  // on the view-only link. This button always sent the edit link before,
+  // so any viewer could forward edit access.
+  const shareTripRow = async (tr) => {
+    const viewOnly = tr.members?.[user?.uid] === 'viewer'
+    const tokens = await inviteTokens(tr.id)
+    if (viewOnly && !tokens.view) return
     // Link rides as its own `url` field, not inline in `text` — see
     // share.js's inviteText comment for why: that's what gets WhatsApp to
     // unfurl it into a real preview card instead of a bare line of text.
-    shareTrip(t('הצטרפו אליי לטיול ל{city}! 🗺️', { city: placeNames(tr).city }), inviteUrl(tr.id, tr.inviteToken))
+    shareTrip(
+      t('הצטרפו אליי לטיול ל{city}! 🗺️', { city: placeNames(tr).city }),
+      viewOnly ? inviteUrl(tr.id, tokens.view, true) : inviteUrl(tr.id, tokens.edit)
+    )
   }
 
   const confirmDelete = async () => {

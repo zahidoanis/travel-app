@@ -16,7 +16,7 @@ import { t } from '../i18n'
  * actually discoverable.
  */
 export default function Reservations() {
-  const { trip, reservations, addReservation, removeReservation } = useTrip()
+  const { trip, reservations, addReservation, removeReservation, canEdit } = useTrip()
 
   const [addingTicket, setAddingTicket] = useState(false)
   const [ticketName, setTicketName] = useState('')
@@ -56,11 +56,13 @@ export default function Reservations() {
             </h1>
             <p className="tiny" style={{ marginTop: 4 }}>{trip.city}</p>
           </div>
-          <button
-            className="icon-btn boxed" style={{ width: 34, height: 34 }}
-            onClick={() => setAddingTicket(true)}
-            aria-label={t('הוסף כרטיס')}
-          ><Plus size={17} /></button>
+          {canEdit && (
+            <button
+              className="icon-btn boxed" style={{ width: 34, height: 34 }}
+              onClick={() => setAddingTicket(true)}
+              aria-label={t('הוסף כרטיס')}
+            ><Plus size={17} /></button>
+          )}
         </div>
 
         {reservations.length === 0 && (
@@ -98,11 +100,13 @@ export default function Reservations() {
                   ><Phone size={14} /></a>
                 )}
                 <TicketPhoto tripId={trip.id} ticketId={r.id} />
-                <button
-                  className="icon-btn" style={{ width: 30, height: 30 }}
-                  onClick={() => cancel(r)}
-                  aria-label={t('בטל את {place}', { place: r.place })}
-                ><X size={13} /></button>
+                {canEdit && (
+                  <button
+                    className="icon-btn" style={{ width: 30, height: 30 }}
+                    onClick={() => cancel(r)}
+                    aria-label={t('בטל את {place}', { place: r.place })}
+                  ><X size={13} /></button>
+                )}
               </div>
             ))}
           </div>

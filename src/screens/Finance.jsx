@@ -26,7 +26,7 @@ const rateText = (r) => (r >= 0.01 ? r.toFixed(3) : r.toPrecision(3))
 
 export default function Finance() {
   const {
-    families: FAMILIES, trip, myFamily,
+    families: FAMILIES, trip, myFamily, canEdit,
     addExpense, updateExpense, removeExpense: removeExpenseFromTrip,
   } = useTrip()
   const confirm = useConfirm()
@@ -352,12 +352,14 @@ export default function Finance() {
             <span style={{ color: 'var(--lav)' }}><Users size={18} /></span>
             <h2 className="h2">{t('מי שילם על מה')}</h2>
           </div>
-          <button
-            onClick={() => setAddOpen(true)}
-            style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--lav)' }}
-          >
-            {t('הוסף הוצאה קבוצתית +')}
-          </button>
+          {canEdit && (
+            <button
+              onClick={() => setAddOpen(true)}
+              style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--lav)' }}
+            >
+              {t('הוסף הוצאה קבוצתית +')}
+            </button>
+          )}
         </div>
 
         <div className="pad">
@@ -447,7 +449,8 @@ export default function Finance() {
                   key={e.id}
                   className="expense-row"
                   style={{ width: '100%', textAlign: 'start' }}
-                  onClick={() => openEdit(e)}
+                  onClick={() => canEdit && openEdit(e)}
+                  disabled={!canEdit}
                   aria-label={t('ערוך את ההוצאה {title}', { title: e.title })}
                 >
                   <span className="avatar" style={{ background: m.color, width: 34, height: 34 }}>
@@ -467,10 +470,12 @@ export default function Finance() {
         </div>
       </div>
 
-      <button className="fab" onClick={() => setAddOpen(true)}>
-        <Receipt size={17} />
-        {t('הוסף הוצאה')}
-      </button>
+      {canEdit && (
+        <button className="fab" onClick={() => setAddOpen(true)}>
+          <Receipt size={17} />
+          {t('הוסף הוצאה')}
+        </button>
+      )}
 
       <Sheet
         open={addOpen}

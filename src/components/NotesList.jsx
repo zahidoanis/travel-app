@@ -65,9 +65,11 @@ export default function NotesList({ notes, onEdit }) {
                 <button className="icon-btn" style={{ width: 32, height: 32 }} onClick={() => copy(n)} aria-label={t('העתק את ההערה')}>
                   {copied === n.id ? <Check size={15} /> : <Copy size={15} />}
                 </button>
-                <button className="icon-btn" style={{ width: 32, height: 32 }} onClick={() => onEdit(n)} aria-label={t('ערוך הערה')}>
-                  <Pencil size={15} />
-                </button>
+                {onEdit && (
+                  <button className="icon-btn" style={{ width: 32, height: 32 }} onClick={() => onEdit(n)} aria-label={t('ערוך הערה')}>
+                    <Pencil size={15} />
+                  </button>
+                )}
               </span>
             </div>
           </li>

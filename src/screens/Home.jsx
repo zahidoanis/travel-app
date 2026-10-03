@@ -56,7 +56,7 @@ const TOD_TINT = {
 export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood, onOpenArrival, onOpenHotels, onOpenSummary }) {
   const {
     trip: TRIP, stops: STOPS, families: FAMILIES, activeFamily, switchFamily,
-    planning, planWarning, plan, syncState, trips, activeDay,
+    planning, planWarning, plan, syncState, trips, activeDay, canEdit,
     openAccount, openEdit, addNote, updateNote, removeNote,
   } = useTrip()
   const confirm = useConfirm()
@@ -280,16 +280,18 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
             <span style={{ color: 'var(--lav)' }}><Note size={17} /></span>
             <h2 className="h2" style={{ fontSize: 16 }}>{t('הערות')}</h2>
           </div>
-          <button
-            onClick={() => setNoteEditing({ isNew: true })}
-            style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--lav)' }}
-          >
-            {t('הוסף +')}
-          </button>
+          {canEdit && (
+            <button
+              onClick={() => setNoteEditing({ isNew: true })}
+              style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--lav)' }}
+            >
+              {t('הוסף +')}
+            </button>
+          )}
         </div>
 
         {TRIP.notes.length > 0 ? (
-          <NotesList notes={TRIP.notes} onEdit={(n) => setNoteEditing({ isNew: false, id: n.id, text: n.text })} />
+          <NotesList notes={TRIP.notes} onEdit={canEdit ? (n) => setNoteEditing({ isNew: false, id: n.id, text: n.text }) : null} />
         ) : (
           <p className="tiny">{t('אין עדיין הערות. לדוגמה: פרטי נהג, קוד לדירה, מספר הזמנה.')}</p>
         )}
@@ -302,12 +304,14 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
           <h2 className="h2" style={{ fontSize: 16 }}>{t('מי מטייל')}</h2>
         </div>
         <span className="row" style={{ gap: 14 }}>
-          <button
-            onClick={() => openEdit('who')}
-            style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--muted)' }}
-          >
-            {t('ערוך')}
-          </button>
+          {canEdit && (
+            <button
+              onClick={() => openEdit('who')}
+              style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--muted)' }}
+            >
+              {t('ערוך')}
+            </button>
+          )}
           <button
             onClick={() => setShareOpen(true)}
             style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--lav)' }}

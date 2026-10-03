@@ -668,5 +668,6 @@ export default {
   "רק לצפות": "Only view",
   "יש לך הרשאת צפייה, ולכן אפשר לשתף רק קישור לצפייה.": "You have view-only access, so you can only share a view-only link.",
   "אפשר לראות את הטיול, לא לשנות אותו": "You can see the trip, not change it",
-  "תמונות וביקורות": "Photos and reviews"
+  "תמונות וביקורות": "Photos and reviews",
+  "הצטרפתם בקישור לצפייה: אפשר לראות הכל, ולא לשנות.": "You joined with a view-only link: you can see everything, but not change it."
 }

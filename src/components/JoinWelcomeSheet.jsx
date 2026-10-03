@@ -21,7 +21,7 @@ import { t, tn } from '../i18n'
  * creator guessing on their behalf.
  */
 export default function JoinWelcomeSheet() {
-  const { justJoined, dismissJustJoined, trip, families, setMyFamily, addFamily } = useTrip()
+  const { justJoined, dismissJustJoined, trip, families, setMyFamily, addFamily, canEdit } = useTrip()
   const [stage, setStage] = useState('pick')
   const [name, setName] = useState('')
   const [membersText, setMembersText] = useState('')
@@ -183,7 +183,9 @@ export default function JoinWelcomeSheet() {
         <div className="row" style={{ gap: 11, alignItems: 'flex-start' }}>
           <span className="contact-icon"><Route size={15} /></span>
           <span className="tiny" style={{ lineHeight: 1.6 }}>
-            {t('אפשר לערוך את הלו"ז — להוסיף עצירות, לשנות סדר — בדיוק כמו כל חבר אחר בטיול.')}
+            {canEdit
+              ? t('אפשר לערוך את הלו"ז — להוסיף עצירות, לשנות סדר — בדיוק כמו כל חבר אחר בטיול.')
+              : t('הצטרפתם בקישור לצפייה: אפשר לראות הכל, ולא לשנות.')}
           </span>
         </div>
         <div className="row" style={{ gap: 11, alignItems: 'flex-start' }}>
