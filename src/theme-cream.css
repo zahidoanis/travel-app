@@ -235,3 +235,13 @@
 [data-theme="cream"] .balance.owed { color: #0B7A50; }
 [data-theme="cream"] .unit-balance.owe  { color: #B32E4A; }
 [data-theme="cream"] .unit-balance.owed { color: #0B7A50; }
+
+/* ---------- Text contrast on cream (WCAG AA, 4.5:1) ---------- */
+
+/* Rose as text — error messages — was 4.1:1 on the cream ground. */
+:root[data-theme="cream"] { --rose: #B32E4A; }
+/* Links in the chat were the light teal (3.4:1); places and "add" in the
+   agent's replies were copper (4.1:1). */
+[data-theme="cream"] .bubble a { color: #0A716E; }
+[data-theme="cream"] .place-link,
+[data-theme="cream"] .place-card-add { color: var(--lav); }
