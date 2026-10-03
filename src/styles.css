@@ -2099,3 +2099,25 @@ a.contact-row:hover { background: var(--tint-2); color: var(--text); }
 /* On the welcome screen the menu sits in the corner; the generic rule above
    would otherwise turn it back into an in-flow, full-width box. */
 .lang-menu.welcome-lang { position: absolute; }
+
+/* ---------- Editing a trip ---------- */
+
+.edit-row {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  padding: 12px 13px; border-radius: var(--r-md); text-align: start;
+  background: var(--tint); border: 1px solid var(--border);
+  color: var(--text-2);
+}
+.edit-row:hover { background: var(--tint-2); }
+.edit-row strong { font-size: 14px; font-weight: 600; color: var(--text); }
+.edit-row-icon {
+  width: 32px; height: 32px; border-radius: 10px; flex: none;
+  display: grid; place-items: center; color: var(--lav); background: var(--accent-soft);
+}
+.edit-row-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.edit-tabs {
+  display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px;
+  scrollbar-width: none; margin-inline: -2px;
+}
+.edit-tabs::-webkit-scrollbar { display: none; }
+.edit-tabs .pill { flex: none; padding: 7px 13px; font-size: 12.5px; }

@@ -12,6 +12,7 @@ import { t } from '../i18n'
 import LangToggle from './LangToggle'
 import LegalLinks from './LegalLinks'
 import ConsentNote from './ConsentNote'
+import EditTripSheet from './EditTripSheet'
 
 /**
  * Saving the trip to an account.
@@ -21,7 +22,7 @@ import ConsentNote from './ConsentNote'
  * exists, so the thing being protected is already visible.
  */
 export default function AccountSheet({ open, onClose }) {
-  const { user, trip, trips, switchTrip, startNewTrip, openEdit, removeTrip } = useTrip()
+  const { user, trip, trips, switchTrip, startNewTrip, openEdit, removeTrip, profile } = useTrip()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
   const [merged, setMerged] = useState(false)
@@ -36,6 +37,7 @@ export default function AccountSheet({ open, onClose }) {
   const [erasing, setErasing] = useState(false)
   const [eraseBusy, setEraseBusy] = useState(false)
   const [eraseError, setEraseError] = useState(null)
+  const [editPicker, setEditPicker] = useState(false)
 
   const connect = async () => {
     setBusy(true)
@@ -117,7 +119,13 @@ export default function AccountSheet({ open, onClose }) {
   // off the current trip's stored answers, which would be null there.
   const editTrip = () => {
     if (!trip) return
-    openEdit('where')
+    setEditPicker(true)
+  }
+
+  // Opens the editor right at the part that was picked.
+  const pickSection = (id) => {
+    setEditPicker(false)
+    openEdit(id)
     onClose()
   }
 
@@ -125,8 +133,7 @@ export default function AccountSheet({ open, onClose }) {
   // the wizard reads straight off the active trip's stored answers.
   const editTripRow = async (tr) => {
     if (tr.id !== trip?.id) await switchTrip(tr.id)
-    openEdit('where')
-    onClose()
+    setEditPicker(true)
   }
 
   // No full itinerary preview here, unlike sharing the active trip from
@@ -324,6 +331,8 @@ export default function AccountSheet({ open, onClose }) {
         {t('מחיקת החשבון וכל המידע')}
       </button>
     </Sheet>
+
+    <EditTripSheet open={editPicker} profile={profile} onClose={() => setEditPicker(false)} onPick={pickSection} />
 
     <Sheet
       open={erasing}

@@ -648,5 +648,16 @@ export default {
   "אתם במרחק {km} ק״מ מהמסלול של היום, מחוץ לאזור שהמפה מציגה.": "You're {km} km from today's route, outside the area the map shows.",
   "אין הרשאה למיקום. אפשר להפעיל אותה בהגדרות הדפדפן.": "Location permission is off. You can turn it on in your browser settings.",
   "לא הצלחנו לקבל את המיקום. נסו שוב בעוד רגע.": "Couldn't get your location. Try again in a moment.",
-  "שפה: {name}": "Language: {name}"
+  "שפה: {name}": "Language: {name}",
+  "יעד": "Destination",
+  "תאריכים": "Dates",
+  "סגנון": "Style",
+  "מי נוסע": "Who's going",
+  "אוכל": "Food",
+  "טיסה": "Flight",
+  "לינה": "Stay",
+  "מה לערוך?": "What do you want to change?",
+  "לא הוזן": "Not set",
+  "עריכת הטיול": "Editing the trip",
+  "חלקי הטיול": "Parts of the trip"
 }

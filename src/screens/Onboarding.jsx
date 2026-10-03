@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowLeft, ArrowRight, Check, Mic, Bot, Plus, X, Users, MapPin, Calendar,
   Bed, Sparkles, Info, Navigation,
@@ -18,6 +18,19 @@ import { lang } from '../i18n'
  * One question per screen. Each step declares its own validity, so the CTA
  * enables itself rather than every step re-implementing the same check.
  */
+/** Each step by what it is, for the editor's section tabs and the "what to
+ *  edit" menu — the step titles are questions ("לאן נוסעים?"), which read
+ *  oddly as a list of things to change. */
+export const SECTION_LABELS = {
+  where: t('יעד'),
+  when: t('תאריכים'),
+  style: t('סגנון'),
+  who: t('מי נוסע'),
+  food: t('אוכל'),
+  flight: t('טיסה'),
+  stay: t('לינה'),
+}
+
 const STEPS = [
   {
     id: 'where',
@@ -162,7 +175,9 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
   /* ---- hotel ---- */
   // Defaults to the search flow. Starting at null left the screen showing a
   // title and two buttons with nothing under them, which reads as broken.
-  const [booked, setBooked] = useState('no')   // null | 'yes' | 'no'
+  // A trip that already has a hotel opens on "already booked", showing it,
+  // rather than on the search for one.
+  const [booked, setBooked] = useState(() => (initial?.stays?.length ? 'yes' : 'no'))   // null | 'yes' | 'no'
   const [query, setQuery] = useState('')
   const [hotels, setHotels] = useState([])
   const [searching, setSearching] = useState(false)
@@ -357,8 +372,23 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
   // opened this to fix one field should not have to click "הבא" through
   // every step after it just to save. The primary button still advances
   // normally for a full review; this is the way out at any point.
+  //
+  // Every section is checked, not only the one on screen: with the section
+  // tabs it is possible to clear the destination, jump to the hotel and
+  // save from there. The first section that is not valid is opened instead,
+  // with its explanation.
+  // The tab row scrolls sideways on a phone; keep the open section in view.
+  const tabs = useRef(null)
+  useEffect(() => {
+    tabs.current?.querySelector('[aria-current]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  }, [step])
+
   const saveNow = () => {
-    if (!canAdvance) return
+    const broken = STEPS.findIndex((s) => s.valid && !s.valid(answers))
+    if (broken >= 0) {
+      setStep(broken)
+      return
+    }
     onDone({ ...answers, nights, travellers })
   }
 
@@ -378,14 +408,36 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
             >
               {step === 0 && editMode ? <X size={20} /> : <ArrowRight size={20} />}
             </button>
-            <span className="tiny" style={{ fontWeight: 500 }}>
-              {t('שלב')} <span className="num">{step + 1}</span> {t('מתוך')}{' '}
-              <span className="num">{STEPS.length}</span>
-            </span>
+            {editMode ? (
+              <span className="tiny" style={{ fontWeight: 500 }}>{t('עריכת הטיול')}</span>
+            ) : (
+              <span className="tiny" style={{ fontWeight: 500 }}>
+                {t('שלב')} <span className="num">{step + 1}</span> {t('מתוך')}{' '}
+                <span className="num">{STEPS.length}</span>
+              </span>
+            )}
           </div>
-          <div className="progress">
-            <i style={{ width: `${((step + 1) / STEPS.length) * 100}%` }} />
-          </div>
+          {/* Editing is not a walk through the questionnaire: every section
+              is one tap away, in any order. First-time setup keeps the
+              progress bar, where the order matters. */}
+          {editMode ? (
+            <nav className="edit-tabs" aria-label={t('חלקי הטיול')} ref={tabs}>
+              {STEPS.map((s, i) => (
+                <button
+                  key={s.id}
+                  className={`pill ${i === step ? 'on' : ''}`}
+                  aria-current={i === step ? 'step' : undefined}
+                  onClick={() => setStep(i)}
+                >
+                  {SECTION_LABELS[s.id]}
+                </button>
+              ))}
+            </nav>
+          ) : (
+            <div className="progress">
+              <i style={{ width: `${((step + 1) / STEPS.length) * 100}%` }} />
+            </div>
+          )}
         </header>
 
         {/* key forces the enter animation to replay on every question */}
@@ -1138,20 +1190,19 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
             {current.blocker(answers)}
           </p>
         )}
-        <button className="btn btn-primary btn-block" onClick={next} disabled={!canAdvance || finishing}>
-          {finishing
-            ? (answers.imported ? t('מייבא את המסלול…') : t('יוצר את הטיול…'))
-            : step < STEPS.length - 1 ? t('הבא') : editMode ? t('שמור שינויים') : t('בוא נתחיל')}
-          {!finishing && <ArrowLeft size={18} />}
-        </button>
-        {editMode && step < STEPS.length - 1 && (
-          <button
-            className="btn btn-ghost btn-block"
-            onClick={saveNow}
-            disabled={!canAdvance}
-            style={{ marginTop: 8 }}
-          >
-            {t('שמור וסגור')}
+        {/* Editing: saving is the main action, from any section. Setup:
+            the questionnaire moves forward one question at a time. */}
+        {editMode ? (
+          <button className="btn btn-primary btn-block" onClick={saveNow} disabled={!canAdvance}>
+            <Check size={18} />
+            {t('שמור שינויים')}
+          </button>
+        ) : (
+          <button className="btn btn-primary btn-block" onClick={next} disabled={!canAdvance || finishing}>
+            {finishing
+              ? (answers.imported ? t('מייבא את המסלול…') : t('יוצר את הטיול…'))
+              : step < STEPS.length - 1 ? t('הבא') : t('בוא נתחיל')}
+            {!finishing && <ArrowLeft size={18} />}
           </button>
         )}
       </div>
