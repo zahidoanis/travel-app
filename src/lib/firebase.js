@@ -199,14 +199,24 @@ export async function signInWithGoogle() {
       // can say "your trips are here" rather than "saved".
       return { user: describe(result.user), merged: true }
     }
-    if (err?.code === 'auth/popup-closed-by-user') {
+    if (err?.code === 'auth/popup-closed-by-user' || err?.code === 'auth/cancelled-popup-request') {
       throw new Error(t('ההתחברות בוטלה'))
     }
     // The UI only ever shows a generic message, which is fine for the user
     // but useless for finding out what actually failed on their device —
     // the real Firebase error code is worth keeping.
     record({ kind: 'auth', message: `signInWithGoogle: ${err?.code ?? 'unknown'} — ${err?.message ?? ''}`, stack: err?.stack })
-    throw new Error(err?.message ?? t('ההתחברות נכשלה'))
+    // Firebase's own message is English and technical ("Firebase: Error
+    // (auth/popup-blocked).") — what to do about it, in the UI's language.
+    throw new Error(
+      err?.code === 'auth/popup-blocked'
+        ? t('הדפדפן חסם את חלון ההתחברות. אפשרו חלונות קופצים לאתר, או פתחו אותו בדפדפן הרגיל (לא מתוך וואטסאפ).')
+        : err?.code === 'auth/network-request-failed'
+          ? t('אין חיבור לאינטרנט. נסו שוב כשהחיבור יחזור.')
+          : err?.code === 'auth/operation-not-supported-in-this-environment' || err?.code === 'auth/web-storage-unsupported'
+            ? t('הדפדפן הזה לא תומך בהתחברות עם Google. פתחו את הקישור בדפדפן הרגיל.')
+            : t('ההתחברות נכשלה. נסו שוב.')
+    )
   }
 }
 

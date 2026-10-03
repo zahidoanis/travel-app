@@ -60,7 +60,7 @@ export default function Welcome({ onStart, onSignIn }) {
           <ArrowLeft size={19} />
         </button>
         <p className="tiny welcome-note">
-          {t('חינם לחלוטין · ללא הרשמה · שש שאלות קצרות')}
+          {t('חינם לחלוטין · ללא הרשמה · כמה שאלות קצרות')}
         </p>
         {/* Not a wall — planning first without an account still works exactly
             as before. This is for someone who already has trips on a Google

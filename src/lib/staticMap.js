@@ -98,7 +98,11 @@ export function buildStaticMapUrl({
   return url
 }
 
-/** Deep-link out to the real Google Maps app for turn-by-turn navigation. */
+/**
+ * Deep-link out to the real Google Maps app for turn-by-turn navigation.
+ * No travel mode: Maps picks one for the distance (and remembers the
+ * person's choice). Walking was forced, even to a place 140 km away.
+ */
+// eslint-disable-next-line no-unused-vars
 export const navigateUrl = (lat, lng, label) =>
-  `https://www.google.com/maps/dir/?api=1&destination=${coord(lat, lng)}` +
-  (label ? `&destination_place_id=&travelmode=walking` : '')
+  `https://www.google.com/maps/dir/?api=1&destination=${coord(lat, lng)}`

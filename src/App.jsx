@@ -144,7 +144,10 @@ function Shell() {
   // go() just started creating. No entry (the page's original load) means
   // home, same as the tab this component itself starts on.
   useEffect(() => {
-    const onPop = (e) => setTab(e.state?.tab ?? 'home')
+    const onPop = (e) => {
+      setTab(e.state?.tab ?? 'home')
+      if (!e.state?.started) setStarted(false)
+    }
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
   }, [])
@@ -280,7 +283,14 @@ function Shell() {
             trip, not a first visit — the marketing screen would be noise. */}
         {onboarding && !started && !skipWelcome ? (
           <ErrorBoundary scope="welcome">
-            <Welcome onStart={() => setStarted(true)} onSignIn={openAccount} />
+            <Welcome
+              onStart={() => {
+                // Back from the first question returns here, not off the site.
+                history.pushState({ ...history.state, started: true, onboardingStep: 0 }, '')
+                setStarted(true)
+              }}
+              onSignIn={openAccount}
+            />
           </ErrorBoundary>
         ) : onboarding ? (
           <ErrorBoundary scope="onboarding">

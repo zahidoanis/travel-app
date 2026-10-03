@@ -342,10 +342,15 @@ export function TripProvider({ children }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trip?.id])
   const switchFamily = (id) => {
-    // Day 1 isn't necessarily this family's day at all — someone joining a
-    // multi-family trip partway through would land on a day they were never
-    // on, showing an empty plan that looks broken rather than just early.
-    setActiveDay(families.find((f) => f.id === id)?.arriveDay ?? 1)
+    // The day on screen if this family is there that day, otherwise the
+    // nearest day they are — not their first day, which on day 4 of the
+    // trip meant looking at the past. (Day 1 was worse still: a family
+    // joining partway through landed on a day they were never there.)
+    const f = families.find((x) => x.id === id)
+    const lo = f?.arriveDay ?? 1
+    const hi = f?.departDay ?? trip?.totalDays ?? lo
+    const want = activeDay >= lo && activeDay <= hi ? activeDay : (trip?.day ?? lo)
+    setActiveDay(Math.min(hi, Math.max(lo, want)))
     setActiveFamily(id)
     // The undo belongs to the plan that was on screen; restoring it into a
     // different family's days would overwrite theirs.
@@ -417,6 +422,11 @@ export function TripProvider({ children }) {
     // newer copy of the list and must not flip the day back.
     const turnOn = !sharedDaySet.has(day)
     dropUndo()
+    // The day now shows the shared plan; the family's own stops for it are
+    // kept, just not shown. Said, because they seemed to have vanished.
+    if (turnOn && (ownDays[day]?.length ?? 0) > 0) {
+      setSnack({ text: t('יום {day} משותף עכשיו, ומוצגת בו התוכנית המשותפת. העצירות שלכם ליום הזה שמורות ויחזרו אם תבטלו את השיתוף.', { day }) })
+    }
     return updateList('parties', (list) => list.map((p) => {
       if (p.id !== activeFamily) return p
       const set = new Set(p.sharedDays ?? [])

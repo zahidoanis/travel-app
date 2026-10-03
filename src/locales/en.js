@@ -74,7 +74,7 @@ export default {
   "תכנון טיולים חכם, בעברית": "Smart trip planning",
   "ספר לנו לאן, מתי ועם מי — והסוכן יבנה מסלול יומי מלא, ימקם אותו על המפה, וידאג שכולם מסונכרנים לאורך כל הדרך.": "Tell us where, when and with whom — and the agent builds a full day-by-day plan, puts it on the map, and keeps everyone in sync the whole way.",
   "בוא נתחיל": "Let's go",
-  "חינם לחלוטין · ללא הרשמה · שש שאלות קצרות": "Completely free · No sign-up · Six quick questions",
+  "חינם לחלוטין · ללא הרשמה · כמה שאלות קצרות": "Completely free · No sign-up · A few quick questions",
   "כבר יש לך טיול? התחבר עם Google": "Already have a trip? Sign in with Google",
   "התראות": "Notifications",
   "החשבון שלך": "Your account",
@@ -680,5 +680,10 @@ export default {
   "תוכנית הימים והמלונות שייכים ל{place}, ולכן יימחקו. אפשר יהיה לבנות את הימים מחדש.": "The day plans and hotels belong to {place}, so they will be deleted. You can build the days again.",
   "שנה יעד": "Change destination",
   "\"{name}\" כבר נמצא ביום {day}.": "\"{name}\" is already on day {day}.",
-  "לא התקבלה תשובה. נסו לשאול שוב.": "No answer came back. Try asking again."
+  "לא התקבלה תשובה. נסו לשאול שוב.": "No answer came back. Try asking again.",
+  "הדפדפן חסם את חלון ההתחברות. אפשרו חלונות קופצים לאתר, או פתחו אותו בדפדפן הרגיל (לא מתוך וואטסאפ).": "Your browser blocked the sign-in window. Allow pop-ups for this site, or open it in your regular browser (not inside WhatsApp).",
+  "אין חיבור לאינטרנט. נסו שוב כשהחיבור יחזור.": "No internet connection. Try again once you are back online.",
+  "הדפדפן הזה לא תומך בהתחברות עם Google. פתחו את הקישור בדפדפן הרגיל.": "This browser can’t sign in with Google. Open the link in your regular browser.",
+  "ההתחברות נכשלה. נסו שוב.": "Sign-in failed. Try again.",
+  "יום {day} משותף עכשיו, ומוצגת בו התוכנית המשותפת. העצירות שלכם ליום הזה שמורות ויחזרו אם תבטלו את השיתוף.": "Day {day} is now shared, so it shows the shared plan. Your own stops for that day are kept, and come back if you stop sharing it."
 }

@@ -16,6 +16,8 @@ import { t, locale } from '../i18n'
 
 // A phone number (7+ digits, with the usual separators) or a web address.
 const LIVE = /(https?:\/\/[^\s]+[^\s.,;:!?)\]'"])|(\+?\d[\d\s\-–]{6,}\d)/g
+// …but not a date: "2026-10-03" or "03-10-2026" became a link that dialled it.
+const DATE = /^(\d{4}[-–]\d{1,2}[-–]\d{1,2}|\d{1,2}[-–]\d{1,2}[-–]\d{2,4})$/
 
 function liveText(text) {
   const out = []
@@ -29,8 +31,10 @@ function liveText(text) {
       let label = url
       try { label = new URL(url).hostname.replace(/^www\./, '') } catch { /* keep the raw text */ }
       out.push(<a key={key++} href={url} target="_blank" rel="noopener noreferrer">{label} ↗</a>)
-    } else if (phone.replace(/\D/g, '').length >= 7) {
-      out.push(<a key={key++} href={`tel:${phone.replace(/[^\d+]/g, '')}`} className="ltr">{phone}</a>)
+    } else if (phone.replace(/\D/g, '').length >= 7 && !DATE.test(phone.trim())) {
+      // dir as well as the class: in a Hebrew note the digit groups of
+      // "050-123 4567" were laid out right to left.
+      out.push(<a key={key++} href={`tel:${phone.replace(/[^\d+]/g, '')}`} className="ltr" dir="ltr">{phone}</a>)
     } else {
       out.push(match)
     }

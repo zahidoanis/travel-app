@@ -5,7 +5,14 @@ import TicketPhoto from '../components/TicketPhoto'
 import { Plus, X, Ticket, Phone } from '../components/Icons'
 import { useTrip } from '../TripProvider'
 import { useConfirm } from '../components/Confirm'
-import { t } from '../i18n'
+import { t, locale } from '../i18n'
+
+// "3.10" in Hebrew, "10/3" in English — the stored ISO date's last five
+// characters ("10-03") read as neither.
+const shortDate = (iso) => {
+  const d = iso ? new Date(`${iso}T00:00:00`) : null
+  return d && !Number.isNaN(d.getTime()) ? d.toLocaleDateString(locale, { day: 'numeric', month: 'numeric' }) : ''
+}
 
 /**
  * Bookings kept for this trip, plus tickets saved without a real booking
@@ -78,7 +85,7 @@ export default function Reservations() {
                 {r.time ? (
                   <span className="reservation-when">
                     <strong className="num">{r.time}</strong>
-                    <span className="tiny num">{r.date?.slice(5)}</span>
+                    <span className="tiny num">{shortDate(r.date)}</span>
                   </span>
                 ) : (
                   <span className="reservation-when"><Ticket size={16} /></span>

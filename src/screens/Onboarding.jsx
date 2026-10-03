@@ -107,12 +107,44 @@ const today = todayISO()
  * trip vs. save changes to one) is entirely the caller's decision, not
  * something this component needs to know about.
  */
+// First-time answers, kept for this tab: Back out to the welcome screen (or
+// a reload) and the questions already answered are still answered.
+const DRAFT = 'tripai.onboardingDraft'
+const readDraft = () => {
+  try { return JSON.parse(sessionStorage.getItem(DRAFT) ?? 'null') } catch { return null }
+}
+
 export default function Onboarding({ onDone, initial, startAt, editMode = false, onClose }) {
-  const [step, setStep] = useState(() => {
+  const [step, setStepState] = useState(() => {
+    if (!editMode) return Math.min(readDraft()?.step ?? 0, STEPS.length - 1)
     if (!startAt) return 0
     const i = STEPS.findIndex((s) => s.id === startAt)
     return i >= 0 ? i : 0
   })
+
+  // First-time setup: each question is a step in the browser's history, so
+  // the phone's Back goes to the previous question. It used to leave the
+  // site from any of them, and every answer with it. (The editor has its
+  // own single history entry; see App.jsx.)
+  const setStep = (next) => {
+    if (editMode || next === step) return setStepState(next)
+    if (next > step) {
+      history.pushState({ ...history.state, onboardingStep: next }, '')
+      setStepState(next)
+    } else {
+      const back = (history.state?.onboardingStep ?? 0) - next
+      if (back > 0) history.go(-back)
+      else setStepState(next)
+    }
+  }
+  useEffect(() => {
+    if (editMode) return
+    if (history.state?.onboardingStep !== step) history.replaceState({ ...history.state, onboardingStep: step }, '')
+    const onPop = (e) => setStepState(Math.min(e.state?.onboardingStep ?? 0, STEPS.length - 1))
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editMode])
 
   const [answers, setAnswers] = useState({
     destination: '',
@@ -126,8 +158,38 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
     cuisines: ['local'],
     flight: { airline: '', number: '', arrivalAirport: '', date: '' },
     stays: [],
+    ...(editMode ? {} : readDraft()?.answers),
     ...initial,
   })
+
+  useEffect(() => {
+    if (editMode) return
+    // The imported map is left out: it can be large, and is quick to redo.
+    const { imported, ...rest } = answers
+    try { sessionStorage.setItem(DRAFT, JSON.stringify({ step, answers: rest })) } catch { /* storage blocked */ }
+  }, [answers, step, editMode])
+
+  // Escape leaves the editor, as it closes any sheet — unless a sheet of
+  // the editor's own is open, which Escape closes first.
+  useEffect(() => {
+    if (!editMode) return
+    const onKey = (e) => {
+      if (e.key !== 'Escape' || e.defaultPrevented || document.querySelector('.sheet')) return
+      onClose?.()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [editMode, onClose])
+
+  // Each question takes the focus to its heading. Focus used to stay on the
+  // button that had just been replaced — lost, back at the top of the page
+  // for a keyboard or screen-reader user, on every step.
+  const heading = useRef(null)
+  const firstStep = useRef(true)
+  useEffect(() => {
+    if (firstStep.current) { firstStep.current = false; return }
+    heading.current?.focus({ preventScroll: true })
+  }, [step])
 
   /* ---- destination autocomplete ---- */
   const [cityHits, setCityHits] = useState([])
@@ -362,7 +424,10 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
     // every stop — several seconds with nothing to show otherwise.
     setFinishing(true)
     try {
-      await onDone({ ...answers, nights, travellers })
+      const made = await onDone({ ...answers, nights, travellers })
+      if (made !== false && !editMode) {
+        try { sessionStorage.removeItem(DRAFT) } catch { /* fine */ }
+      }
     } finally {
       setFinishing(false)
     }
@@ -442,7 +507,7 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
 
         {/* key forces the enter animation to replay on every question */}
         <div className="pad step-body" key={current.id} style={{ marginTop: 28 }}>
-          <h1 className="h1">{current.title}</h1>
+          <h1 className="h1" ref={heading} tabIndex={-1}>{current.title}</h1>
           <p className="sub" style={{ marginTop: 10, marginBottom: 24 }}>{current.sub}</p>
 
           {current.id === 'where' && (

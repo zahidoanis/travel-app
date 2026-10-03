@@ -163,7 +163,9 @@ export default function MapScreen() {
 
   if (STOPS.length === 0) {
     return (
-      <div className="map-screen" style={{ display: 'grid', placeItems: 'center' }}>
+      <div className="map-screen">
+        {/* A column like the full map: the top bar at the top, the message in
+            the space left. It was a centred grid, which centred the top bar too. */}
         <div style={{ position: 'relative', zIndex: 10 }}>
           <TopBar floating />
         </div>
@@ -171,7 +173,7 @@ export default function MapScreen() {
           {familySwitcher}
           {daySwitcher}
         </div>
-        <div className="card" style={{ textAlign: 'center', maxWidth: 300 }}>
+        <div className="card" style={{ textAlign: 'center', maxWidth: 300, margin: 'auto' }}>
           {planning ? (
             <>
               <span className="typing"><i /><i /><i /></span>

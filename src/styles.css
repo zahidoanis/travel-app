@@ -2166,3 +2166,14 @@ html, body { overscroll-behavior-y: contain; }
 
 /* Where a chat link really goes, after the label the model gave it. */
 .link-host { font-size: 0.85em; opacity: 0.8; font-weight: 400; }
+
+/* A heading focused by the app (each onboarding question) is a reading
+   position for a screen reader, not a control — no focus ring. */
+[tabindex="-1"]:focus { outline: none; }
+
+/* The destination stays on one line; on the narrowest phones (320px) the
+   country goes, rather than the name wrapping onto three lines. */
+.topbar-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+@media (max-width: 360px) {
+  .topbar-title .tiny { display: none; }
+}
