@@ -190,7 +190,10 @@ export async function streamReply({ messages, system, searchContext, signal, onC
     systemInstruction: { parts: [{ text: system + LANGUAGE_OVERRIDE }] },
     // Thinking tokens count against maxOutputTokens, and Gemini 3 spends
     // several hundred on a question like this — leave room for both.
-    generationConfig: { temperature: 0.7, maxOutputTokens: 2048 },
+    // 4096, not 2048: with the thinking tokens taken out of the same budget,
+    // longer answers (a whole day, several places with links) ran out
+    // mid-sentence and stopped there.
+    generationConfig: { temperature: 0.7, maxOutputTokens: 4096 },
   }
 
   const url = PROXY
@@ -224,7 +227,9 @@ export async function streamReply({ messages, system, searchContext, signal, onC
   let buffer = ''
   let full = ''
 
+  let cutOff = false
   const emit = (frame) => {
+    if (/"finishReason"\s*:\s*"MAX_TOKENS"/.test(frame)) cutOff = true
     const text = textOf(frame)
     if (!text) return
     full += text
@@ -248,6 +253,13 @@ export async function streamReply({ messages, system, searchContext, signal, onC
   if (buffer.trim()) emit(buffer)
 
   if (!full.trim()) throw new Error(t('הסוכן לא החזיר תשובה. נסה לנסח מחדש.'))
+  // Out of room before the answer ended. Say so, rather than leave a
+  // sentence hanging as though that were the whole reply.
+  if (cutOff) {
+    const note = `\n\n… ${t('התשובה נקטעה באמצע. אפשר לכתוב "תמשיך".')}`
+    full += note
+    onChunk?.(note)
+  }
   return full
 }
 

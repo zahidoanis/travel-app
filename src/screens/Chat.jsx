@@ -23,7 +23,31 @@ import { t } from '../i18n'
 // A third shape is the agent's own place markup, [[shown name|Place, City,
 // Country]] (see systemPrompt): it becomes a button that opens the place on
 // a map, ready to add to a day.
-const LINK_RE = /\[\[([^\]|]+)\|([^\]]+)\]\]|\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s]+)/g
+//
+// A bare link is shown as the name of the site it goes to ("Google Maps ↗"),
+// not as the address itself: a 150-character booking URL broke across four
+// lines of the bubble and read as noise.
+const LINK_RE = /\[\[([^\]|]+)\|([^\]]+)\]\]|\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s]+[^\s.,;:!?)\]'"])/g
+
+const SITES = [
+  [/(^|\.)google\.[a-z.]+$/, (u) => (u.pathname.startsWith('/maps') ? 'Google Maps' : 'Google')],
+  [/(^|\.)viator\.com$/, () => 'Viator'],
+  [/(^|\.)getyourguide\.[a-z.]+$/, () => 'GetYourGuide'],
+  [/(^|\.)booking\.com$/, () => 'Booking.com'],
+  [/(^|\.)tripadvisor\.[a-z.]+$/, () => 'Tripadvisor'],
+  [/(^|\.)wikipedia\.org$/, () => 'Wikipedia'],
+]
+
+/** "Google Maps", "Viator", or else the bare host — what a link is, in a word. */
+function siteName(href) {
+  try {
+    const u = new URL(href)
+    const host = u.hostname.replace(/^www\./, '')
+    return SITES.find(([re]) => re.test(host))?.[1](u) ?? host
+  } catch {
+    return href
+  }
+}
 
 function linkify(text, onPlace) {
   const nodes = []
@@ -42,7 +66,11 @@ function linkify(text, onPlace) {
       )
     } else {
       const url = mdUrl ?? bareUrl
-      nodes.push(<a key={key++} href={url} target="_blank" rel="noopener noreferrer">{label ?? url}</a>)
+      nodes.push(
+        <a key={key++} href={url} target="_blank" rel="noopener noreferrer" title={url} className="chat-link">
+          {label ?? siteName(url)}<span aria-hidden="true"> ↗</span>
+        </a>
+      )
     }
     last = LINK_RE.lastIndex
   }
@@ -108,12 +136,39 @@ export default function Chat() {
   // The agent opens the conversation itself — once per trip per session;
   // openChat() is a no-op on a thread that already has anything in it.
   useEffect(() => { openChat() }, []) // eslint-disable-line react-hooks/exhaustive-deps
-  const endRef = useRef(null)
+  const scroller = useRef(null)
   const speech = useSpeech({ onResult: (said) => sendChatMessage(said) })
 
+  // Follows the conversation down as it grows — unless the reader has
+  // scrolled up to re-read something, in which case a new chunk of a reply
+  // must not yank them back. "Near the bottom" is judged from where they
+  // last left the scroll, before the new content arrived.
+  //
+  // This used to be scrollIntoView() on a marker after the last message,
+  // which lined the marker up with the bottom edge of the screen — behind
+  // the input bar and the nav that float over it — so the newest lines and
+  // the suggestion buttons always sat hidden underneath them.
+  const pinned = useRef(true)
+  const onScroll = (e) => {
+    const el = e.currentTarget
+    pinned.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120
+  }
+  const lastMine = messages.at(-1)?.role === 'me'
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
-  }, [messages, typing])
+    const el = scroller.current
+    if (!el || !(pinned.current || lastMine)) return
+    // Instant while a reply streams in (smooth scrolling on every chunk
+    // stutters), smooth for a message arriving whole.
+    const streamingNow = messages.at(-1)?.streaming
+    el.scrollTo({ top: el.scrollHeight, behavior: streamingNow ? 'auto' : 'smooth' })
+    pinned.current = true
+  }, [messages, typing, lastMine])
+
+  // Opening the chat lands on the latest message, not the top of the thread.
+  useEffect(() => {
+    const el = scroller.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [])
 
   const shown = speech.listening && speech.interim ? speech.interim : draft
   // The opener's prompt is a hidden user turn — part of the history the
@@ -127,7 +182,7 @@ export default function Chat() {
 
   return (
     <>
-      <div className="screen" style={{ paddingBottom: 150 }}>
+      <div className="screen chat-screen" ref={scroller} onScroll={onScroll}>
         <TopBar />
 
         <div className="chat-thread">
@@ -214,7 +269,6 @@ export default function Chat() {
             </div>
           )}
 
-          <div ref={endRef} />
         </div>
       </div>
 

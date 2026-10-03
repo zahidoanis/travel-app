@@ -2041,3 +2041,16 @@ a.contact-row:hover { background: var(--tint-2); color: var(--text); }
   margin-top: 10px; padding-top: 12px; border-top: 1px solid var(--border);
 }
 .transfer { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-size: 13.5px; }
+
+/* ---------- Chat: room under the last message ---------- */
+
+/* The input bar and the bottom nav float over the end of the thread; the
+   padding is what lets the last message scroll clear of both. */
+.chat-screen { padding-bottom: calc(var(--nav-h) + 96px + env(safe-area-inset-bottom)); }
+@media (min-width: 1024px) {
+  .chat-screen { padding-bottom: 110px; }
+}
+/* A long word or address wraps inside the bubble instead of running out of
+   it — the bubble used to be clipped at its edge. */
+.bubble { overflow-wrap: anywhere; }
+.bubble a.chat-link { word-break: normal; white-space: nowrap; font-weight: 500; }

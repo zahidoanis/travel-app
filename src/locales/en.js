@@ -642,5 +642,6 @@ export default {
   "הקישור הקודם יפסיק לעבוד, וכל מי שינסה להצטרף דרכו יידחה. מי שכבר בטיול נשאר בו.": "The old link will stop working, and anyone who tries to join with it will be turned away. Everyone already on the trip stays.",
   "צור קישור חדש": "Create new link",
   "נוצר קישור חדש — הקודם כבר לא עובד": "New link created — the old one no longer works",
-  "הקישור הגיע למי שלא צריך? צור קישור חדש": "Link reached the wrong people? Create a new one"
+  "הקישור הגיע למי שלא צריך? צור קישור חדש": "Link reached the wrong people? Create a new one",
+  "התשובה נקטעה באמצע. אפשר לכתוב \"תמשיך\".": "The answer was cut off. You can write \"continue\"."
 }

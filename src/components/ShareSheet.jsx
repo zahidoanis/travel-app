@@ -55,7 +55,7 @@ export default function ShareSheet({ open, stops, onClose }) {
           into one message. */}
       <div
         className="card"
-        style={{ background: '#16141F', marginBottom: 16, maxHeight: 150, overflowY: 'auto' }}
+        style={{ background: 'var(--sunken)', marginBottom: 16, maxHeight: 150, overflowY: 'auto' }}
       >
         <pre
           style={{
