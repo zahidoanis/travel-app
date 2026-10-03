@@ -70,6 +70,19 @@ export default function Hotels() {
                     <span className="col" style={{ gap: 2, minWidth: 0 }}>
                       <strong style={{ fontSize: 14, fontWeight: 600 }}>{s.name}</strong>
                       <span className="tiny stay-address">{s.label}</span>
+                      {/* The hotel's own photos and reviews. Showing them
+                          inside the app needs a places service (Google
+                          Places) with a key and billing; until then, one tap
+                          to that hotel's own page, not a search. */}
+                      <a
+                        className="hotel-verify"
+                        style={{ alignSelf: 'flex-start', paddingInline: 0 }}
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${s.name}, ${s.label}`)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {t('תמונות וביקורות')} ↗
+                      </a>
                     </span>
                   </span>
                   <button
