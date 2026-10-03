@@ -22,7 +22,7 @@ const PRESENCE_STALE_MS = 10 * 60 * 1000
  */
 export default function MapScreen({ embedded = false, focusId = null, onFocusStop, onAddStop, switcher = null }) {
   const {
-    stops: ALL_STOPS, days, activeDay, setActiveDay, planning, trip,
+    stops: ALL_STOPS, days, activeDay, setActiveDay, planQueue, trip,
     families, activeFamily, switchFamily,
     presence, sharingLocation, toggleLocationSharing,
   } = useTrip()
@@ -95,12 +95,45 @@ export default function MapScreen({ embedded = false, focusId = null, onFocusSto
   }, [STOPS, activeId])
 
   // Keep the carousel and the map pin in sync in both directions.
+  // A pin tap (or the list beside the map) scrolls the carousel to its card;
+  // that scroll is ours, so the swipe handler below ignores it — otherwise a
+  // smooth scroll from card 1 to card 4 would "select" 2 and 3 on the way.
+  const programmatic = useRef(false)
   useEffect(() => {
     const deck = deckRef.current
     if (!deck || activeId == null) return
     const card = deck.querySelector(`[data-stop="${activeId}"]`)
-    card?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
+    if (!card) return
+    programmatic.current = true
+    card.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
+    const timer = setTimeout(() => { programmatic.current = false }, 700)
+    return () => clearTimeout(timer)
   }, [activeId])
+
+  // Swiping the carousel moves the map: whichever card settles in the middle
+  // becomes the active stop, and the map pans to it. Before, only a tap on a
+  // card did — swiping from stop to stop left the map where it was.
+  const settle = useRef(null)
+  useEffect(() => () => clearTimeout(settle.current), [])
+  const onDeckScroll = () => {
+    if (programmatic.current) return
+    clearTimeout(settle.current)
+    settle.current = setTimeout(() => {
+      const deck = deckRef.current
+      if (!deck || programmatic.current) return
+      const box = deck.getBoundingClientRect()
+      const middle = box.left + box.width / 2
+      let best = null
+      let gap = Infinity
+      for (const el of deck.querySelectorAll('[data-stop]')) {
+        const r = el.getBoundingClientRect()
+        const d = Math.abs(r.left + r.width / 2 - middle)
+        if (d < gap) { gap = d; best = el }
+      }
+      const stop = best && STOPS.find((x) => String(x.id) === best.dataset.stop)
+      if (stop && stop.id !== activeId) pick(stop.id)
+    }, 140)
+  }
 
   // Rendered in both branches below — a day with no stops still needs a way
   // out of itself. This used to live only in the branch below the empty-
@@ -158,7 +191,7 @@ export default function MapScreen({ embedded = false, focusId = null, onFocusSto
           </>
         )}
         <div className="card" style={{ textAlign: 'center', maxWidth: 300 }}>
-          {planning ? (
+          {planQueue.includes(activeDay) ? (
             <>
               <span className="typing"><i /><i /><i /></span>
               <p className="sub" style={{ marginTop: 12 }}>{t('הסוכן בונה את המסלול...')}</p>
@@ -220,7 +253,7 @@ export default function MapScreen({ embedded = false, focusId = null, onFocusSto
       </div>
 
       <div className={`stop-deck ${embedded ? 'single' : ''}`}>
-        <div className="hscroll" ref={deckRef}>
+        <div className="hscroll" ref={deckRef} onScroll={embedded ? undefined : onDeckScroll}>
           {(embedded ? STOPS.filter((s) => s.id === activeId) : STOPS).map((s) => {
             const on = s.id === activeId
             const cat = CATEGORIES[s.cat]

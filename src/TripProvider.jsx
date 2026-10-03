@@ -239,6 +239,13 @@ export function TripProvider({ children }) {
   const [sharedRoutes, setSharedRoutes] = useState({})
   const [activeDay, setActiveDay] = useState(1)
   const [planning, setPlanning] = useState(false)
+  // Planning the whole trip runs day by day: the days still waiting, and
+  // the one being built this moment — so each screen can say "day 3 is
+  // next" instead of an empty day looking simply empty.
+  const [planQueue, setPlanQueue] = useState([])
+  const [planningDay, setPlanningDay] = useState(null)
+  const planningRef = useRef(false)
+  const tripIdRef = useRef(null)
   const [planWarning, setPlanWarning] = useState(null)
   const [syncing, setSyncing] = useState(false)
   const [skipWelcome, setSkipWelcome] = useState(false)
@@ -534,14 +541,17 @@ export function TripProvider({ children }) {
 
       if (kind === 'PLAN_DAYS') {
         const wanted = [...new Set(parts[0].split(',').map((n) => parseInt(n, 10)).filter(inRange))]
-        for (const day of wanted) {
-          const r = await plan(day, { instructions: parts[1] ?? '' })
-          const why = r.warning === 'busy' ? ` — ${t('עדיין באמצע תכנון, נסו שוב עוד רגע')}` : r.warning ? ` — ${r.warning}` : ''
-          report.push(r.ok
-            ? `✓ ${t('בניתי מחדש את יום {day} ({n} עצירות)', { day, n: r.count })}`
-            : `✗ ${t('לא הצלחתי לבנות את יום {day}', { day })}${why}`)
+        // One run for all of them, so day 3 knows what day 2 just got.
+        const run = await planDays(wanted, { instructions: parts[1] ?? '' })
+        if (run.warning === 'busy') {
+          report.push(`✗ ${t('עדיין באמצע תכנון, נסו שוב עוד רגע')}`)
+        }
+        for (const r of run.results) {
+          report.push(r.count > 0
+            ? `✓ ${t('בניתי מחדש את יום {day} ({n} עצירות)', { day: r.day, n: r.count })}`
+            : `✗ ${t('לא הצלחתי לבנות את יום {day}', { day: r.day })}${r.warning ? ` — ${r.warning}` : ''}`)
           // The day was replaced wholesale — a stale working copy would undo it.
-          delete work[day]
+          delete work[r.day]
         }
       }
 
@@ -839,49 +849,101 @@ export function TripProvider({ children }) {
     return () => navigator.geolocation.clearWatch(id)
   }, [sharingLocation, trip?.id, user?.uid])
 
-  // Generate the current day only when nothing is stored for it — for
-  // whichever family is active, since switching to a family that hasn't
-  // planned yet is exactly the same "nothing stored" situation as opening
-  // the trip for the first time.
+  tripIdRef.current = trip?.id ?? null
+
+  // Every day of the trip gets planned, not just the one on screen — the
+  // rest used to stay empty until someone opened each one and asked. Runs
+  // when a trip (or, on a multi-family trip, a family) is loaded, for every
+  // day in its range that has never been planned. A day someone emptied on
+  // purpose still has its stored route, so it is left alone.
   useEffect(() => {
     if (!trip || !activeFamily || loading) return
-    const bucket = sharedDaySet.has(trip.day) ? 'shared' : activeFamily
-    listRoutes(trip.id, bucket).then((routes) => {
-      if (routes.some((r) => r.day === trip.day && r.stops?.length)) return
-      plan(trip.day)
+    let cancelled = false
+    Promise.all([listRoutes(trip.id, activeFamily), listRoutes(trip.id, 'shared')]).then(([own, shared]) => {
+      if (cancelled) return
+      const fam = families.find((f) => f.id === activeFamily)
+      const first = fam?.arriveDay ?? 1
+      const last = fam?.departDay ?? trip.totalDays
+      const range = Array.from({ length: Math.max(0, last - first + 1) }, (_, i) => first + i)
+      const routeFor = (d) => (sharedDaySet.has(d) ? shared : own).find((r) => r.day === d)
+      const missing = range.filter((d) => !routeFor(d))
+      if (missing.length === 0) return
+      // The day on screen first; the rest in order after it.
+      const order = missing.includes(trip.day) ? [trip.day, ...missing.filter((d) => d !== trip.day)] : missing
+      const taken = range
+        .filter((d) => !missing.includes(d))
+        .flatMap((d) => (routeFor(d)?.stops ?? []).map((st) => st.he || st.name))
+      planDays(order, { taken })
     })
+    return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trip?.id, activeFamily, loading])
 
-  const plan = async (day = activeDay, { instructions = '' } = {}) => {
-    if (planning || !trip || !activeFamily) return { ok: false, count: 0, warning: 'busy' }
+  /**
+   * Plans several days, one after another. One at a time on purpose: each
+   * day is told everything already planned — on the days left as they are
+   * and on the days this run just built — so a city's obvious top picks
+   * don't land on two days. Each day appears as soon as it's ready.
+   */
+  const planDays = async (dayNums, { instructions = '', taken: given } = {}) => {
+    if (planningRef.current || !trip || !activeFamily || dayNums.length === 0) {
+      return { ok: false, results: [], warning: 'busy' }
+    }
+    planningRef.current = true
     setPlanning(true)
     setPlanWarning(null)
+    setPlanQueue(dayNums)
 
+    const tripId = trip.id
     const planningFamily = families.find((f) => f.id === activeFamily)
-    // What this family already has on its OTHER days — without this, asking
-    // for several days in one go (the chat's "plan 4 days") generated each
-    // one blind to the rest, and a well-known city's "obvious" top picks
-    // landed on more than one day.
-    const already = Object.entries(days)
-      .filter(([d]) => Number(d) !== day)
-      .flatMap(([, list]) => list.map((s) => s.he || s.name))
+    const taken = given ?? Object.entries(days)
+      .filter(([d]) => !dayNums.includes(Number(d)))
+      .flatMap(([, list]) => list.map((st) => st.he || st.name))
 
-    const { stops: fresh, warning } = await buildItinerary({
-      trip: { ...trip, day },
-      families: planningFamily ? [planningFamily] : families,
-      already,
-      instructions,
-      memory: trip.memory,
-    })
-
-    if (fresh.length > 0) {
-      applyLocalDay(day, fresh)
-      persist(day, fresh)
+    const results = []
+    for (const day of dayNums) {
+      // Switching to another trip mid-run must not write this trip's days
+      // into that one's state.
+      if (tripIdRef.current !== tripId) break
+      setPlanningDay(day)
+      const { stops: fresh, warning } = await buildItinerary({
+        trip: { ...trip, day },
+        families: planningFamily ? [planningFamily] : families,
+        already: taken,
+        instructions,
+        memory: trip.memory,
+      })
+      if (tripIdRef.current !== tripId) break
+      if (fresh.length > 0) {
+        applyLocalDay(day, fresh)
+        persist(day, fresh)
+        taken.push(...fresh.map((st) => st.he || st.name))
+      }
+      results.push({ day, count: fresh.length, warning: warning ?? null })
+      setPlanQueue((q) => q.filter((d) => d !== day))
     }
-    setPlanWarning(warning ?? null)
+
+    planningRef.current = false
     setPlanning(false)
-    return { ok: fresh.length > 0, count: fresh.length, warning: warning ?? null }
+    setPlanningDay(null)
+    setPlanQueue([])
+    const failed = results.filter((r) => r.count === 0).map((r) => r.day)
+    setPlanWarning(
+      failed.length > 0
+        ? t('לא הצלחתי לבנות את {days}. אפשר לנסות שוב במסך "מסלול".', {
+            days: failed.map((d) => t('יום {n}', { n: d })).join(', '),
+          })
+        : results.find((r) => r.warning)?.warning ?? null
+    )
+    return { ok: results.some((r) => r.count > 0), results }
+  }
+
+  /** One day — through the same path, so a single rebuild knows what the
+   *  other days already have. */
+  const plan = async (day = activeDay, opts = {}) => {
+    const r = await planDays([day], opts)
+    const one = r.results?.[0]
+    return { ok: (one?.count ?? 0) > 0, count: one?.count ?? 0, warning: r.warning ?? one?.warning ?? null }
   }
 
   const persist = async (day, next) => {
@@ -1197,7 +1259,7 @@ export function TripProvider({ children }) {
     stops, days, activeDay, setActiveDay, activeFamily, switchFamily,
     sharedDaySet, toggleSharedDay, setMyFamily, addFamily,
     families, isReal, planning, planWarning,
-    plan, moveStop, addStop, removeStop, updateStop, moveStopToDay,
+    plan, planDays, planQueue, planningDay, moveStop, addStop, removeStop, updateStop, moveStopToDay,
     reservations, addReservation, removeReservation,
     profile: raw, completeOnboarding, switchTrip, updateTrip, startNewTrip, removeTrip,
     addNote, updateNote, removeNote,

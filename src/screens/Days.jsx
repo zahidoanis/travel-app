@@ -120,7 +120,7 @@ export default function Days({ embedded = false, focusId = null, onFocusStop, ad
     trip, days, activeDay, setActiveDay, stops,
     families, activeFamily, switchFamily, toggleSharedDay,
     planning, planWarning, plan, moveStop, addStop, removeStop, updateStop,
-    moveStopToDay,
+    moveStopToDay, planDays, planQueue, planningDay,
   } = useTrip()
 
   // A removed stop, kept for a few seconds so the removal can be undone.
@@ -212,6 +212,8 @@ export default function Days({ embedded = false, focusId = null, onFocusStop, ad
   const rangeEnd = activeFamilyObj?.departDay ?? trip.totalDays
   const dayList = Array.from({ length: Math.max(0, rangeEnd - rangeStart + 1) }, (_, i) => rangeStart + i)
   const isSharedDay = (activeFamilyObj?.sharedDays ?? []).includes(activeDay)
+  const queued = planQueue.includes(activeDay)
+  const emptyDays = dayList.filter((d) => !(days[d]?.length) && !planQueue.includes(d))
 
   /** Asks for stops that are not already in the day, so repeats are unlikely. */
   const suggest = async () => {
@@ -385,14 +387,23 @@ export default function Days({ embedded = false, focusId = null, onFocusStop, ad
                 {t('יום')} {d}
                 <span className="tiny">
                   {date
-                    ? <>{date}{count > 0 && <> · <span className="num">{count}</span> {tn(count, 'עצירה', 'עצירות')}</>}</>
-                    : count > 0 ? <><span className="num">{count}</span> {tn(count, 'עצירה', 'עצירות')}</> : t('ריק')}
+                    ? <>{date}{count > 0 && <> · <span className="num">{count}</span> {tn(count, 'עצירה', 'עצירות')}</>}{count === 0 && planQueue.includes(d) && <> · {t('בבנייה…')}</>}</>
+                    : count > 0 ? <><span className="num">{count}</span> {tn(count, 'עצירה', 'עצירות')}</> : planQueue.includes(d) ? t('בבנייה…') : t('ריק')}
                 </span>
               </span>
             </button>
           )
         })}
       </div>
+
+      {!planning && emptyDays.length > 1 && (
+        <div className="pad" style={{ marginTop: 12 }}>
+          <button className="btn btn-ghost btn-sm btn-block" onClick={() => planDays(emptyDays)}>
+            <Sparkles size={15} />
+            {t('בנה את כל הימים הריקים ({n})', { n: emptyDays.length })}
+          </button>
+        </div>
+      )}
 
       <div className="pad section-head">
         <span className="col" style={{ gap: 2 }}>
@@ -433,9 +444,13 @@ export default function Days({ embedded = false, focusId = null, onFocusStop, ad
       )}
 
       <div className="pad">
-        {planning && stops.length === 0 && (
+        {queued && stops.length === 0 && (
           <div className="col" style={{ gap: 10 }}>
-            <p className="tiny" role="status">{t('הסוכן בונה את היום...')}</p>
+            <p className="tiny" role="status">
+              {planningDay === activeDay
+                ? t('הסוכן בונה את היום...')
+                : t('בתור — הסוכן בונה עכשיו את יום {n}, ואחר כך יגיע ליום הזה.', { n: planningDay })}
+            </p>
             {[0, 1, 2].map((i) => (
               <div key={i} className="card skeleton-card" aria-hidden="true">
                 <span className="skeleton" style={{ width: 90, height: 12 }} />
@@ -446,10 +461,10 @@ export default function Days({ embedded = false, focusId = null, onFocusStop, ad
           </div>
         )}
 
-        {!planning && stops.length === 0 && (
+        {!queued && stops.length === 0 && (
           <div className="card" style={{ textAlign: 'center' }}>
             <p className="sub" style={{ marginBottom: 14 }}>{t('היום הזה עדיין ריק.')}</p>
-            <button className="btn btn-primary btn-sm" onClick={() => plan(activeDay)}>
+            <button className="btn btn-primary btn-sm" onClick={() => plan(activeDay)} disabled={planning}>
               <Sparkles size={15} />
               {t('בנה לי יום')}
             </button>

@@ -638,6 +638,27 @@ export default {
   "עוד לא הוספתם פרטי טיסה.": "You haven't added flight details yet.",
   "הוסף פרטי טיסה": "Add flight details",
 
+  // Restaurants — free-text search and Google Maps ratings
+  "ליד המסלול של היום": "Near today's route",
+  "ארוחת בוקר טובה": "A good breakfast",
+  "מקום רומנטי לערב": "Romantic dinner",
+  "זול וטעים": "Cheap and tasty",
+  "עם נוף": "With a view",
+  "מה בא לכם? למשל: ביסטרו רומנטי ליד הלובר, עד 40€": "What are you after? e.g. a romantic bistro near the Louvre, under €40",
+  "חיפוש מסעדות": "Search restaurants",
+  "חפש": "Search",
+  "הצג המלצות": "Show recommendations",
+  "תוצאות עבור:": "Results for:",
+  "ביקורות": "reviews",
+  "דירוגים, מחירים וכתובות מ-Google Maps. ההסבר ליד כל מסעדה נכתב על ידי הסוכן — ודאו שעות פתיחה לפני שמגיעים.": "Ratings, prices and addresses from Google Maps. The note under each restaurant was written by the agent — check opening hours before you go.",
+
+  // Planning every day of the trip
+  "בבנייה…": "Building…",
+  "בנה את כל הימים הריקים ({n})": "Build all empty days ({n})",
+  "בתור — הסוכן בונה עכשיו את יום {n}, ואחר כך יגיע ליום הזה.": "Queued — the agent is building day {n} now and will get to this day next.",
+  "הסוכן בונה את המסלול ל{city} — יום {day} מתוך {total}...": "The agent is building your {city} plan — day {day} of {total}...",
+  "לא הצלחתי לבנות את {days}. אפשר לנסות שוב במסך \"מסלול\".": "Couldn't build {days}. You can try again on the Route screen.",
+
   // UX pass — welcome
   "סוכן AI שמתכנן איתכם": "An AI agent that plans with you",
   "שואלים בצ'אט, מקבלים המלצות — וכל מקום נכנס למסלול בלחיצה. הוא גם זוכר מה אתם אוהבים.": "Ask in the chat, get suggestions — and add any place to your plan in one tap. It remembers what you like, too.",

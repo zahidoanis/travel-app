@@ -7,27 +7,10 @@ import { geocode, search } from '../lib/geocode'
 import { navigateUrl } from '../lib/staticMap'
 import { normaliseCategory } from '../lib/itinerary'
 import { breadcrumb } from '../lib/telemetry'
+import { sameName } from '../lib/text'
 import { t } from '../i18n'
 
 const CANDIDATE = 'candidate'
-
-/** Lowercase, no accents, no punctuation — "Pastéis de Belém" ≈ "pasteis de belem". */
-const norm = (s = '') =>
-  s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^\p{L}\p{N} ]/gu, '').trim()
-
-/**
- * Same place by name? Word overlap measured against the LONGER name, so
- * "Castelo de São Jorge" ≈ "São Jorge Castle" (2 of 3) but "Prado" is not
- * "Jardim Eduardo Prado Coelho" (1 of 4) — both real cases.
- */
-function sameName(a, b) {
-  const words = (s) => new Set(norm(s).split(' ').filter((w) => w.length > 2))
-  const A = words(a)
-  const B = words(b)
-  if (A.size === 0 || B.size === 0) return false
-  const shared = [...A].filter((w) => B.has(w)).length
-  return shared / Math.max(A.size, B.size) >= 0.5
-}
 
 /** An hour and a half after the day's last stop, or noon on an empty day. */
 function nextFreeTime(list) {

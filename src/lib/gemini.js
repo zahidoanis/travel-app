@@ -209,13 +209,31 @@ const toContents = (messages) =>
  * Streams a reply. Calls `onChunk(text)` for each delta and resolves with the
  * full text. Throws with a message (in the UI's language) the UI can show as-is.
  */
-export async function streamReply({ messages, system, searchContext, signal, onChunk }) {
+export async function streamReply({ messages, system, searchContext, signal, onChunk, onFrame, fast = false, grounding = null }) {
   const body = {
     contents: toContents(messages),
     systemInstruction: { parts: [{ text: system + LANGUAGE_OVERRIDE }] },
-    // Thinking tokens count against maxOutputTokens, and Gemini 3 spends
-    // several hundred on a question like this — leave room for both.
-    generationConfig: { temperature: 0.7, maxOutputTokens: 2048 },
+    generationConfig: {
+      temperature: 0.7,
+      // Thinking tokens count against this budget. At 2048, Gemini 3's
+      // ~1,300-1,500 thinking tokens left so little room that answers came
+      // back cut off or empty — a day's plan "couldn't be parsed", an
+      // import's enrichment stopped after 13 of 24 stops.
+      maxOutputTokens: 4096,
+      // Structured jobs (a day's stops, hotel or restaurant rows) don't need
+      // the model to deliberate first: measured on a day of Rome, minimal
+      // thinking answered in ~5s with all 6 rows, vs 8-21s by default. The
+      // chat keeps full thinking — that's where the reasoning shows.
+      ...(fast ? { thinkingConfig: { thinkingLevel: 'minimal' } } : {}),
+    },
+    // Direct mode only — Google's API takes the tool itself. The proxy gets
+    // a plain flag instead (below) and attaches the tool on its side.
+    ...(grounding && !PROXY
+      ? {
+          tools: [{ googleMaps: {} }],
+          ...(grounding.latLng ? { toolConfig: { retrievalConfig: { latLng: grounding.latLng } } } : {}),
+        }
+      : {}),
   }
 
   const url = PROXY
@@ -231,7 +249,14 @@ export async function streamReply({ messages, system, searchContext, signal, onC
       // API validates the request shape strictly and would 400 on either in
       // direct mode.
       body: JSON.stringify(
-        PROXY ? { ...body, model: MODEL, ...(searchContext ? { searchContext } : {}) } : body
+        PROXY
+          ? {
+              ...body,
+              model: MODEL,
+              ...(searchContext ? { searchContext } : {}),
+              ...(grounding ? { grounding: 'maps', ...(grounding.latLng ? { latLng: grounding.latLng } : {}) } : {}),
+            }
+          : body
       ),
       signal,
     })
@@ -240,6 +265,11 @@ export async function streamReply({ messages, system, searchContext, signal, onC
     throw new Error(t('אין חיבור לשרת ה-AI. בדוק את החיבור לאינטרנט.'))
   }
 
+  // A model that doesn't take thinkingLevel (a fallback model, say) rejects
+  // the whole request — ask again the ordinary way rather than fail.
+  if (!res.ok && fast && res.status === 400) {
+    return streamReply({ messages, system, searchContext, signal, onChunk, onFrame, grounding, fast: false })
+  }
   if (!res.ok) throw new Error(await describeError(res))
 
   const reader = res.body?.getReader()
@@ -250,7 +280,10 @@ export async function streamReply({ messages, system, searchContext, signal, onC
   let full = ''
 
   const emit = (frame) => {
-    const text = textOf(frame)
+    const json = frameJson(frame)
+    if (!json) return
+    onFrame?.(json)
+    const text = textOf(json)
     if (!text) return
     full += text
     onChunk?.(text)
@@ -281,12 +314,70 @@ export async function streamReply({ messages, system, searchContext, signal, onC
  * of streaming it. For places that need the full text before they can render,
  * like parsing a list of suggestions.
  */
-export function complete({ prompt, system, signal }) {
+export function complete({ prompt, system, signal, fast = true }) {
   return streamReply({
     messages: [{ role: 'me', text: prompt }],
     system,
     signal,
+    fast,
   })
+}
+
+const CURRENCY = { EUR: '€', USD: '$', GBP: '£', ILS: '₪', JPY: '¥' }
+
+/**
+ * Grounding with Google Maps: the model answers from real Maps data, and
+ * every place it used comes back in the response's groundingMetadata — with
+ * Google's own rating, review count, price range and address. Those are
+ * read from there, not from what the model wrote, so a number on screen is
+ * Google's, never the model's.
+ *
+ * Free: the proxy's keys are free-tier keys with no billing, so this can't
+ * be charged for — a spent quota fails the request (and the caller falls
+ * back to the ungrounded list, without ratings). Verified 2026-10-03 on a
+ * Paris restaurant list.
+ *
+ * @returns {Promise<{ text: string, places: Array<{ title, uri, placeId,
+ *   rating, reviews, price, address }> }>}
+ */
+export async function completeWithMaps({ prompt, system, latLng, signal }, attempt = 1) {
+  const frames = []
+  const text = await streamReply({
+    messages: [{ role: 'me', text: prompt }],
+    system,
+    signal,
+    grounding: { latLng },
+    onFrame: (j) => frames.push(j),
+  })
+
+  // Whether to actually look in Maps is the model's call, and about one
+  // answer in four came back from its own memory with no Maps data at all
+  // (measured on the free-tier model, 2026-10-03). One more try.
+  const used = frames.some((f) => f.candidates?.[0]?.groundingMetadata?.groundingChunks?.length)
+  if (!used && attempt < 2) return completeWithMaps({ prompt, system, latLng, signal }, attempt + 1)
+
+  const places = []
+  for (const f of frames) {
+    for (const chunk of f.candidates?.[0]?.groundingMetadata?.groundingChunks ?? []) {
+      const m = chunk.maps
+      // "Review of X" chunks are single reviews of a place already listed.
+      if (!m?.title || /^review of /i.test(m.title)) continue
+      if (places.some((x) => (m.placeId && x.placeId === m.placeId) || x.uri === m.uri)) continue
+      const field = (name) => m.text?.match(new RegExp(`\\*\\*${name}:\\*\\*\\s*([^\\n]+)`))?.[1]?.trim() ?? null
+      const r = field('Rating')?.match(/([\d.]+)\s*\((\d[\d,]*)/)
+      const price = field('Price Range')?.replace(/^([A-Z]{3})_/, (_, c) => CURRENCY[c] ?? `${c} `).replace('-', '–') ?? null
+      places.push({
+        title: m.title.replace(/\s*-\s*Google Maps$/i, '').trim(),
+        uri: m.uri,
+        placeId: m.placeId ?? null,
+        rating: r ? Number(r[1]) : null,
+        reviews: r ? Number(r[2].replace(/,/g, '')) : null,
+        price,
+        address: field('Address'),
+      })
+    }
+  }
+  return { text, places }
 }
 
 /**
@@ -311,21 +402,21 @@ export function parseRows(text, columns) {
 
 const SEP = /\r?\n\r?\n/
 
-/** Pulls the visible text out of one SSE frame, dropping reasoning parts. */
-function textOf(frame) {
+/** One SSE frame's JSON, or null for a partial or non-data frame. */
+function frameJson(frame) {
   const line = frame.split(/\r?\n/).find((l) => l.startsWith('data:'))
-  if (!line) return ''
-
+  if (!line) return null
   const payload = line.slice(5).trim()
-  if (!payload || payload === '[DONE]') return ''
-
-  let json
+  if (!payload || payload === '[DONE]') return null
   try {
-    json = JSON.parse(payload)
+    return JSON.parse(payload)
   } catch {
-    return '' // partial frame; the next read completes it
+    return null // partial frame; the next read completes it
   }
+}
 
+/** Pulls the visible text out of one frame, dropping reasoning parts. */
+function textOf(json) {
   // Thinking models emit `thought` parts alongside the answer — those are
   // internal reasoning and must never reach the chat bubble.
   return (json?.candidates?.[0]?.content?.parts ?? [])

@@ -54,7 +54,7 @@ const TOD_TINT = {
 export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood, onOpenArrival, onOpenHotels, onOpenSummary }) {
   const {
     trip: TRIP, stops: STOPS, families: FAMILIES, activeFamily, switchFamily,
-    planning, planWarning, plan, syncState,
+    planning, planWarning, plan, syncState, planningDay,
     openAccount, openEdit, addNote, updateNote, removeNote,
   } = useTrip()
   const [shareOpen, setShareOpen] = useState(false)
@@ -150,7 +150,6 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
   // Beyond Open-Meteo's forecast horizon, "today's weather at the
   // destination" is a real number that has nothing to do with the trip.
   const farOut = daysUntil(TRIP.from) > 7
-  const heroWeatherIcon = farOut && climate ? climate.icon : (forecast?.now.icon ?? '☀️')
 
   // Where the trip is in time decides what the one button on the photo
   // does. "התחל מסלול" (start route) made no sense seventeen days out.
@@ -216,8 +215,10 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
           {/* Its own layer, not part of the bottom-anchored text block below —
               with a photo the card grows tall enough that grouping these
               with the title would strand them at the bottom. */}
-          <div className="hero-top-row between" style={{ alignItems: 'flex-start' }}>
-            <div className="hero-icon" aria-hidden="true">{heroWeatherIcon}</div>
+          {/* Share only. The weather emoji that sat in the opposite corner was a
+              boxed icon that looked like a button and did nothing — the
+              weather line below the greeting already shows it. */}
+          <div className="hero-top-row" style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <button
               className="icon-btn boxed"
               onClick={() => setShareOpen(true)}
@@ -253,7 +254,9 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
             )}
             <p className="sub" style={{ maxWidth: '92%', marginTop: 8 }}>
               {planning
-                ? t('הסוכן בונה עכשיו מסלול ל{city}...', { city: TRIP.city })
+                ? planningDay && TRIP.totalDays > 1
+                  ? t('הסוכן בונה את המסלול ל{city} — יום {day} מתוך {total}...', { city: TRIP.city, day: planningDay, total: TRIP.totalDays })
+                  : t('הסוכן בונה עכשיו מסלול ל{city}...', { city: TRIP.city })
                 : t('הנה התכנון ליום {day} ב{city}, מותאם לסגנון שבחרת.', { day: TRIP.day, city: TRIP.city })}
             </p>
             <button className="btn btn-primary" style={{ marginTop: 14 }} onClick={cta.onClick}>

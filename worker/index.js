@@ -205,6 +205,17 @@ export default {
       return json({ error: { message: 'Invalid model name' } }, 400, cors)
     }
 
+    // Grounding with Google Maps: the model reads real Maps data (ratings,
+    // review counts, the place's Maps link) for this one request. Opt-in per
+    // request — only the restaurant list asks — and the only tool this proxy
+    // will ever attach; free-tier keys can't be billed for it, a spent quota
+    // just fails the request.
+    const grounded = body.grounding === 'maps'
+    const latLng =
+      grounded && Number.isFinite(body.latLng?.latitude) && Number.isFinite(body.latLng?.longitude)
+        ? { latitude: body.latLng.latitude, longitude: body.latLng.longitude }
+        : null
+
     const forwarded = {
       contents: Array.isArray(body.contents) ? body.contents.slice(-24) : [],
       systemInstruction: body.systemInstruction,
@@ -215,6 +226,12 @@ export default {
         maxOutputTokens: 2048,
         ...(body.generationConfig ?? {}),
       },
+      ...(grounded
+        ? {
+            tools: [{ googleMaps: {} }],
+            ...(latLng ? { toolConfig: { retrievalConfig: { latLng } } } : {}),
+          }
+        : {}),
     }
 
     if (forwarded.contents.length === 0) {
@@ -291,7 +308,7 @@ export default {
     // (quota), 503 (model overloaded) and 404 (model retired); any other
     // HTTP failure — a bad request — would fail the same way everywhere, so
     // it is returned straight away.
-    const RETRY = new Set([429, 503, 404])
+    const RETRY = grounded ? new Set([429, 503, 404, 400]) : new Set([429, 503, 404])
     const models = [model, ...FALLBACK_MODELS.filter((m) => m !== model)]
     const start = Math.floor(Math.random() * keys.length)
     let goodText = null // a validated, usable SSE response body, once found
@@ -351,7 +368,7 @@ export default {
     // coming back with no usable text: last resort is Cloudflare's own
     // Workers AI on this same account — free daily allowance, no extra key.
     // Weaker Hebrew than Gemini, hence last.
-    const fallback = await viaWorkersAI(env, forwarded)
+    const fallback = grounded ? null : await viaWorkersAI(env, forwarded)
     if (fallback) {
       return new Response(fallback, {
         headers: {

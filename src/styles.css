@@ -2133,3 +2133,18 @@ a.contact-row:hover { background: var(--tint-2); color: var(--text); }
   }
   .day-strip .hscroll > *, .family-strip .hscroll > * { flex: 0 0 auto; width: auto; }
 }
+
+/* ---------- Restaurants: ask in your own words, see Google's ratings ---------- */
+.food-search { padding-block: 6px; padding-inline-end: 6px; }
+.food-search .send { flex: none; }
+.quick-searches .pill { padding: 8px 13px; font-size: 13px; }
+.quick-searches .pill:disabled { opacity: 0.45; }
+/* Google's own rating, attributed and linked to the place on Google Maps. */
+.maps-rating {
+  display: inline-flex; align-items: center; gap: 5px; margin: 2px 0;
+  font-size: 13px; color: var(--text-2); text-decoration: none;
+}
+.maps-rating svg { color: #D99A1E; fill: #D99A1E; }
+.maps-rating strong { color: var(--text); font-size: 14px; }
+.maps-rating-src { color: var(--muted); font-size: 12px; }
+.maps-rating:hover .maps-rating-src { text-decoration: underline; }
