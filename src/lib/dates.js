@@ -30,6 +30,21 @@ export function nowHHMM(now = new Date()) {
 }
 
 /** Whole days from one date to another; negative when `to` is earlier. */
+/**
+ * A time of day as "HH:MM", from what a model or a person writes: "9:5",
+ * "9.30", "9", "09:00". Null when it is not one. The agent's "9:5" used to
+ * fail the strict check and land the stop at 12:00; "9:00" sorted after
+ * "10:00" as text.
+ */
+export function normTime(value) {
+  const m = String(value ?? '').trim().match(/^(\d{1,2})(?:[:.](\d{1,2}))?$/)
+  if (!m) return null
+  const h = Number(m[1])
+  const min = Number(m[2] ?? 0)
+  if (h > 23 || min > 59) return null
+  return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`
+}
+
 export function daysBetween(fromISO, toISO) {
   return Math.round((utc(toISO) - utc(fromISO)) / 86400000)
 }

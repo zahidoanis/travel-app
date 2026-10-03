@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import TopBar from '../components/TopBar'
 import {
   Sparkles, Plus, X, ArrowUp, ArrowDown, RefreshCw, Clock, Ticket, MapPin, Users,
@@ -125,6 +125,15 @@ export default function Days() {
   const [locating, setLocating] = useState(false)
   const placeTimer = useRef(null)
 
+  // Where suggestions and additions are meant to go: the day and family on
+  // screen when they were asked for. Read again after an await — switching
+  // day while suggestions loaded (or while one was being located) used to
+  // put them on the day switched to.
+  const here = useRef({})
+  here.current = { day: activeDay, family: activeFamily }
+  const pending = useRef(new Set())
+  useEffect(() => { setSuggestions([]) }, [activeDay, activeFamily])
+
   if (!trip) return null
 
   const activeFamilyObj = families.find((f) => f.id === activeFamily)
@@ -137,6 +146,7 @@ export default function Days() {
   const suggest = async () => {
     if (asking || !hasAI) return
     breadcrumb('action', `suggest stops for day ${activeDay}`)
+    const asked = { day: activeDay, family: activeFamily }
     setAsking(true)
     setError(null)
     const done = watchdog('days.suggest', 30000, { day: activeDay })
@@ -157,8 +167,10 @@ export default function Days() {
       })
 
       const rows = parseRows(text, ['time', 'name', 'he', 'category', 'desc'])
+      // Moved to another day or family meanwhile: these were for that one.
+      if (here.current.day !== asked.day || here.current.family !== asked.family) return
       if (rows.length === 0) setError(t('לא הצלחתי לפענח את ההצעות. נסה שוב.'))
-      setSuggestions(rows)
+      setSuggestions(rows.map((r) => ({ ...r, day: asked.day, family: asked.family })))
     } catch (err) {
       setError(err.message)
     } finally {
@@ -195,6 +207,7 @@ export default function Days() {
   const addManual = async () => {
     const name = manualName.trim()
     if (!name) return
+    const day = activeDay
 
     let hit = picked
     if (!hit) {
@@ -203,7 +216,7 @@ export default function Days() {
       setLocating(false)
     }
 
-    addStop(activeDay, {
+    const added = addStop(day, {
       name: hit?.name ?? name,
       he: name,
       desc: hit?.label ?? '',
@@ -214,7 +227,8 @@ export default function Days() {
       lng: hit?.lng ?? null,
     })
 
-    if (!hit) setError(t('"{name}" נוסף ללו"ז אבל לא אותר על המפה.', { name }))
+    if (!added) setError(t('"{name}" כבר נמצא ביום {day}.', { name, day }))
+    else if (!hit) setError(t('"{name}" נוסף ללו"ז אבל לא אותר על המפה.', { name }))
     setManualName('')
     setPicked(null)
     setPlaceHits([])
@@ -222,16 +236,21 @@ export default function Days() {
 
   /** A suggestion only joins the day once it has a real position. */
   const accept = async (row) => {
+    // One lookup per suggestion, however fast it is tapped.
+    if (pending.current.has(row.name)) return
+    pending.current.add(row.name)
     setAdding(row.name)
-    const hit = await geocodeNear(row.name, trip)
-    setAdding(null)
+    const hit = await geocodeNear(row.name, trip).finally(() => pending.current.delete(row.name))
+    setAdding((a) => (a === row.name ? null : a))
 
     if (!hit) {
       setError(t('לא הצלחתי לאתר את "{name}" על המפה.', { name: row.name.split(',')[0] }))
       return
     }
+    // Asked for on another family's plan: that plan is no longer on screen.
+    if (row.family !== here.current.family) return
 
-    addStop(activeDay, {
+    const added = addStop(row.day, {
       name: row.name.split(',')[0].trim(),
       he: row.he || row.name,
       desc: row.desc,
@@ -241,6 +260,7 @@ export default function Days() {
       lat: hit.lat,
       lng: hit.lng,
     })
+    if (!added) setError(t('"{name}" כבר נמצא ביום {day}.', { name: row.he || row.name.split(',')[0], day: row.day }))
     setSuggestions((s) => s.filter((x) => x.name !== row.name))
   }
 
@@ -282,7 +302,7 @@ export default function Days() {
             <button
               key={d}
               className={`day-chip ${d === activeDay ? 'on' : ''}`}
-              onClick={() => { setActiveDay(d); setSuggestions([]); setError(null) }}
+              onClick={() => { setActiveDay(d); setError(null) }}
             >
               <span className="day-chip-num num">{d}</span>
               <span className="day-chip-label">

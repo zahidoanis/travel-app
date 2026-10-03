@@ -19,16 +19,24 @@ import { t } from '../i18n'
 const ConfirmContext = createContext(null)
 
 export function ConfirmProvider({ children }) {
-  const [ask, setAsk] = useState(null)
+  // Asked one at a time, in order. A second question used to replace the
+  // first on screen, and the first one's caller then waited forever — the
+  // agent asking to rebuild a day while another confirm was open left its
+  // reply stuck on "typing" for good.
+  const [queue, setQueue] = useState([])
+  const ask = queue[0] ?? null
 
   const confirm = useCallback(
-    (options) => new Promise((resolve) => setAsk({ ...options, resolve })),
+    (options) => new Promise((resolve) => setQueue((q) => [...q, { ...options, resolve }])),
     []
   )
 
-  const answer = (ok) => {
-    ask?.resolve(ok)
-    setAsk(null)
+  // Answers the question that was on screen — a second tap landing after
+  // the next question appeared must not answer that one too.
+  const answer = (ok, which = ask) => {
+    if (!which) return
+    which.resolve(ok)
+    setQueue((q) => q.filter((x) => x !== which))
   }
 
   return (
@@ -51,16 +59,16 @@ export function ConfirmHost() {
   const { ask, answer } = useContext(ConfirmContext)
 
   return (
-    <Sheet open={ask !== null} title={ask?.title ?? ''} onClose={() => answer(false)}>
+    <Sheet open={ask !== null} title={ask?.title ?? ''} onClose={() => answer(false, ask)}>
       {ask?.body && <p className="sub" style={{ marginBottom: 20 }}>{ask.body}</p>}
       <div className="row" style={{ gap: 9 }}>
-        <button className="btn btn-ghost btn-block grow" onClick={() => answer(false)}>
+        <button className="btn btn-ghost btn-block grow" onClick={() => answer(false, ask)}>
           {t('ביטול')}
         </button>
         <button
           className={`btn btn-block grow ${ask?.danger === false ? 'btn-primary' : ''}`}
           style={ask?.danger === false ? undefined : { background: 'var(--rose)', color: '#fff' }}
-          onClick={() => answer(true)}
+          onClick={() => answer(true, ask)}
         >
           {ask?.action ?? t('מחק')}
         </button>

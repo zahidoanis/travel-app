@@ -284,6 +284,13 @@ export default function Chat() {
             </div>
           )}
 
+          {/* Why the microphone did nothing — blocked, offline, unsupported.
+              The hook always knew; nothing showed it, so a blocked mic was
+              just a button that did not work. */}
+          {speech.error && (
+            <p className="tiny msg-in" role="alert" style={{ color: 'var(--rose)' }}>{speech.error}</p>
+          )}
+
         </div>
       </div>
 

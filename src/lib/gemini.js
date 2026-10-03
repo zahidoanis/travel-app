@@ -199,7 +199,7 @@ const toContents = (messages) =>
  * Streams a reply. Calls `onChunk(text)` for each delta and resolves with the
  * full text. Throws with a message (in the UI's language) the UI can show as-is.
  */
-export async function streamReply({ messages, system, searchContext, signal, onChunk }) {
+export async function streamReply({ messages, system, searchContext, search = true, signal, onChunk }) {
   const body = {
     contents: toContents(messages),
     systemInstruction: { parts: [{ text: system + LANGUAGE_OVERRIDE }] },
@@ -224,7 +224,7 @@ export async function streamReply({ messages, system, searchContext, signal, onC
       // API validates the request shape strictly and would 400 on either in
       // direct mode.
       body: JSON.stringify(
-        PROXY ? { ...body, model: MODEL, ...(searchContext ? { searchContext } : {}) } : body
+        PROXY ? { ...body, model: MODEL, ...(searchContext ? { searchContext } : {}), ...(search ? {} : { search: false }) } : body
       ),
       signal,
     })
@@ -298,16 +298,24 @@ export function complete({ prompt, system, signal }) {
  * produces one unusable row here, whereas a single stray character makes a
  * whole JSON document unparseable.
  */
+// A row of column titles rather than data — "שעה | כתובת | שם | …".
+const HEADER_CELL = /^(שעה|זמן|כתובת|שם|שם המקום|קטגוריה|תיאור|יום|time|address|name|place|category|description|desc|day)$/i // i18n-ignore — model output
+
 export function parseRows(text, columns) {
   return text
     .split('\n')
     // Strip a list marker only when it is followed by whitespace. A bare
     // `[\d.)]+` class also eats the leading digits of real content — it turned
     // every "09:00" into ":00".
-    .map((line) => line.trim().replace(/^(?:[-*•]|\d{1,2}[.)])\s+/, ''))
+    .map((line) => line.trim().replace(/^(?:[-*•]|\d{1,2}[.)])\s+/, '').replace(/\*\*/g, ''))
+    // A markdown table's outer pipes: "| 09:00 | … |" left an empty first
+    // cell, and every row of the table was dropped.
+    .map((line) => line.replace(/^\|/, '').replace(/\|$/, '').trim())
     .filter((line) => line.includes('|'))
+    .filter((line) => !/^[\s|:-]+$/.test(line)) // the table's |---|---| rule
     .map((line) => line.split('|').map((c) => c.trim()))
     .filter((cells) => cells.length >= columns.length && cells[0])
+    .filter((cells) => cells.filter((c) => HEADER_CELL.test(c)).length < 2)
     .map((cells) => Object.fromEntries(columns.map((c, i) => [c, cells[i] ?? ''])))
 }
 

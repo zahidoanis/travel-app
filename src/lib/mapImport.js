@@ -243,7 +243,11 @@ export async function importedStops(imported) {
   // Directions links without coordinates — rare, but look those up first.
   const missing = days.flatMap((d) => d.places).filter((p) => !hasPos(p))
   if (missing.length > 0) {
-    const found = await geocodeAll(missing.map((p) => ({ ...p, query: p.name })), '')
+    // Near the map's own places (or its destination), not wherever a
+    // namesake happens to be.
+    const known = days.flatMap((d) => d.places).filter(hasPos)
+    const origin = known[0] ?? (imported.lat != null ? imported : null)
+    const found = await geocodeAll(missing.map((p) => ({ ...p, query: p.name })), '', origin)
     missing.forEach((p, i) => Object.assign(p, { lat: found[i]?.lat ?? null, lng: found[i]?.lng ?? null }))
   }
 

@@ -83,6 +83,8 @@ export default function Restaurants() {
 
   /** Adds a restaurant to the current day, positioned at a mealtime. */
   const addToDay = async (r) => {
+    // The day on screen when it was tapped, not after the lookup.
+    const day = activeDay
     setAdding(r.name)
     const hit = await geocodeNear(r.name, trip)
     setAdding(null)
@@ -92,7 +94,7 @@ export default function Restaurants() {
       return
     }
 
-    addStop(activeDay, {
+    const added = addStop(day, {
       name: r.name,
       he: r.name,
       desc: `${r.kind} · ${r.reason}`,
@@ -102,6 +104,7 @@ export default function Restaurants() {
       lat: hit.lat,
       lng: hit.lng,
     })
+    if (!added) setError(t('"{name}" כבר נמצא ביום {day}.', { name: r.name, day }))
     setAdded((a) => [...a, r.name])
   }
 

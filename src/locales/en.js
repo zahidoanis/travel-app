@@ -678,5 +678,7 @@ export default {
   "שמור בכל זאת": "Save anyway",
   "לשנות את היעד ל{place}?": "Change the destination to {place}?",
   "תוכנית הימים והמלונות שייכים ל{place}, ולכן יימחקו. אפשר יהיה לבנות את הימים מחדש.": "The day plans and hotels belong to {place}, so they will be deleted. You can build the days again.",
-  "שנה יעד": "Change destination"
+  "שנה יעד": "Change destination",
+  "\"{name}\" כבר נמצא ביום {day}.": "\"{name}\" is already on day {day}.",
+  "לא התקבלה תשובה. נסו לשאול שוב.": "No answer came back. Try asking again."
 }

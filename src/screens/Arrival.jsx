@@ -62,7 +62,11 @@ export default function Arrival() {
           'איך מגיעים משדה התעופה ליעד?', // i18n-ignore
       })
 
-      setOptions(parseRows(text, ['mode', 'duration', 'price', 'tip']))
+      const rows = parseRows(text, ['mode', 'duration', 'price', 'tip'])
+      // An answer in some other shape used to leave the screen exactly as it
+      // was, as though the button had not been pressed.
+      if (rows.length === 0) setError(t('לא הצלחתי לפענח את התשובה. נסה שוב.'))
+      setOptions(rows)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -90,7 +94,9 @@ export default function Arrival() {
           'אילו שירותי הסעה והורדה מהשדה מוכרים ואמינים שם? כולל אפליקציות מקומיות.', // i18n-ignore
       })
 
-      setDrivers(parseRows(text, ['name', 'kind', 'price', 'why']))
+      const rows = parseRows(text, ['name', 'kind', 'price', 'why'])
+      if (rows.length === 0) setError(t('לא הצלחתי לפענח את התשובה. נסה שוב.'))
+      setDrivers(rows)
     } catch (err) {
       setError(err.message)
     } finally {

@@ -16,6 +16,7 @@ import { record, breadcrumb, watchdog } from './telemetry'
 import { CATEGORIES, TRAVEL_STYLES } from '../data'
 import { t } from '../i18n'
 import { newId } from './ids'
+import { normTime } from './dates'
 
 const CATEGORY_IDS = Object.keys(CATEGORIES)
 
@@ -79,7 +80,8 @@ export async function buildItinerary({ trip, families, already = [], instruction
     // nothing — Nominatim matched 0 of 5 stops that way.
     const located = await geocodeAll(
       rows.map((r) => ({ ...r, query: r.name })),
-      ''
+      '',
+      trip
     )
 
     const stops = located
@@ -99,7 +101,7 @@ export async function buildItinerary({ trip, families, already = [], instruction
         name: r.name.split(',')[0].trim(),
         he: r.he || r.name,
         desc: r.desc,
-        time: r.time,
+        time: normTime(r.time) ?? r.time,
         cat: normaliseCategory(r.category),
         rating: null,
         lat: r.lat,

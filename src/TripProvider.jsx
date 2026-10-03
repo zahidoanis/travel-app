@@ -6,7 +6,7 @@ import {
   listRoutes, saveRoute, watchRoutes, deleteTrip, logActivity, watchActivity,
   updatePresence, watchPresence, deleteTicketPhoto, watchTrip, mutateTripList, mutateRoute, clearRoutes,
 } from './lib/db'
-import { todayISO, daysBetween } from './lib/dates'
+import { todayISO, daysBetween, normTime } from './lib/dates'
 import { newId } from './lib/ids'
 import { mergeList } from './lib/merge'
 import { useConfirm } from './components/Confirm'
@@ -661,6 +661,10 @@ export function TripProvider({ children }) {
   // itinerary never got.
   const ACTION_LINE = /^\s*(PLAN_DAYS|ADD_STOP|REMOVE_STOP|BOOKING_LINK)\s*:\s*(.*)$/i
   // Matches the model's reply in whichever language the UI asked it to use.
+  // The model sometimes dresses a machine line as markdown — "- ADD_STOP: …",
+  // "**ADD_STOP:** …", "`ADD_STOP: …`". Those neither ran nor stayed out of
+  // sight: the action was lost and its raw line shown in the bubble.
+  const bare = (line) => line.replace(/^\s*(?:[-*•>]|\d{1,2}[.)])\s+/, '').replace(/[*`]/g, '')
   const CLAIM = /(הוספתי|עדכנתי|בניתי|שיניתי|הסרתי|תכננתי מחדש|הכנסתי|מחקתי|\bI(?:'ve| have)? (?:added|updated|rebuilt|changed|removed|replanned|moved|deleted)\b)/i // i18n-ignore
 
   const runChatActions = async (actions, at) => {
@@ -746,7 +750,7 @@ export function TripProvider({ children }) {
           name: (hit.name || query.split(',')[0]).trim(),
           he,
           desc: desc ?? '',
-          time: /^\d{1,2}:\d{2}$/.test(time ?? '') ? time.padStart(5, '0') : '12:00',
+          time: normTime(time) ?? '12:00',
           cat: normaliseCategory(category),
           rating: null,
           lat: hit.lat,
@@ -824,8 +828,8 @@ export function TripProvider({ children }) {
   const visibleSoFar = (full) => {
     const lines = full.split('\n')
     const partial = lines.pop() ?? ''
-    const shown = lines.filter((l) => !ACTION_LINE.test(l) && !MACHINE_LINE.test(l))
-    const head = partial.trimStart().toUpperCase()
+    const shown = lines.filter((l) => !ACTION_LINE.test(bare(l)) && !MACHINE_LINE.test(bare(l)))
+    const head = bare(partial).trimStart().toUpperCase()
     const maybeMachine = head.length > 0 && MACHINE.some((k) =>
       head.includes(':') ? head.split(':')[0].trim() === k : k.startsWith(head)
     )
@@ -890,6 +894,7 @@ export function TripProvider({ children }) {
         messages: history,
         system,
         searchContext: `${trip.city}, ${trip.country}`,
+        search: !opener,
         signal: controller.signal,
         onChunk: (delta) => {
           full += delta
@@ -910,9 +915,10 @@ export function TripProvider({ children }) {
       let suggestions = []
       const remember = []
       for (const l of full.split('\n')) {
-        const m = l.match(ACTION_LINE)
-        const s = l.match(/^\s*SUGGEST\s*:\s*(.*)$/i)
-        const r = l.match(/^\s*REMEMBER\s*:\s*(.*)$/i)
+        const b = bare(l)
+        const m = b.match(ACTION_LINE)
+        const s = b.match(/^\s*SUGGEST\s*:\s*(.*)$/i)
+        const r = b.match(/^\s*REMEMBER\s*:\s*(.*)$/i)
         if (s) suggestions = s[1].split('|').map((x) => x.trim()).filter(Boolean).slice(0, 3)
         else if (r) remember.push(r[1])
         else if (m && trip) actions.push({ kind: m[1].toUpperCase(), args: m[2] })
@@ -935,8 +941,13 @@ export function TripProvider({ children }) {
           ? await runChatActions(actions, at)
           : [`• ${t('יש לך הרשאת צפייה בלבד בטיול הזה — אפשר לראות, אבל לא לשנות.')}`]
         const done = report.some((r) => r.startsWith('✓'))
-        // The app's own account of what happened — never the model's.
-        finalText = report.join('\n') + (done ? `\n\n${t('אפשר לראות את זה במסך "מסלול הטיול".')}` : '')
+        // The app's own account of what happened — never the model's. Its
+        // other words stay (they were dropped whenever an action ran, along
+        // with an answer to the rest of the question); only the lines
+        // claiming a change go, since the report says what really changed.
+        const prose = say.split('\n').filter((l) => !CLAIM.test(l)).join('\n').trim()
+        const account = report.join('\n') + (done ? `\n\n${t('אפשר לראות את זה במסך "מסלול הטיול".')}` : '')
+        finalText = [prose, account].filter(Boolean).join('\n\n')
       } else {
         // A claim of having changed the itinerary with no action behind it is
         // the model talking as if it had done something — say so.
@@ -945,6 +956,10 @@ export function TripProvider({ children }) {
           : say
       }
       finalText = (finalText + note).trim()
+      // A reply with nothing left to show (only machine lines, or cut off)
+      // used to take its bubble away and leave the question unanswered,
+      // with no sign anything went wrong.
+      if (!finalText && !opener) finalText = t('לא התקבלה תשובה. נסו לשאול שוב.')
 
       setChatMessages((m) => {
         const rest = m.filter((x) => x.id !== id)
@@ -1234,9 +1249,12 @@ export function TripProvider({ children }) {
   // AI suggestion); by then that `days` could be seconds old, and writing
   // "old list + new stop" threw away whatever was added in between — tap two
   // suggestions quickly and only one survived.
+  // Returns false when the stop was already on that day (nothing added) —
+  // the screens used to say nothing at all then, so the tap looked broken.
   const addStop = (day, stop) => {
+    if (readOnly()) return false
     const list = daysRef.current[day] ?? []
-    if (list.some((s) => s.name === stop.name)) return
+    if (list.some((s) => s.name === stop.name)) return false
     const next = [...list, { ...stop, id: newId('s') }].sort((a, b) =>
       String(a.time).localeCompare(String(b.time))
     )
@@ -1245,6 +1263,7 @@ export function TripProvider({ children }) {
     if (trip) {
       logActivity(trip.id, { type: 'stop', message: t('{name} הוסיף/ה עצירה ליום {day}: {place}', { name: whoami(), day, place: stop.he ?? stop.name }) })
     }
+    return true
   }
 
   const removeStop = (day, id) => {

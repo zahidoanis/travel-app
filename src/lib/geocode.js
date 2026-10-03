@@ -154,11 +154,18 @@ export async function geocodeNear(query, trip) {
 /**
  * Geocodes a list in order. Entries that cannot be resolved keep null
  * coordinates so the caller can decide — we drop them rather than guessing.
+ *
+ * With an `origin` (anything with lat/lng), only a match within a day trip
+ * of it counts. A generated day used to take the first match wherever it
+ * was, so a café named like one in Paris put a pin in Texas, and the day's
+ * route ran across an ocean.
  */
-export async function geocodeAll(places, context) {
+export async function geocodeAll(places, context, origin = null) {
   const out = []
   for (const place of places) {
-    const hit = await geocode(place.query, context)
+    const query = context ? `${place.query}, ${context}` : place.query
+    const hits = await search(query, origin ? 3 : 1)
+    const hit = hits.find((h) => near(h, origin)) ?? null
     out.push({ ...place, lat: hit?.lat ?? null, lng: hit?.lng ?? null })
   }
   return out

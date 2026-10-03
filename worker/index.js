@@ -253,7 +253,11 @@ export default {
     // which would double the very quota this file exists to stretch.
     const lastUserText = [...forwarded.contents].reverse().find((c) => c.role === 'user')
       ?.parts?.map((p) => p.text ?? '').join(' ') ?? ''
-    if (tavilyKeys(env).length > 0 && NEEDS_SEARCH.test(lastUserText)) {
+    // `search: false` is the app's hidden chat opener: its own wording
+    // ("…what awaits today…") matched the trigger words, so every opened
+    // chat spent a search from the monthly quota on nothing.
+    const searchAllowed = body.search !== false
+    if (searchAllowed && tavilyKeys(env).length > 0 && NEEDS_SEARCH.test(lastUserText)) {
       // The trigger word only needs to be in the last message, but a
       // follow-up like "check their website" names no "their" on its own —
       // the last few turns give the search query the actual subject (the
@@ -286,7 +290,7 @@ export default {
     // generic web search: real bookable tours/attractions, real prices, real
     // ratings, and a real productUrl that already carries the account's own
     // affiliate id (pid), so a click-through is attributed automatically.
-    if (env.VIATOR_API_KEY && NEEDS_ATTRACTIONS.test(lastUserText)) {
+    if (searchAllowed && env.VIATOR_API_KEY && NEEDS_ATTRACTIONS.test(lastUserText)) {
       const found = await viatorSearch(env, lastUserText, body.searchContext)
       if (found) {
         forwarded.systemInstruction = {
