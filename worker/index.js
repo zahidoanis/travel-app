@@ -289,6 +289,26 @@ export default {
     seen(env, ctx, 'ai', body.client)
     if (grounded) count(env, ctx, 'ai.maps')
 
+    // Restaurant lists are the same for everyone who asks the same thing
+    // ("local food in Rome") and barely change within hours, so a good answer
+    // is kept for CACHE_MS and replayed — no model call, no quota. Only this
+    // one kind: a chat reply or a day plan is personal and always fresh.
+    const cacheable = kind === 'food' && Boolean(env.STATS)
+    const cacheK = cacheable ? await cacheKey(model, forwarded) : null
+    if (cacheK) {
+      const hit = await env.STATS
+        .prepare('SELECT body FROM cache WHERE k = ?1 AND at > ?2')
+        .bind(cacheK, Date.now() - CACHE_MS)
+        .first()
+        .catch(() => null)
+      if (hit?.body) {
+        count(env, ctx, 'ai.cache')
+        return new Response(hit.body, {
+          headers: { ...cors, 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache', 'X-Cache': 'hit' },
+        })
+      }
+    }
+
     // A question that genuinely needs live info ("what's the price tonight",
     // "is it open now") used to get an honest "I can't browse the internet" —
     // correct, since the model has no such tool, but not useful. A cheap
@@ -385,7 +405,7 @@ export default {
           }
         )
 
-        if (upstream.status === 429) { spent.set(tag, Date.now() + SPENT_MS); count(env, ctx, 'ai.429'); continue }
+        if (upstream.status === 429) { spent.set(tag, Date.now() + SPENT_MS); count(env, ctx, 'ai.429'); count(env, ctx, `up.${idx}.${m}.429`); continue }
         if (RETRY.has(upstream.status)) { lastBadUpstream = upstream; break } // next model
         if (!upstream.ok) { lastBadUpstream = upstream; break outer } // a real bad request
 
@@ -400,13 +420,23 @@ export default {
         // buffers the whole reply client-side before showing anything, so
         // nothing is lost by buffering here too.
         const raw = await upstream.text()
-        if (hasUsableText(raw)) { goodText = raw; break outer }
+        if (hasUsableText(raw)) { goodText = raw; count(env, ctx, `up.${idx}.${m}.ok`); break outer }
         // 200 but nothing usable — try the next key/model instead.
       }
     }
 
     if (goodText) {
       count(env, ctx, 'ai.ok')
+      // Only an answer that really used Maps is kept — the model sometimes
+      // answers from memory with no ratings, and that must not be replayed.
+      if (cacheK && (!grounded || goodText.includes('groundingChunks'))) {
+        ctx?.waitUntil?.(
+          env.STATS.batch([
+            env.STATS.prepare('INSERT OR REPLACE INTO cache (k, body, at) VALUES (?1, ?2, ?3)').bind(cacheK, goodText, Date.now()),
+            env.STATS.prepare('DELETE FROM cache WHERE at < ?1').bind(Date.now() - 24 * 3600000),
+          ]).catch(() => {})
+        )
+      }
       return new Response(goodText, {
         headers: {
           ...cors,
@@ -478,6 +508,15 @@ function seen(env, ctx, kind, cid) {
     .run()
     .catch(() => {})
   ctx?.waitUntil?.(done)
+}
+
+const CACHE_MS = 6 * 3600000
+
+/** A stable key for "this exact request": model, prompt, system text, tools. */
+async function cacheKey(model, forwarded) {
+  const raw = JSON.stringify([model, forwarded.contents, forwarded.systemInstruction, forwarded.tools, forwarded.toolConfig])
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(raw))
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('')
 }
 
 /** GEMINI_API_KEY, then GEMINI_API_KEY_2 … _8 — whichever are set. */
@@ -782,7 +821,14 @@ async function fromPhoton(q, limit, cityOnly) {
 }
 
 /** Nominatim fallback. Requires the identifying User-Agent their policy asks for. */
+// Nominatim's policy is one request a second. The browser now asks the worker
+// faster than that (Photon answers almost everything, with no such limit), so
+// the worker spaces the calls that do fall through to Nominatim itself.
+let lastNominatim = 0
 async function fromNominatim(params, env) {
+  const wait = lastNominatim + 1100 - Date.now()
+  lastNominatim = Math.max(Date.now(), lastNominatim + 1100)
+  if (wait > 0) await new Promise((r) => setTimeout(r, wait))
   try {
     const res = await fetch(
       `https://nominatim.openstreetmap.org/search?${new URLSearchParams(params)}`,

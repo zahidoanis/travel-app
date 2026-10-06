@@ -148,3 +148,142 @@ export async function buildItinerary({ trip, families, already = [], instruction
     done()
   }
 }
+
+/**
+ * Rows of "day | time | address | name | category | description", read
+ * leniently — the model sometimes dresses them as a Markdown table (leading
+ * and trailing pipes, a ---|--- rule), writes the time as 9.00, says "יום 2"
+ * for the day, or leaves the description off. All of those are still a
+ * usable row; none should cost the whole answer.
+ */
+function parseDayRows(text) {
+  const rows = []
+  for (const raw of text.split('\n')) {
+    const line = raw.trim().replace(/^(?:[-*•]|\d{1,2}[.)])\s+/, '').replace(/^\||\|$/g, '')
+    if (!line.includes('|') || /^[\s|:-]+$/.test(line)) continue
+    const c = line.split('|').map((x) => x.trim())
+    if (c.length < 5) continue
+    const day = Number(c[0].match(/\d+/)?.[0])
+    const time = c[1].match(/^(\d{1,2})[:.](\d{2})$/)
+    if (!day || !time) continue
+    rows.push({
+      day,
+      time: `${time[1].padStart(2, '0')}:${time[2]}`,
+      name: c[2],
+      he: c[3],
+      category: c[4],
+      desc: c.slice(5).join(' | '),
+    })
+  }
+  return rows
+}
+
+/** Days planned per request — see buildItineraryDays. */
+export const DAYS_PER_REQUEST = 3
+
+/**
+ * Several days of one trip, asked for together.
+ *
+ * Planning day by day cost one model request per day (two when a day came
+ * back short) — a 5-day trip was 5-10 of the 20 free requests a model gets
+ * each day. Asked together the model sees the whole stretch at once: it
+ * spreads neighbourhoods and day trips across the days instead of every day
+ * starting from the same famous centre, and repeats nothing. A trip of 5
+ * days is 2 requests.
+ *
+ * Whatever comes back short — a day under MIN_STOPS after the map lookup, or
+ * missing from the answer entirely — is rebuilt on its own through
+ * buildItinerary, so no day is ever shorter than a single-day plan would be.
+ *
+ * @returns {Promise<{days: Record<number, Array>, warning?: string}>}
+ */
+export async function buildItineraryDays({ trip, families, dayNums, already = [], instructions = '', memory = [], signal }) {
+  if (!hasAI) return { days: {}, warning: t('סוכן ה-AI אינו מחובר') }
+
+  breadcrumb('action', `generate ${dayNums.length} days for ${trip.city}`)
+  const done = watchdog('itinerary.generate', 90000, { city: trip.city })
+
+  const styleNames = TRAVEL_STYLES.filter((x) => trip.styles?.includes(x.id)).map((x) => x.title).join(', ')
+  const list = dayNums.join(', ')
+  const out = {}
+  let warning
+
+  try {
+    const text = await complete({
+      signal,
+      kind: 'plan',
+      maxTokens: 8192,
+      system:
+        'אתה מתכנן מסלולי טיול. החזר אך ורק שורות בפורמט:\n' + // i18n-ignore — AI prompt; see gemini.js language override
+        'מספר היום | שעה | כתובת מלאה באנגלית | שם המקום בעברית | קטגוריה | משפט תיאור קצר\n' + // i18n-ignore
+        'קטגוריה היא אחת מ: מוזיאון, מסעדה, הליכה, אתר.\n' + // i18n-ignore
+        'הכתובת באנגלית חייבת להיות בפורמט "Place, City, Country" עם השם הרשמי ' + // i18n-ignore
+        'שמופיע במפות — היא משמשת לחיפוש גיאוגרפי, ולכן שם העיר והמדינה באנגלית בלבד.\n' + // i18n-ignore
+        `בלי כותרות, בלי מספור, בלי טקסט נוסף. בדיוק ${ASK_STOPS} שורות לכל יום, לפי סדר הימים ואז לפי השעות.`, // i18n-ignore
+      prompt:
+        `עיר: ${trip.city}${trip.country ? `, ${trip.country}` : ''}\n` + // i18n-ignore
+        `הטיול נמשך ${trip.totalDays} ימים. הימים לתכנון עכשיו (מספרי היום בעמודה הראשונה): ${list}\n` + // i18n-ignore
+        `נוסעים: ${families.reduce((n, f) => n + f.members.length, 0)}\n` + // i18n-ignore
+        `אופי הטיול: ${styleNames || 'כללי'}\n` + // i18n-ignore
+        (already.length > 0 ? `כבר מתוכננים בימים אחרים — אל תציע אותם שוב: ${already.join(', ')}\n` : '') + // i18n-ignore
+        (instructions ? `הנחיות מפורשות מהמשתמש — חובה לכבד אותן: ${instructions}\n` : '') + // i18n-ignore
+        (memory.length ? `מה שידוע על הקבוצה — התחשב בזה: ${memory.map((m) => m.text).join('; ')}\n` : '') + // i18n-ignore
+        '\nתכנן כל יום מ-09:00 עד הערב: לפחות 4 מקומות לביקור ועוד מקום לארוחת צהריים, ' + // i18n-ignore
+        'עם מרחקי הליכה סבירים בתוך היום. כל יום מתמקד באזור אחר בעיר או בטיול יום מחוצה לה, ' + // i18n-ignore
+        'ושום מקום לא חוזר בשני ימים.', // i18n-ignore
+    })
+
+    const rows = parseDayRows(text).filter((r) => dayNums.includes(r.day))
+    // Left for diagnosis: how many usable rows the answer really held.
+    if (rows.length < dayNums.length * MIN_STOPS) {
+      record({
+        kind: 'ai', level: 'warn',
+        message: `multi-day answer thin: ${rows.length} usable rows for days ${list}`, // i18n-ignore — internal log
+        context: { city: trip.city, head: text.slice(0, 300) },
+      })
+    }
+
+    const located = await geocodeAll(rows.map((r) => ({ ...r, query: r.name })), '')
+
+    for (const day of dayNums) {
+      out[day] = located
+        .filter((r) => r.day === day && r.lat != null && r.lng != null)
+        .sort((a, b) => String(a.time).localeCompare(String(b.time)))
+        .map((r, i) => ({
+          id: `d${day}-${i + 1}`,
+          name: r.name.split(',')[0].trim(),
+          he: r.he || r.name,
+          desc: r.desc,
+          time: r.time,
+          cat: normaliseCategory(r.category),
+          rating: null,
+          lat: r.lat,
+          lng: r.lng,
+        }))
+    }
+  } catch (err) {
+    record({
+      kind: 'ai',
+      message: `יצירת מסלול נכשלה: ${err?.message ?? err}`, // i18n-ignore — internal log
+      stack: err?.stack,
+      context: { city: trip.city, days: list },
+    })
+    warning = err?.message
+  } finally {
+    done()
+  }
+
+  // Short or missing days: the single-day planner, which also tops up.
+  const taken = [...already, ...Object.values(out).flat().map((x) => x.he || x.name)]
+  for (const day of dayNums) {
+    if ((out[day]?.length ?? 0) >= MIN_STOPS) continue
+    const r = await buildItinerary({ trip: { ...trip, day }, families, already: taken, instructions, memory, signal })
+    if ((r.stops?.length ?? 0) > (out[day]?.length ?? 0)) {
+      out[day] = r.stops
+      taken.push(...r.stops.map((x) => x.he || x.name))
+    }
+    warning = warning ?? r.warning
+  }
+
+  return { days: out, warning }
+}

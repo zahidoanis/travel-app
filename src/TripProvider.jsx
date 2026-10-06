@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { PARTY_COLORS, memberName, memberAge } from './data'
-import { buildItinerary, normaliseCategory } from './lib/itinerary'
+import { buildItinerary, buildItineraryDays, DAYS_PER_REQUEST, normaliseCategory } from './lib/itinerary'
 import {
   loadProfile, saveProfile, createTrip, loadTrip, saveTrip, listTrips, joinTrip,
   listRoutes, saveRoute, watchRoutes, deleteTrip, logActivity, watchActivity,
@@ -904,26 +904,42 @@ export function TripProvider({ children }) {
       .flatMap(([, list]) => list.map((st) => st.he || st.name))
 
     const results = []
-    for (const day of dayNums) {
+    // A few days per model request — see buildItineraryDays — and each group
+    // shows up as soon as it is ready.
+    // The first day goes alone, so what's on screen appears in ~15s instead
+    // of waiting for a whole group; the rest follow DAYS_PER_REQUEST at a time.
+    const groups = dayNums.length > 1
+      ? [[dayNums[0]], ...Array.from({ length: Math.ceil((dayNums.length - 1) / DAYS_PER_REQUEST) }, (_, g) =>
+          dayNums.slice(1 + g * DAYS_PER_REQUEST, 1 + (g + 1) * DAYS_PER_REQUEST))]
+      : [dayNums]
+    for (const group of groups) {
       // Switching to another trip mid-run must not write this trip's days
       // into that one's state.
       if (tripIdRef.current !== tripId) break
-      setPlanningDay(day)
-      const { stops: fresh, warning } = await buildItinerary({
-        trip: { ...trip, day },
-        families: planningFamily ? [planningFamily] : families,
-        already: taken,
-        instructions,
-        memory: trip.memory,
-      })
-      if (tripIdRef.current !== tripId) break
-      if (fresh.length > 0) {
-        applyLocalDay(day, fresh)
-        persist(day, fresh)
-        taken.push(...fresh.map((st) => st.he || st.name))
+      setPlanningDay(group[0])
+      const fams = planningFamily ? [planningFamily] : families
+      let byDay
+      let warning
+      if (group.length === 1) {
+        const r = await buildItinerary({ trip: { ...trip, day: group[0] }, families: fams, already: taken, instructions, memory: trip.memory })
+        byDay = { [group[0]]: r.stops }
+        warning = r.warning
+      } else {
+        const r = await buildItineraryDays({ trip, families: fams, dayNums: group, already: taken, instructions, memory: trip.memory })
+        byDay = r.days
+        warning = r.warning
       }
-      results.push({ day, count: fresh.length, warning: warning ?? null })
-      setPlanQueue((q) => q.filter((d) => d !== day))
+      if (tripIdRef.current !== tripId) break
+      for (const day of group) {
+        const fresh = byDay[day] ?? []
+        if (fresh.length > 0) {
+          applyLocalDay(day, fresh)
+          persist(day, fresh)
+          taken.push(...fresh.map((st) => st.he || st.name))
+        }
+        results.push({ day, count: fresh.length, warning: warning ?? null })
+        setPlanQueue((q) => q.filter((d) => d !== day))
+      }
     }
 
     planningRef.current = false

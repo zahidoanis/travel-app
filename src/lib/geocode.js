@@ -18,23 +18,36 @@ const ENDPOINT = PROXY
   ? `${PROXY.replace(/\/$/, '')}/geocode`
   : 'https://nominatim.openstreetmap.org/search'
 
-const MIN_GAP_MS = 1100 // Nominatim allows at most one request per second
+// Nominatim allows one request a second — that limit is on whoever calls
+// Nominatim. Through the worker the first lookup goes to Photon, which has
+// no such limit (and the worker spaces its own Nominatim fallback), so the
+// browser can ask faster: 30 stops of a multi-day plan took 33s at 1.1s each.
+const MIN_GAP_MS = PROXY ? 350 : 1100
 
 const cache = new Map()
 let queue = Promise.resolve()
 let lastCall = 0
 
-/** Serialises every lookup so concurrent callers cannot exceed the rate limit. */
+/**
+ * Paces every lookup so concurrent callers cannot exceed the rate limit.
+ * Direct to Nominatim each lookup also waits for the one before it to finish.
+ * Through the worker only the *start* is paced, so answers can overlap: 30
+ * stops no longer cost 30 round trips in a row.
+ */
 function enqueue(fn) {
-  const run = queue.then(async () => {
+  const started = queue.then(async () => {
     const wait = lastCall + MIN_GAP_MS - Date.now()
     if (wait > 0) await new Promise((r) => setTimeout(r, wait))
     lastCall = Date.now()
-    return fn()
+    return PROXY ? undefined : fn()
   })
   // Keep the chain alive even if one lookup rejects.
-  queue = run.catch(() => {})
-  return run
+  if (PROXY) {
+    queue = started.catch(() => {})
+    return started.then(fn)
+  }
+  queue = started.catch(() => {})
+  return started
 }
 
 /** Normalised shape, whichever backend answered. */
@@ -110,10 +123,8 @@ export async function geocode(query, context = '') {
  * coordinates so the caller can decide — we drop them rather than guessing.
  */
 export async function geocodeAll(places, context) {
-  const out = []
-  for (const place of places) {
-    const hit = await geocode(place.query, context)
-    out.push({ ...place, lat: hit?.lat ?? null, lng: hit?.lng ?? null })
-  }
-  return out
+  // All asked at once — enqueue() spaces their starts, and through the
+  // worker the answers overlap. Order of the results is the input's order.
+  const hits = await Promise.all(places.map((place) => geocode(place.query, context)))
+  return places.map((place, i) => ({ ...place, lat: hits[i]?.lat ?? null, lng: hits[i]?.lng ?? null }))
 }

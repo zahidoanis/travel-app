@@ -213,7 +213,7 @@ const toContents = (messages) =>
  * Streams a reply. Calls `onChunk(text)` for each delta and resolves with the
  * full text. Throws with a message (in the UI's language) the UI can show as-is.
  */
-export async function streamReply({ messages, system, searchContext, signal, onChunk, onFrame, fast = false, grounding = null, kind = 'other' }) {
+export async function streamReply({ messages, system, searchContext, signal, onChunk, onFrame, fast = false, grounding = null, kind = 'other', maxTokens = 4096 }) {
   const body = {
     contents: toContents(messages),
     systemInstruction: { parts: [{ text: system + LANGUAGE_OVERRIDE }] },
@@ -223,7 +223,7 @@ export async function streamReply({ messages, system, searchContext, signal, onC
       // ~1,300-1,500 thinking tokens left so little room that answers came
       // back cut off or empty — a day's plan "couldn't be parsed", an
       // import's enrichment stopped after 13 of 24 stops.
-      maxOutputTokens: 4096,
+      maxOutputTokens: maxTokens,
       // Structured jobs (a day's stops, hotel or restaurant rows) don't need
       // the model to deliberate first: measured on a day of Rome, minimal
       // thinking answered in ~5s with all 6 rows, vs 8-21s by default. The
@@ -276,7 +276,7 @@ export async function streamReply({ messages, system, searchContext, signal, onC
   // A model that doesn't take thinkingLevel (a fallback model, say) rejects
   // the whole request — ask again the ordinary way rather than fail.
   if (!res.ok && fast && res.status === 400) {
-    return streamReply({ messages, system, searchContext, signal, onChunk, onFrame, grounding, kind, fast: false })
+    return streamReply({ messages, system, searchContext, signal, onChunk, onFrame, grounding, kind, maxTokens, fast: false })
   }
   if (!res.ok) throw new Error(await describeError(res))
 
@@ -322,13 +322,14 @@ export async function streamReply({ messages, system, searchContext, signal, onC
  * of streaming it. For places that need the full text before they can render,
  * like parsing a list of suggestions.
  */
-export function complete({ prompt, system, signal, fast = true, kind = 'other' }) {
+export function complete({ prompt, system, signal, fast = true, kind = 'other', maxTokens }) {
   return streamReply({
     messages: [{ role: 'me', text: prompt }],
     system,
     signal,
     fast,
     kind,
+    maxTokens,
   })
 }
 

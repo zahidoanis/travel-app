@@ -71,6 +71,8 @@ function rowsFrom(data) {
       fallback: r.m['ai.workersai'] ?? 0,
       failed: r.m['ai.fail'] ?? 0,
       geo: r.m.geo ?? 0,
+      cache: r.m['ai.cache'] ?? 0,
+      up: Object.entries(r.m).filter(([k]) => k.startsWith('up.')),
     }
   })
 }
@@ -201,10 +203,29 @@ export default function Admin() {
 
   const rows = useMemo(() => (data ? rowsFrom(data) : []), [data])
   const today = rows.at(-1)
-  const ceiling = data ? data.keys * data.models * data.perKeyModel : 0
-  const pct = today && ceiling ? Math.round((today.ai / ceiling) * 100) : 0
-  const status = pct >= 85 ? 'critical' : pct >= 60 ? 'warning' : 'good'
-  const statusText = { good: 'תקין', warning: 'מתקרב לתקרה', critical: 'קרוב לתקרה' }[status]
+  // Free keys give 20 requests a day per model per Google *project*. How many
+  // projects the keys really span isn't knowable from here, so the page shows
+  // two bounds instead of one guess: every key in one project (models x 20),
+  // and every key in its own (keys x models x 20). The status is not a
+  // percentage of either — it comes from what actually happened today: a
+  // request that hit a spent quota, or had to fall back.
+  const floorCeil = data ? data.models * data.perKeyModel : 0
+  const topCeil = data ? data.keys * data.models * data.perKeyModel : 0
+  const status = today && (today.failed > 0 || today.fallback > 0) ? 'critical' : today && today.quotaHits > 0 ? 'warning' : 'good'
+  const statusText = { good: 'המכסה מספיקה', warning: 'פגיעות במכסה היום', critical: 'המכסה נגמרה' }[status]
+  // Which key/model pairs answered or ran dry, over the shown range.
+  const upstream = useMemo(() => {
+    const by = {}
+    for (const r of rows) for (const [k, n] of r.up) {
+      const [, idx, ...rest] = k.split('.')
+      const outcome = rest.pop()
+      const model = rest.join('.')
+      const id = `${idx}|${model}`
+      by[id] ??= { key: Number(idx) + 1, model, ok: 0, over: 0 }
+      by[id][outcome === 'ok' ? 'ok' : 'over'] += n
+    }
+    return Object.values(by).sort((a, b) => a.key - b.key || b.ok - a.ok)
+  }, [rows])
 
   const signIn = (e) => {
     e.preventDefault()
@@ -284,11 +305,11 @@ export default function Admin() {
               <span className="tiny">{today.aiUsers.toLocaleString()} משתמשים שונים</span>
             </div>
             <div className={`card admin-tile status-${status}`}>
-              <span className="tiny">מכסת AI היום</span>
-              <strong className="num">{pct}%</strong>
+              <span className="tiny">מצב המכסה היום</span>
+              <strong>{statusText}</strong>
               <span className="admin-status">
                 <span aria-hidden="true">{status === 'good' ? '●' : status === 'warning' ? '▲' : '■'}</span>
-                {statusText} · מתוך כ-{ceiling.toLocaleString()}
+                {today.quotaHits} פגיעות · {today.cache > 0 ? `${today.cache} מהמטמון` : 'בלי מטמון'}
               </span>
             </div>
           </section>
@@ -304,7 +325,7 @@ export default function Admin() {
           <section className="admin-charts">
             <BarChart rows={rows} field="visitors" title="מבקרים ייחודיים ביום" />
             <BarChart rows={rows} field="trips" title="טיולים חדשים ביום" />
-            <BarChart rows={rows} field="ai" title="בקשות AI ביום" reference={ceiling} referenceLabel={`תקרה ~${ceiling.toLocaleString()}`} />
+            <BarChart rows={rows} field="ai" title="בקשות AI ביום" reference={floorCeil} referenceLabel={`תקרה אם כל המפתחות בפרויקט אחד ~${floorCeil}`} />
           </section>
 
           {/* Today's AI by kind — magnitude across categories, one hue, labelled. */}
@@ -326,6 +347,32 @@ export default function Admin() {
               </ul>
             )}
             {today.maps > 0 && <p className="tiny" style={{ margin: '10px 0 0' }}>{today.maps} מהן עם נתוני Google Maps (דירוגי מסעדות).</p>}
+          </section>
+
+          {/* Which key and model each answer came from — to see whether the
+              keys really add quota or share one project's. */}
+          <section className="card admin-table-wrap">
+            <strong style={{ display: 'block', padding: '10px 8px 0' }}>תשובות לפי מפתח ומודל</strong>
+            {upstream.length === 0 ? (
+              <p className="tiny" style={{ padding: '8px' }}>עוד אין נתונים — יתחילו להצטבר מהבקשות הבאות.</p>
+            ) : (
+              <table className="admin-table">
+                <thead><tr><th>מפתח</th><th>מודל</th><th>תשובות</th><th>הגיע לתקרה</th></tr></thead>
+                <tbody>
+                  {upstream.map((u) => (
+                    <tr key={`${u.key}|${u.model}`}>
+                      <td className="num">{u.key}</td>
+                      <td><span dir="ltr">{u.model}</span></td>
+                      <td className="num"><strong>{u.ok}</strong></td>
+                      <td className="num">{u.over}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            <p className="tiny" style={{ padding: '4px 8px 10px', margin: 0 }}>
+              אם מפתחות שונים מגיעים כל אחד ל-20 תשובות במודל — הם בפרויקטים נפרדים, והתקרה גבוהה. אם כולם נעצרים יחד אחרי 20 — הם חולקים פרויקט אחד.
+            </p>
           </section>
 
           {/* The same numbers as a table — for reading exact values. */}
@@ -358,7 +405,7 @@ export default function Admin() {
 
           <p className="tiny admin-foot">
             הספירה התחילה ב-3.10.2026. "מבקר" הוא דפדפן (מזהה אקראי שנשמר בו), לא אדם — טלפון ומחשב של אותו אדם נספרים פעמיים.
-            התקרה היא הערכה: {data.keys} מפתחות × {data.models} מודלים × {data.perKeyModel} בקשות חינמיות ביום. השעון לפי שעון ישראל.
+            תקרה: {floorCeil} אם כל {data.keys} המפתחות באותו פרויקט, עד {topCeil.toLocaleString()} אם כל אחד בפרויקט נפרד ({data.models} מודלים × {data.perKeyModel} בקשות חינמיות ביום לכל פרויקט). השעון לפי שעון ישראל.
           </p>
         </>
       )}
