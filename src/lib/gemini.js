@@ -15,6 +15,7 @@
  */
 
 import { t, lang } from '../i18n'
+import { clientId } from './usage'
 
 /**
  * The prompts in this file (and the other AI prompts in the app) are written
@@ -212,7 +213,7 @@ const toContents = (messages) =>
  * Streams a reply. Calls `onChunk(text)` for each delta and resolves with the
  * full text. Throws with a message (in the UI's language) the UI can show as-is.
  */
-export async function streamReply({ messages, system, searchContext, signal, onChunk, onFrame, fast = false, grounding = null }) {
+export async function streamReply({ messages, system, searchContext, signal, onChunk, onFrame, fast = false, grounding = null, kind = 'other' }) {
   const body = {
     contents: toContents(messages),
     systemInstruction: { parts: [{ text: system + LANGUAGE_OVERRIDE }] },
@@ -258,6 +259,10 @@ export async function streamReply({ messages, system, searchContext, signal, onC
               model: MODEL,
               ...(searchContext ? { searchContext } : {}),
               ...(grounding ? { grounding: 'maps', ...(grounding.latLng ? { latLng: grounding.latLng } : {}) } : {}),
+              // For the admin page's daily counts: what this request was for,
+              // and a random per-browser id (never a name or an email).
+              kind,
+              client: clientId(),
             }
           : body
       ),
@@ -271,7 +276,7 @@ export async function streamReply({ messages, system, searchContext, signal, onC
   // A model that doesn't take thinkingLevel (a fallback model, say) rejects
   // the whole request — ask again the ordinary way rather than fail.
   if (!res.ok && fast && res.status === 400) {
-    return streamReply({ messages, system, searchContext, signal, onChunk, onFrame, grounding, fast: false })
+    return streamReply({ messages, system, searchContext, signal, onChunk, onFrame, grounding, kind, fast: false })
   }
   if (!res.ok) throw new Error(await describeError(res))
 
@@ -317,12 +322,13 @@ export async function streamReply({ messages, system, searchContext, signal, onC
  * of streaming it. For places that need the full text before they can render,
  * like parsing a list of suggestions.
  */
-export function complete({ prompt, system, signal, fast = true }) {
+export function complete({ prompt, system, signal, fast = true, kind = 'other' }) {
   return streamReply({
     messages: [{ role: 'me', text: prompt }],
     system,
     signal,
     fast,
+    kind,
   })
 }
 
@@ -343,13 +349,14 @@ const CURRENCY = { EUR: '€', USD: '$', GBP: '£', ILS: '₪', JPY: '¥' }
  * @returns {Promise<{ text: string, places: Array<{ title, uri, placeId,
  *   rating, reviews, price, address }> }>}
  */
-export async function completeWithMaps({ prompt, system, latLng, signal }, attempt = 1) {
+export async function completeWithMaps({ prompt, system, latLng, signal, kind = 'food' }, attempt = 1) {
   const frames = []
   const text = await streamReply({
     messages: [{ role: 'me', text: prompt }],
     system,
     signal,
     grounding: { latLng },
+    kind,
     onFrame: (j) => frames.push(j),
   })
 
@@ -357,7 +364,7 @@ export async function completeWithMaps({ prompt, system, latLng, signal }, attem
   // answer in four came back from its own memory with no Maps data at all
   // (measured on the free-tier model, 2026-10-03). One more try.
   const used = frames.some((f) => f.candidates?.[0]?.groundingMetadata?.groundingChunks?.length)
-  if (!used && attempt < 2) return completeWithMaps({ prompt, system, latLng, signal }, attempt + 1)
+  if (!used && attempt < 2) return completeWithMaps({ prompt, system, latLng, signal, kind }, attempt + 1)
 
   const places = []
   for (const f of frames) {

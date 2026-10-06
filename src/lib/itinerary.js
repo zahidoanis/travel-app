@@ -55,6 +55,7 @@ export async function buildItinerary({ trip, families, already = [], instruction
   // must not come back (other days, and this day's own stops on a retry).
   const ask = async (count, avoid, extra = '') => {
     const text = await complete({
+      kind: 'plan',
       signal,
       system:
         'אתה מתכנן מסלולי טיול. החזר אך ורק שורות בפורמט:\n' + // i18n-ignore — AI prompt; see gemini.js language override

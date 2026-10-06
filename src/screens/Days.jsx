@@ -161,6 +161,7 @@ export default function Days({ embedded = false, focusId = null, onFocusStop, ad
     if (ai && hasAI && /[֐-׿]/.test(name)) { // i18n-ignore — detects a Hebrew place name
       try {
         const local = (await complete({
+          kind: 'lookup',
           system:
             'החזר אך ורק את שם המקום בשפה המקומית או באנגלית כפי שהוא מופיע ב-OpenStreetMap. ' + // i18n-ignore — AI prompt
             'שורה אחת, בלי הסברים, בלי מירכאות.', // i18n-ignore
@@ -226,6 +227,7 @@ export default function Days({ embedded = false, focusId = null, onFocusStop, ad
     try {
       const already = stops.map((s) => s.name).join(', ') || 'אין עדיין' // i18n-ignore — AI prompt
       const text = await complete({
+        kind: 'suggest',
         system:
           'אתה מתכנן מסלולי טיול. החזר אך ורק שורות בפורמט:\n' + // i18n-ignore — AI prompt; see gemini.js language override
           'שעה | כתובת מלאה באנגלית בפורמט "Place, City, Country" | שם בעברית | קטגוריה | תיאור קצר\n' + // i18n-ignore

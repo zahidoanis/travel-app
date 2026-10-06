@@ -10,6 +10,7 @@ import { onUser, hasFirebase } from './lib/firebase'
 import { invitedTripId } from './lib/share'
 import { geocode } from './lib/geocode'
 import { importedStops, importSpan } from './lib/mapImport'
+import { hit } from './lib/usage'
 import { hasAI, systemPrompt, streamReply, OPENER_PROMPT } from './lib/gemini'
 import { fetchForecast, fetchClimateAverage } from './lib/weather'
 import { CITIES } from './cities'
@@ -397,6 +398,7 @@ export function TripProvider({ children }) {
             setRaw(joined)
             setJustJoined(true)
             setLoading(false)
+            hit('join')
             logActivity(joined.id, { type: 'join', message: t('{name} הצטרף/ה לטיול', { name: user?.name || t('מישהו') }) })
             history.replaceState(null, '', location.pathname)
             return
@@ -694,6 +696,7 @@ export function TripProvider({ children }) {
       await streamReply({
         messages: history,
         system,
+        kind: opener ? 'opener' : 'chat',
         searchContext: `${trip.city}, ${trip.country}`,
         signal: controller.signal,
         onChunk: (delta) => {
@@ -1117,6 +1120,7 @@ export function TripProvider({ children }) {
     setTrips((list) => [created, ...list.filter((x) => x.id !== id)])
     setSyncing(false)
     breadcrumb('lifecycle', `trip created: ${answers.destination}`)
+    hit(imported?.days?.length ? 'import' : 'trip')
   }
 
   /**

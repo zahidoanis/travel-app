@@ -92,6 +92,7 @@ export default function Restaurants() {
       // plain list, honestly labelled as unverified.
       try {
         const text = await complete({
+          kind: 'food',
           system:
             'אתה סוכן קולינרי. החזר אך ורק שורות בפורמט:\n' + // i18n-ignore — AI prompt
             'שם המסעדה באנגלית | אזור | סוג מטבח | טווח מחיר לסועד | משפט אחד למה כדאי\n' + // i18n-ignore

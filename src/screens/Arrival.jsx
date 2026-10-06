@@ -48,6 +48,7 @@ export default function Arrival() {
 
     try {
       const text = await complete({
+      kind: 'arrival',
         system:
           'אתה סוכן נסיעות מקומי. החזר אך ורק שורות בפורמט:\n' + // i18n-ignore — AI prompt; see gemini.js language override
           'אמצעי | זמן נסיעה משוער | טווח מחיר | משפט אחד עם טיפ מעשי\n' + // i18n-ignore
@@ -80,6 +81,7 @@ export default function Arrival() {
 
     try {
       const text = await complete({
+      kind: 'arrival',
         system:
           'אתה סוכן נסיעות מקומי. החזר אך ורק שורות בפורמט:\n' + // i18n-ignore
           'שם השירות | סוג | טווח מחיר להסעה משדה התעופה | משפט אחד למה מומלץ\n' + // i18n-ignore

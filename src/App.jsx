@@ -13,6 +13,8 @@ import Restaurants from './screens/Restaurants'
 import Arrival from './screens/Arrival'
 import Hotels from './screens/Hotels'
 import Summary from './screens/Summary'
+import Admin from './screens/Admin'
+import { hitOpenOnce } from './lib/usage'
 import { TripProvider, useTrip } from './TripProvider'
 import { PARTY_COLORS } from './data'
 import AccountSheet from './components/AccountSheet'
@@ -30,6 +32,9 @@ initTelemetry()
 if (hasFirebase) attachSink(pushDiagnostics)
 
 export default function App() {
+  // The operator's usage page — outside TripProvider, so opening it creates
+  // no anonymous account and isn't counted as a visit.
+  if (location.pathname.replace(/\/+$/, '') === '/admin') return <Admin />
   return (
     <TripProvider>
       <Shell />
@@ -44,6 +49,8 @@ function Shell() {
     profile, updateTrip, editStep, closeEdit,
   } = useTrip()
   const [tab, setTab] = useState('home')
+  // One "opened the app" per browser session, for the admin page's counts.
+  useEffect(() => { hitOpenOnce() }, [])
   // Which half of the route tab a phone shows — the list or the map. Kept
   // here so Home can open straight onto the map ("navigate to the next stop").
   const [routeView, setRouteView] = useState('list')

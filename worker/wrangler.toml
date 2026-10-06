@@ -26,3 +26,11 @@ ALLOWED_ORIGINS = "http://localhost:5173,http://localhost:4173,https://tripai-ap
 # Last-resort fallback when every Gemini key/model is out of quota.
 [ai]
 binding = "AI"
+
+# Daily usage counters for the admin page (/stats) — D1, Cloudflare's free
+# SQLite. Counts only: visits, trips, AI requests by kind and outcome. No IP
+# addresses or personal data; a "visitor" is a random id kept in the browser.
+[[d1_databases]]
+binding = "STATS"
+database_name = "tripai-stats"
+database_id = "b25930bd-d813-4eb7-82ff-4e42ddf39ac3"

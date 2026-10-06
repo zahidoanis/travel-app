@@ -65,15 +65,15 @@ function corsHeaders(request, env) {
 
   return {
     ...(ok ? { 'Access-Control-Allow-Origin': origin } : {}),
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Max-Age': '86400',
     Vary: 'Origin',
   }
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const cors = corsHeaders(request, env)
 
     if (request.method === 'OPTIONS') {
@@ -86,7 +86,50 @@ export default {
     // starts. Doing the lookup here satisfies their policy and gives us one
     // place to hold the contact address they ask for.
     const url = new URL(request.url)
+
+    // App events for the admin page's daily counts — "opened the app",
+    // "created a trip". Fire-and-forget from the browser; nothing identifying,
+    // the cid is a random id the browser made up for itself.
+    if (request.method === 'GET' && url.pathname === '/hit') {
+      const ev = url.searchParams.get('ev') ?? ''
+      if (EVENTS.has(ev)) {
+        count(env, ctx, 'app.' + ev)
+        if (ev === 'open') seen(env, ctx, 'app', url.searchParams.get('cid'))
+      }
+      return new Response(null, { status: 204, headers: cors })
+    }
+
+    // The admin page's data. Behind a password (the STATS_TOKEN secret),
+    // since it's on the same public worker as everything else.
+    if (request.method === 'GET' && url.pathname === '/stats') {
+      if (!env.STATS || !env.STATS_TOKEN || request.headers.get('Authorization') !== `Bearer ${env.STATS_TOKEN}`) {
+        return json({ error: { message: 'unauthorized' } }, 401, cors)
+      }
+      const days = Math.min(400, Math.max(1, Number(url.searchParams.get('days')) || 30))
+      const from = statsDay(Date.now() - (days - 1) * 86400000)
+      const [metrics, unique] = await Promise.all([
+        env.STATS.prepare('SELECT day, metric, n FROM stats WHERE day >= ?1').bind(from).all(),
+        env.STATS.prepare('SELECT day, kind, COUNT(*) AS n FROM seen WHERE day >= ?1 GROUP BY day, kind').bind(from).all(),
+      ])
+      return json(
+        {
+          from,
+          today: statsDay(),
+          metrics: metrics.results,
+          unique: unique.results,
+          // For the page's "estimated daily AI ceiling": 20 free requests a
+          // day per key per model (see the comment above FALLBACK_MODELS).
+          keys: geminiKeys(env).length,
+          models: 1 + FALLBACK_MODELS.length,
+          perKeyModel: 20,
+        },
+        200,
+        { ...cors, 'Cache-Control': 'no-store' }
+      )
+    }
+
     if (request.method === 'GET' && url.pathname === '/geocode') {
+      count(env, ctx, 'geo')
       const q = url.searchParams.get('q')
       if (!q) return json({ error: { message: 'missing q' } }, 400, cors)
 
@@ -155,6 +198,7 @@ export default {
     // Google Maps import. The browser can't read Google's KML export itself
     // (no CORS), so this fetches it and hands back plain JSON.
     if (request.method === 'GET' && url.pathname === '/mymap') {
+      count(env, ctx, 'import.map')
       const result = await importGoogleMap(url.searchParams.get('url') ?? '')
       return json(result.body, result.status, {
         ...cors,
@@ -237,6 +281,13 @@ export default {
     if (forwarded.contents.length === 0) {
       return json({ error: { message: 'No contents supplied' } }, 400, cors)
     }
+
+    // What this request was for (the app labels it: chat, plan, food…) and
+    // who asked — a random per-browser id, for "how many people used AI".
+    const kind = typeof body.kind === 'string' && /^[a-z]{2,12}$/.test(body.kind) ? body.kind : 'other'
+    count(env, ctx, 'ai.' + kind)
+    seen(env, ctx, 'ai', body.client)
+    if (grounded) count(env, ctx, 'ai.maps')
 
     // A question that genuinely needs live info ("what's the price tonight",
     // "is it open now") used to get an honest "I can't browse the internet" —
@@ -334,7 +385,7 @@ export default {
           }
         )
 
-        if (upstream.status === 429) { spent.set(tag, Date.now() + SPENT_MS); continue }
+        if (upstream.status === 429) { spent.set(tag, Date.now() + SPENT_MS); count(env, ctx, 'ai.429'); continue }
         if (RETRY.has(upstream.status)) { lastBadUpstream = upstream; break } // next model
         if (!upstream.ok) { lastBadUpstream = upstream; break outer } // a real bad request
 
@@ -355,6 +406,7 @@ export default {
     }
 
     if (goodText) {
+      count(env, ctx, 'ai.ok')
       return new Response(goodText, {
         headers: {
           ...cors,
@@ -371,6 +423,7 @@ export default {
     // Weaker Hebrew than Gemini, hence last.
     const fallback = grounded ? null : await viaWorkersAI(env, forwarded)
     if (fallback) {
+      count(env, ctx, 'ai.workersai')
       return new Response(fallback, {
         headers: {
           ...cors,
@@ -381,6 +434,7 @@ export default {
       })
     }
 
+    count(env, ctx, 'ai.fail')
     if (lastBadUpstream) {
       const text = await lastBadUpstream.text()
       return new Response(text, {
@@ -393,6 +447,37 @@ export default {
     // usable in it, and Workers AI had nothing either.
     return json({ error: { code: 502, message: 'no usable reply from any key, model, or fallback' } }, 502, cors)
   },
+}
+
+/* ---------- usage counters (D1, for the admin page) ---------- */
+
+/** The counting day, in Israel time — "today" means the same thing on the
+ *  admin page as it does to the person reading it. */
+const statsDay = (ms = Date.now()) => new Date(ms).toLocaleDateString('en-CA', { timeZone: 'Asia/Jerusalem' })
+
+/** Events the app may report on /hit; anything else is ignored. */
+const EVENTS = new Set(['open', 'trip', 'import', 'join'])
+
+/** +n to one counter for today. Never delays or fails the real request. */
+function count(env, ctx, metric, n = 1) {
+  if (!env.STATS) return
+  const done = env.STATS
+    .prepare('INSERT INTO stats (day, metric, n) VALUES (?1, ?2, ?3) ON CONFLICT(day, metric) DO UPDATE SET n = n + ?3')
+    .bind(statsDay(), metric, n)
+    .run()
+    .catch(() => {})
+  ctx?.waitUntil?.(done)
+}
+
+/** Remembers that this random browser id was seen today (for unique counts). */
+function seen(env, ctx, kind, cid) {
+  if (!env.STATS || typeof cid !== 'string' || !/^[a-z0-9-]{8,64}$/i.test(cid)) return
+  const done = env.STATS
+    .prepare('INSERT OR IGNORE INTO seen (day, kind, cid) VALUES (?1, ?2, ?3)')
+    .bind(statsDay(), kind, cid)
+    .run()
+    .catch(() => {})
+  ctx?.waitUntil?.(done)
 }
 
 /** GEMINI_API_KEY, then GEMINI_API_KEY_2 … _8 — whichever are set. */

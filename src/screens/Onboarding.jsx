@@ -301,6 +301,7 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
 
     try {
       const text = await complete({
+      kind: 'hotels',
         system:
           'אתה סוכן נסיעות. החזר אך ורק שורות בפורמט: שם | אזור | טווח מחיר ללילה | משפט אחד למה מתאים. ' + // i18n-ignore — AI prompt; see gemini.js language override
           'בלי כותרות, בלי מספור, בלי טקסט נוסף. בדיוק 4 שורות. הכל בעברית פרט לשם המלון.', // i18n-ignore
