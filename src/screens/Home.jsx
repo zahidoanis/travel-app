@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import TopBar from '../components/TopBar'
 import ShareSheet from '../components/ShareSheet'
 import {
-  ArrowLeft, Share, Users, RefreshCw, Utensils, Cloud, Plane, Note, Layers, Bed, Printer, Plus,
+  ArrowLeft, Share, Images, Users, RefreshCw, Utensils, Cloud, Plane, Note, Layers, Bed, Printer, Plus,
 } from '../components/Icons'
 import { useTrip } from '../TripProvider'
 import PlacePhoto from '../components/PlacePhoto'
@@ -51,7 +51,7 @@ const TOD_TINT = {
 }
 
 
-export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood, onOpenArrival, onOpenHotels, onOpenSummary }) {
+export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood, onOpenArrival, onOpenHotels, onOpenSummary, onOpenJournal }) {
   const {
     trip: TRIP, stops: STOPS, families: FAMILIES, activeFamily, switchFamily,
     planning, planWarning, plan, syncState, planningDay,
@@ -181,7 +181,7 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
     { Icon: Plane, label: t('הגעה'), onClick: onOpenArrival },
     { Icon: Bed, label: t('מלונות'), onClick: onOpenHotels },
     { Icon: Printer, label: t('סיכום להדפסה'), onClick: onOpenSummary },
-    { Icon: Share, label: t('שתף טיול'), onClick: () => setShareOpen(true) },
+    { Icon: Images, label: t('יומן הטיול'), onClick: onOpenJournal },
     { Icon: Layers, label: t('הטיולים שלי'), onClick: openAccount },
   ]
 

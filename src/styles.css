@@ -2226,3 +2226,33 @@ a.contact-row:hover { background: var(--tint-2); color: var(--text); }
   font-size: 12.5px; color: var(--text-2);
 }
 .stop-leg-km { color: var(--muted); }
+
+/* ---------- Trip journal ---------- */
+.journal-summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 16px; padding: 12px 14px; }
+.journal-stats { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--text-2); }
+.journal-stats strong { font-size: 17px; color: var(--text); margin-inline-end: 3px; }
+.journal-entry { padding: 12px; }
+.journal-photos { display: grid; gap: 4px; border-radius: var(--r-md); overflow: hidden; margin-bottom: 10px; }
+.journal-photos.n1 { grid-template-columns: 1fr; }
+.journal-photos.n2, .journal-photos.n4 { grid-template-columns: 1fr 1fr; }
+.journal-photos.n3 { grid-template-columns: 1fr 1fr; }
+.journal-photos.n3 > :first-child { grid-column: 1 / -1; }
+.journal-photo { display: block; position: relative; aspect-ratio: 4 / 3; padding: 0; overflow: hidden; background: var(--sunken); border-radius: 0; }
+.journal-photos.n1 .journal-photo { aspect-ratio: 16 / 10; }
+.journal-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.journal-note { margin: 0 0 8px; font-size: 14.5px; line-height: 1.7; white-space: pre-wrap; }
+.journal-actions { gap: 2px; margin-top: 2px; }
+.journal-picked { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.journal-picked-item { position: relative; width: 84px; flex: none; }
+.journal-picked-item .journal-photo { aspect-ratio: 1; border-radius: var(--r-sm); }
+.journal-x {
+  position: absolute; inset-block-start: -6px; inset-inline-end: -6px; width: 26px; height: 26px; border-radius: 50%;
+  display: grid; place-items: center; color: #fff; background: #2B2124; border: 2px solid var(--card);
+}
+.journal-add {
+  width: 84px; height: 84px; flex: none; border-radius: var(--r-sm);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  font-size: 11.5px; font-weight: 600; color: var(--lav);
+  background: var(--gold-soft); border: 1.5px dashed rgba(201, 164, 92, 0.6);
+}
+.journal-big { width: 100%; max-height: 70dvh; object-fit: contain; border-radius: var(--r-md); display: block; }

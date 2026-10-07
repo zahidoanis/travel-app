@@ -13,6 +13,7 @@ import Restaurants from './screens/Restaurants'
 import Arrival from './screens/Arrival'
 import Hotels from './screens/Hotels'
 import Summary from './screens/Summary'
+import Journal from './screens/Journal'
 import Admin from './screens/Admin'
 import { hitOpenOnce } from './lib/usage'
 import { TripProvider, useTrip } from './TripProvider'
@@ -238,6 +239,7 @@ function Shell() {
                     onOpenArrival={() => go('arrival')}
                     onOpenHotels={() => go('hotels')}
                     onOpenSummary={() => go('summary')}
+                    onOpenJournal={() => go('journal')}
                   />
                 )}
                 {tab === 'chat' && <Chat />}
@@ -248,6 +250,7 @@ function Shell() {
                 {tab === 'arrival' && <Arrival />}
                 {tab === 'hotels' && <Hotels />}
                 {tab === 'summary' && <Summary />}
+                {tab === 'journal' && <Journal />}
               </ErrorBoundary>
             </div>
 

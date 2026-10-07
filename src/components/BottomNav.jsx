@@ -1,4 +1,4 @@
-import { HomeIcon, AiSpark, Wallet, Route, Utensils, Plane, Bed, Layers, Printer, Ticket } from './Icons'
+import { HomeIcon, AiSpark, Wallet, Route, Utensils, Plane, Bed, Layers, Printer, Ticket, Images } from './Icons'
 import { t } from '../i18n'
 
 /** The desktop rail shows everything; the bottom bar keeps a subset.
@@ -9,6 +9,7 @@ export const RAIL_ONLY = [
   { id: 'food', label: t('מסעדות'), Icon: Utensils },
   { id: 'arrival', label: t('הגעה'), Icon: Plane },
   { id: 'hotels', label: t('מלונות'), Icon: Bed },
+  { id: 'journal', label: t('יומן הטיול'), Icon: Images },
   { id: 'summary', label: t('סיכום להדפסה'), Icon: Printer },
   { id: 'trips', label: t('הטיולים שלי'), Icon: Layers },
 ]
