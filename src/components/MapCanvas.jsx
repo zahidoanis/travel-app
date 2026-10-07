@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { categoryOf } from '../data'
 import { buildStaticMapUrl, hasMapsKey } from '../lib/staticMap'
 import { PROVIDERS, TILE_SIZE, project, tileRange, tilesIn } from '../lib/tiles'
+import { segments } from '../lib/track'
 import { t } from '../i18n'
 
 /**
@@ -76,7 +77,7 @@ function routePath(pts) {
 
 export default function MapCanvas({
   stops, activeId, onPinClick, provider = 'osm', hotels = [], people = [],
-  myLocation, locateSignal,
+  myLocation, locateSignal, track = [],
 }) {
   const active = stops.find((s) => s.id === activeId) ?? stops[0]
   const src = PROVIDERS[provider] ?? PROVIDERS.osm
@@ -213,6 +214,22 @@ export default function MapCanvas({
       return { ...h, x: HALF + (p.x - anchor.x), y: HALF + (p.y - anchor.y) }
     })
 
+  // The route actually walked: each stretch (a pause ends one) as a polyline,
+  // thinned so a day of fixes is a few hundred vertices, not thousands.
+  const walked = segments(track)
+    .map((seg) => {
+      const pts = []
+      for (const [lat, lng] of seg) {
+        const p = project(lat, lng, z)
+        const x = HALF + (p.x - anchor.x)
+        const y = HALF + (p.y - anchor.y)
+        const last = pts.at(-1)
+        if (!last || Math.abs(x - last[0]) + Math.abs(y - last[1]) > 3) pts.push([x, y])
+      }
+      return pts
+    })
+    .filter((pts) => pts.length > 1)
+
   const myLocationLocal =
     myLocation?.lat != null && myLocation?.lng != null
       ? (() => {
@@ -324,6 +341,18 @@ export default function MapCanvas({
               <feDropShadow dx="0" dy="3" stdDeviation="4" floodColor="#0A0A16" floodOpacity="0.28" />
             </filter>
           </defs>
+
+          {/* Beneath everything else: where we really went. A white edge keeps
+              it readable over any tile colour. */}
+          {walked.map((pts, i) => {
+            const d = `M ${pts.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join(' L ')}`
+            return (
+              <g key={i} fill="none" strokeLinecap="round" strokeLinejoin="round">
+                <path d={d} stroke="#fff" strokeWidth="8" opacity="0.9" />
+                <path d={d} stroke="#0D7C86" strokeWidth="4.5" />
+              </g>
+            )
+          })}
 
           <path d={routePath(local)} stroke="var(--accent)" strokeWidth="10" fill="none"
                 strokeLinecap="round" opacity="0.22" filter="url(#glow)" />

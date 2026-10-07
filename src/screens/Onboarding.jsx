@@ -59,7 +59,7 @@ const STEPS = [
   {
     id: 'who',
     title: t('מי מטייל?'),
-    sub: t('שם המשפחה וכמות הנוסעים. כך אפשר לחלק את הלו"ז והוצאות לפי משפחה.'),
+    sub: t('כמה אתם — ואם נוסעות כמה משפחות יחד, כל אחת תקבל לו"ז והוצאות משלה.'),
     valid: (a) =>
       a.parties.length > 0 &&
       a.parties.every((p) => (a.parties.length === 1 || p.name.trim()) && p.members.length > 0),
@@ -96,6 +96,16 @@ const STEPS = [
   },
 ]
 
+/**
+ * A first-time trip asks only what the itinerary needs — where, when, the
+ * kind of trip, who — and gets to the plan. Food, flight and the hotel
+ * used to be steps 5-7 before anything appeared; they're now offered on
+ * Home afterwards ("השלימו את הטיול"), each opening this same wizard on
+ * its own step. Editing an existing trip still walks all seven.
+ */
+const FIRST_RUN = ['where', 'when', 'style', 'who']
+const FIRST_STEPS = STEPS.filter((s) => FIRST_RUN.includes(s.id))
+
 const today = todayISO()
 
 /**
@@ -116,9 +126,9 @@ const readDraft = () => {
 
 export default function Onboarding({ onDone, initial, startAt, editMode = false, onClose }) {
   const [step, setStepState] = useState(() => {
-    if (!editMode) return Math.min(readDraft()?.step ?? 0, STEPS.length - 1)
+    if (!editMode) return Math.min(readDraft()?.step ?? 0, FIRST_STEPS.length - 1)
     if (!startAt) return 0
-    const i = STEPS.findIndex((s) => s.id === startAt)
+    const i = (editMode ? STEPS : FIRST_STEPS).findIndex((s) => s.id === startAt)
     return i >= 0 ? i : 0
   })
 
@@ -140,7 +150,7 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
   useEffect(() => {
     if (editMode) return
     if (history.state?.onboardingStep !== step) history.replaceState({ ...history.state, onboardingStep: step }, '')
-    const onPop = (e) => setStepState(Math.min(e.state?.onboardingStep ?? 0, STEPS.length - 1))
+    const onPop = (e) => setStepState(Math.min(e.state?.onboardingStep ?? 0, FIRST_STEPS.length - 1))
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -340,7 +350,8 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
         },
       ],
     })
-  const current = STEPS[step]
+  const steps = editMode ? STEPS : FIRST_STEPS
+  const current = steps[step]
   const canAdvance = current.valid(answers)
 
   const nights = useMemo(() => {
@@ -369,6 +380,7 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
 
     try {
       const text = await complete({
+      kind: 'hotels',
         system:
           'אתה סוכן נסיעות. החזר אך ורק שורות בפורמט: שם | אזור | טווח מחיר ללילה | משפט אחד למה מתאים. ' + // i18n-ignore — AI prompt; see gemini.js language override
           'בלי כותרות, בלי מספור, בלי טקסט נוסף. בדיוק 4 שורות. הכל בעברית פרט לשם המלון.', // i18n-ignore
@@ -419,7 +431,7 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
 
   const next = async () => {
     if (!canAdvance || finishing) return
-    if (step < STEPS.length - 1) return setStep(step + 1)
+    if (step < steps.length - 1) return setStep(step + 1)
     // Creating an imported trip waits on the agent filling in times for
     // every stop — several seconds with nothing to show otherwise.
     setFinishing(true)
@@ -478,7 +490,7 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
             ) : (
               <span className="tiny" style={{ fontWeight: 500 }}>
                 {t('שלב')} <span className="num">{step + 1}</span> {t('מתוך')}{' '}
-                <span className="num">{STEPS.length}</span>
+                <span className="num">{steps.length}</span>
               </span>
             )}
           </div>
@@ -500,7 +512,7 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
             </nav>
           ) : (
             <div className="progress">
-              <i style={{ width: `${((step + 1) / STEPS.length) * 100}%` }} />
+              <i style={{ width: `${((step + 1) / steps.length) * 100}%` }} />
             </div>
           )}
         </header>
@@ -634,6 +646,26 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
 
           {current.id === 'when' && (
             <>
+              {/* The quick lengths come first — tapping "5 nights" is the
+                  fastest way to fill the calendar below, and they used to sit
+                  under it, past two flight-time fields. */}
+              <span className="label">{t('כמה זמן?')}</span>
+              <div className="pills" style={{ marginBottom: 14 }}>
+                {[3, 5, 7, 10].map((d) => {
+                  const start = answers.from || today
+                  const iso = addDaysISO(start, d)
+                  return (
+                    <button
+                      key={d}
+                      className={`pill ${answers.from && answers.to === iso ? 'on' : ''}`}
+                      onClick={() => set({ from: start, to: iso })}
+                    >
+                      <span className="num">{d}</span> {t('לילות')}
+                    </button>
+                  )
+                })}
+              </div>
+
               <DateRangeCalendar
                 from={answers.from}
                 to={answers.to}
@@ -644,59 +676,19 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                 onChange={({ from, to }) => set({ from, to })}
               />
 
-              <div className="date-grid" style={{ marginTop: 14 }}>
-                <label className="date-cell">
-                  <span className="label">{t('שעת המראה')}</span>
-                  <select
-                    className="field"
-                    value={answers.departTime}
-                    onChange={(e) => set({ departTime: e.target.value })}
-                    aria-label={t('שעת המראה ביציאה')}
-                  >
-                    <option value="">{t('בחר שעה')}</option>
-                    {TIME_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
-                  </select>
-                </label>
-                <label className="date-cell">
-                  <span className="label">{t('שעת המראה בחזרה')}</span>
-                  <select
-                    className="field"
-                    value={answers.returnTime}
-                    onChange={(e) => set({ returnTime: e.target.value })}
-                    aria-label={t('שעת המראה בחזרה')}
-                  >
-                    <option value="">{t('בחר שעה')}</option>
-                    {TIME_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
-                  </select>
-                </label>
-              </div>
-
-              <div className={`range-summary ${nights > 0 ? 'on' : ''}`}>
-                <Calendar size={17} />
+              {/* A line of text, not a box — it used to look like a field
+                  you could type into. */}
+              <p className={`range-summary ${nights > 0 ? 'on' : ''}`} aria-live="polite">
+                <Calendar size={16} />
                 {nights > 0 ? (
                   <span>
                     <strong className="num">{nights}</strong> {tn(nights, 'לילה', 'לילות')} ·{' '}
                     <strong className="num">{nights + 1}</strong> {tn(nights + 1, 'יום טיול', 'ימי טיול')}
                   </span>
                 ) : (
-                  <span className="tiny">{t('בחר תאריך יציאה וחזרה')}</span>
+                  <span>{answers.from ? t('עכשיו בחר את תאריך החזרה') : t('בחר תאריך יציאה וחזרה')}</span>
                 )}
-              </div>
-
-              <div className="pills" style={{ marginTop: 18 }}>
-                {[3, 5, 7, 10].map((d) => (
-                  <button
-                    key={d}
-                    className="pill"
-                    onClick={() => {
-                      const start = answers.from || today
-                      set({ from: start, to: addDaysISO(start, d) })
-                    }}
-                  >
-                    <span className="num">{d}</span> {t('לילות')}
-                  </button>
-                ))}
-              </div>
+              </p>
             </>
           )}
 
@@ -929,9 +921,8 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
               <div className="range-summary on" style={{ marginTop: 16 }}>
                 <Users size={17} />
                 <span>
-                  <strong className="num">{travellers}</strong> {tn(travellers, 'נוסע ב-', 'נוסעים ב-')}
-                  <strong className="num">{answers.parties.length}</strong>{" "}
-                  {answers.parties.length === 1 ? t('משפחה') : t('משפחות')}
+                  {travellers === 1 ? t('נוסע אחד') : t('{n} נוסעים', { n: travellers })}
+                  {answers.parties.length > 1 && <> · {t('{n} משפחות', { n: answers.parties.length })}</>}
                 </span>
               </div>
             </>
@@ -972,7 +963,7 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                     className="field"
                     value={answers.flight.airline}
                     onChange={(e) => setFlight({ airline: e.target.value })}
-                    placeholder="El Al / Wizz Air"
+                    placeholder={t('למשל: אל על')}
                     aria-label={t('חברת תעופה')}
                   />
                 </label>
@@ -982,7 +973,7 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                     className="field ltr"
                     value={answers.flight.number}
                     onChange={(e) => setFlight({ number: e.target.value.toUpperCase() })}
-                    placeholder="LY381"
+                    placeholder={t('למשל: LY381')}
                     aria-label={t('מספר טיסה')}
                   />
                 </label>
@@ -998,6 +989,33 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
                   aria-label={t('שדה תעופה בהגעה')}
                 />
               </label>
+
+              {/* Moved here from the dates step, where they sat between the
+                  calendar and the trip length as if they were required. */}
+              <div className="date-grid" style={{ marginTop: 12 }}>
+                <label className="date-cell">
+                  <span className="label">{t('שעת המראה ביציאה')}</span>
+                  <select
+                    className="field"
+                    value={answers.departTime}
+                    onChange={(e) => set({ departTime: e.target.value })}
+                  >
+                    <option value="">{t('לא ידוע עדיין')}</option>
+                    {TIME_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                  </select>
+                </label>
+                <label className="date-cell">
+                  <span className="label">{t('שעת המראה בחזרה')}</span>
+                  <select
+                    className="field"
+                    value={answers.returnTime}
+                    onChange={(e) => set({ returnTime: e.target.value })}
+                  >
+                    <option value="">{t('לא ידוע עדיין')}</option>
+                    {TIME_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                  </select>
+                </label>
+              </div>
 
               <div className="card" style={{ marginTop: 18, background: 'var(--sunken)' }}>
                 <div className="row" style={{ alignItems: 'flex-start', gap: 9 }}>
@@ -1266,7 +1284,7 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
           <button className="btn btn-primary btn-block" onClick={next} disabled={!canAdvance || finishing}>
             {finishing
               ? (answers.imported ? t('מייבא את המסלול…') : t('יוצר את הטיול…'))
-              : step < STEPS.length - 1 ? t('הבא') : t('בוא נתחיל')}
+              : step < steps.length - 1 ? t('הבא') : t('בנו לי את המסלול')}
             {!finishing && <ArrowLeft size={18} />}
           </button>
         )}

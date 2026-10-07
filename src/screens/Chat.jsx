@@ -4,7 +4,7 @@ import PlaceSheet from '../components/PlaceSheet'
 import PlacePhoto from '../components/PlacePhoto'
 import Sheet from '../components/Sheet'
 import { normaliseCategory } from '../lib/itinerary'
-import { AlertTriangle, Bookmark, Bot, MapPin, Mic, Plus, Send, X } from '../components/Icons'
+import { AlertTriangle, Bookmark, Bot, Link, MapPin, Mic, Plus, Send, X } from '../components/Icons'
 import { useTrip } from '../TripProvider'
 import { hasAI } from '../lib/gemini'
 import { useSpeech } from '../lib/speech'
@@ -24,40 +24,52 @@ import { t } from '../i18n'
 // Country]] (see systemPrompt): it becomes a button that opens the place on
 // a map, ready to add to a day.
 //
-// A bare link is shown as the name of the site it goes to ("Google Maps ↗"),
-// not as the address itself: a 150-character booking URL broke across four
-// lines of the bubble and read as noise.
-const LINK_RE = /\[\[([^\]|]+)\|([^\]]+)\]\]|\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s]+[^\s.,;:!?)\]'"])/g
+// Every web link renders as a short labelled chip, never the raw address —
+// a full Viator URL (150 characters of tracking parameters) read as noise
+// on a desktop, and a tour the model wrapped as a [[place]] opened the
+// map instead of the booking page on a phone.
+const LINK_RE = /\[\[([^\]|]+)\|([^\]]+)\]\]|\[([^\]]+)\]\((https?:\/\/[^)]+)\)|(https?:\/\/[^\s<>"]+)/g
 
-//
+const isUrl = (s) => /^https?:\/\//i.test(s)
+/** Spaces cut a link in half; Viator's URLs have been seen to carry them. */
+const cleanUrl = (u) => u.trim().replace(/ /g, '%20')
+/** A bare URL picks up the sentence's punctuation — "(…?x=1)." */
+const trimUrl = (u) => u.replace(/[).,;:!?'"»]+$/, '')
+
 // Each pattern pins the whole registrable domain, ending at the end of the
-// host. A pattern like /google\.[a-z.]+$/ used to accept
-// "google.com.evil.example" and label it "Google Maps" — a convincing
-// phishing link, and the model's output can be steered by web results or an
-// imported map's text.
+// host. A pattern like /google\.[a-z.]+$/ accepts "google.com.evil.example"
+// and labels it "Google Maps" — a convincing phishing link, and the model's
+// output can be steered by web results or an imported map's text.
 const COUNTRY = '[a-z]{2}'
-const SITES = [
-  [new RegExp(`(^|\\.)google\\.(com|com\\.${COUNTRY}|co\\.${COUNTRY}|${COUNTRY})$`), (u) => (u.pathname.startsWith('/maps') ? 'Google Maps' : 'Google')],
-  [/(^|\.)viator\.com$/, () => 'Viator'],
-  [new RegExp(`(^|\\.)getyourguide\\.(com|${COUNTRY}|co\\.${COUNTRY})$`), () => 'GetYourGuide'],
-  [/(^|\.)booking\.com$/, () => 'Booking.com'],
-  [new RegExp(`(^|\\.)tripadvisor\\.(com|${COUNTRY}|co\\.${COUNTRY}|com\\.${COUNTRY})$`), () => 'Tripadvisor'],
-  [/(^|\.)wikipedia\.org$/, () => 'Wikipedia'],
-]
+const GOOGLE = new RegExp(`(^|\\.)google\\.(com|com\\.${COUNTRY}|co\\.${COUNTRY}|${COUNTRY})$`)
 
 const hostOf = (href) => {
-  try { return new URL(href).hostname.replace(/^www\./, '') } catch { return href }
+  try { return new URL(href).hostname.replace(/^www\./, '') } catch { return '' }
 }
 
-/** "Google Maps", "Viator", or else the bare host — what a link is, in a word. */
-function siteName(href) {
+/** Where a link goes, in a few words — for a bare URL with no label. */
+function linkLabel(url) {
   try {
-    const u = new URL(href)
-    const host = u.hostname.replace(/^www\./, '')
-    return SITES.find(([re]) => re.test(host))?.[1](u) ?? host
+    const host = new URL(url).hostname.replace(/^www\./, '')
+    if (/(^|\.)viator\.com$/.test(host)) return t('הזמנה ב-Viator')
+    if (GOOGLE.test(host) || host === 'maps.app.goo.gl') return 'Google Maps'
+    return host
   } catch {
-    return href
+    return t('קישור')
   }
+}
+
+/** `named`: the label is the model's own words, so the real host follows
+ *  it — "[Booking.com](evil.example)" used to show only "Booking.com". */
+function ExtLink({ url, label, named = false }) {
+  const host = named ? hostOf(url) : ''
+  return (
+    <a className="ext-link" href={url} target="_blank" rel="noopener noreferrer" title={url}>
+      <Link size={12} />
+      {label}
+      {host && !label.toLowerCase().includes(host.toLowerCase()) ? <span className="link-host"> ({host})</span> : null}
+    </a>
+  )
 }
 
 function linkify(text, onPlace) {
@@ -68,24 +80,22 @@ function linkify(text, onPlace) {
   for (let m = LINK_RE.exec(text); m; m = LINK_RE.exec(text)) {
     if (m.index > last) nodes.push(text.slice(last, m.index))
     const [, placeLabel, placeQuery, label, mdUrl, bareUrl] = m
-    if (placeLabel) {
+    if (placeLabel && isUrl(placeQuery.trim())) {
+      // A bookable tour written in place syntax — it's a link, not a pin.
+      nodes.push(<ExtLink key={key++} url={cleanUrl(placeQuery)} label={placeLabel.trim()} named />)
+    } else if (placeLabel) {
       const place = { label: placeLabel.trim(), query: placeQuery.trim() }
       nodes.push(
         <button key={key++} className="place-link" onClick={() => onPlace(place)}>
           <MapPin size={12} />{place.label}
         </button>
       )
+    } else if (mdUrl) {
+      nodes.push(<ExtLink key={key++} url={cleanUrl(mdUrl)} label={label.trim()} named />)
     } else {
-      const url = mdUrl ?? bareUrl
-      nodes.push(
-        <a key={key++} href={url} target="_blank" rel="noopener noreferrer" title={url} className="chat-link">
-          {/* A label the model chose is followed by where the link really
-              goes: "[Booking.com](evil.example)" used to show only
-              "Booking.com". */}
-          {label ? <>{label} <span className="link-host">({hostOf(url)})</span></> : siteName(url)}
-          <span aria-hidden="true"> ↗</span>
-        </a>
-      )
+      const url = trimUrl(bareUrl)
+      nodes.push(<ExtLink key={key++} url={url} label={linkLabel(url)} />)
+      if (bareUrl.length > url.length) nodes.push(bareUrl.slice(url.length))
     }
     last = LINK_RE.lastIndex
   }
@@ -103,6 +113,7 @@ function PlaceCards({ text, onOpen }) {
   const places = []
   for (const m of text.matchAll(/\[\[([^\]|]+)\|([^\]]+)\]\]/g)) {
     const place = { label: m[1].trim(), query: m[2].trim() }
+    if (isUrl(place.query)) continue // a tour's booking link, not a place
     if (!places.some((p) => p.query === place.query)) places.push(place)
   }
   if (places.length === 0) return null
@@ -295,7 +306,8 @@ export default function Chat() {
       </div>
 
       <div className="chat-bar glass">
-
+        {/* The paperclip that sat here attached nothing — a button that
+            does nothing reads as broken, so it's gone until attaching is real. */}
         <input
           value={shown}
           onChange={(e) => setDraft(e.target.value)}

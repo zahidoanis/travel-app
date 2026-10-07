@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { PARTY_COLORS, memberName, memberAge } from './data'
-import { buildItinerary, normaliseCategory } from './lib/itinerary'
+import { buildItinerary, buildItineraryDays, DAYS_PER_REQUEST, normaliseCategory } from './lib/itinerary'
 import {
   loadProfile, saveProfile, createTrip, loadTrip, saveTrip, listTrips, joinTrip,
   listRoutes, saveRoute, watchRoutes, deleteTrip, logActivity, watchActivity,
@@ -14,6 +14,8 @@ import { onUser, hasFirebase, currentUser } from './lib/firebase'
 import { invitedTripId, invitedToken, invitedRole } from './lib/share'
 import { geocode, geocodeNear } from './lib/geocode'
 import { importedStops, importSpan } from './lib/mapImport'
+import { hit } from './lib/usage'
+import { loadTrack, saveTrack, clearTrack, appendFix } from './lib/track'
 import { hasAI, systemPrompt, streamReply, OPENER_PROMPT } from './lib/gemini'
 import { fetchForecast, fetchClimateAverage } from './lib/weather'
 import { CITIES } from './cities'
@@ -261,6 +263,13 @@ export function TripProvider({ children }) {
   const [sharedRoutes, setSharedRoutes] = useState({})
   const [activeDay, setActiveDay] = useState(1)
   const [planning, setPlanning] = useState(false)
+  // Planning the whole trip runs day by day: the days still waiting, and
+  // the one being built this moment — so each screen can say "day 3 is
+  // next" instead of an empty day looking simply empty.
+  const [planQueue, setPlanQueue] = useState([])
+  const [planningDay, setPlanningDay] = useState(null)
+  const planningRef = useRef(false)
+  const tripIdRef = useRef(null)
   const [planWarning, setPlanWarning] = useState(null)
   const [syncing, setSyncing] = useState(false)
   const [skipWelcome, setSkipWelcome] = useState(false)
@@ -497,6 +506,7 @@ export function TripProvider({ children }) {
             setLoading(false)
             if (!joined.alreadyMember) {
               setJustJoined(true)
+              hit('join')
               // Viewers cannot write to the activity feed.
               if (role !== 'viewer') {
                 const me = await currentUser()
@@ -721,12 +731,15 @@ export function TripProvider({ children }) {
             continue
           }
         }
-        for (const day of wanted) {
-          const r = await plan(day, { instructions: parts[1] ?? '' })
-          const why = r.warning === 'busy' ? ` — ${t('עדיין באמצע תכנון, נסו שוב עוד רגע')}` : r.warning ? ` — ${r.warning}` : ''
-          report.push(r.ok
-            ? `✓ ${t('בניתי מחדש את יום {day} ({n} עצירות)', { day, n: r.count })}`
-            : `✗ ${t('לא הצלחתי לבנות את יום {day}', { day })}${why}`)
+        // One run for all of them, so day 3 knows what day 2 just got.
+        const run = await planDays(wanted, { instructions: parts[1] ?? '' })
+        if (run.warning === 'busy') {
+          report.push(`✗ ${t('עדיין באמצע תכנון, נסו שוב עוד רגע')}`)
+        }
+        for (const r of run.results) {
+          report.push(r.count > 0
+            ? `✓ ${t('בניתי מחדש את יום {day} ({n} עצירות)', { day: r.day, n: r.count })}`
+            : `✗ ${t('לא הצלחתי לבנות את יום {day}', { day: r.day })}${r.warning ? ` — ${r.warning}` : ''}`)
         }
       }
 
@@ -891,7 +904,11 @@ export function TripProvider({ children }) {
       ? await fetchTripWeather(trip).catch(() => null)
       : null
 
-    const system = systemPrompt({ trip, stops, days, families, memory: trip.memory, weather })
+    // The user's own clock, not the destination's: before the trip they're
+    // at home, and once there a phone's clock has moved to local time anyway.
+    // The opener once said "good morning" at 18:45 for a trip weeks out.
+    const userTime = new Date().toTimeString().slice(0, 5)
+    const system = systemPrompt({ trip, stops, days, families, memory: trip.memory, weather, userTime })
 
     try {
       // Streamed onto the screen as it arrives — waiting 6-12 seconds on
@@ -903,6 +920,7 @@ export function TripProvider({ children }) {
       await streamReply({
         messages: history,
         system,
+        kind: opener ? 'opener' : 'chat',
         searchContext: `${trip.city}, ${trip.country}`,
         search: !opener,
         signal: controller.signal,
@@ -1082,77 +1100,218 @@ export function TripProvider({ children }) {
     return () => navigator.geolocation.clearWatch(id)
   }, [sharingLocation, trip?.id, user?.uid])
 
-  // Generate the current day only when nothing is stored for it — for
-  // whichever family is active, since switching to a family that hasn't
-  // planned yet is exactly the same "nothing stored" situation as opening
-  // the trip for the first time.
+  /* ---- the route actually walked (GPS), kept on this device only ---- */
+  const recordKey = trip ? `tripai.recordTrack.${trip.id}` : null
+  const [recording, setRecording] = useState(false)
+  const [trackPoints, setTrackPoints] = useState([])
+  const [trackError, setTrackError] = useState(null)
+  const trackRef = useRef([])
+
+  useEffect(() => {
+    const pts = trip ? loadTrack(trip.id) : []
+    trackRef.current = pts
+    setTrackPoints(pts)
+    setRecording(recordKey ? localStorage.getItem(recordKey) === '1' : false)
+    setTrackError(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trip?.id])
+
+  const toggleRecording = () => {
+    if (!trip || !recordKey) return
+    const next = !recording
+    setRecording(next)
+    setTrackError(null)
+    localStorage.setItem(recordKey, next ? '1' : '0')
+    breadcrumb('action', next ? 'track: start recording' : 'track: stop recording')
+  }
+
+  const clearRecordedTrack = () => {
+    if (!trip) return
+    clearTrack(trip.id)
+    trackRef.current = []
+    setTrackPoints([])
+  }
+
+  useEffect(() => {
+    if (!recording || !trip || typeof navigator === 'undefined' || !navigator.geolocation) return
+    const tripId = trip.id
+
+    const id = navigator.geolocation.watchPosition(
+      (pos) => {
+        const next = appendFix(trackRef.current, {
+          lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy,
+        })
+        if (next === trackRef.current) return
+        trackRef.current = next
+        saveTrack(tripId, next)
+        setTrackPoints(next)
+      },
+      (err) => {
+        // 1 = the person (or the browser) said no — say so; anything else is
+        // usually a momentary loss of signal and the watch carries on.
+        if (err.code === 1) {
+          setTrackError('denied')
+          setRecording(false)
+          if (recordKey) localStorage.setItem(recordKey, '0')
+        }
+        record({ kind: 'geo', level: 'warn', message: `track geolocation: ${err.message}` })
+      },
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 30000 }
+    )
+
+    // A phone sleeps its screen — and stops delivering fixes to a web page.
+    // Asking the screen to stay on is the only way a web app can keep
+    // recording; released as soon as recording stops or the tab is hidden.
+    let lock = null
+    const holdScreen = async () => {
+      try {
+        if (document.visibilityState === 'visible') lock = await navigator.wakeLock?.request('screen')
+      } catch { /* not allowed, or low battery — recording still runs while visible */ }
+    }
+    holdScreen()
+    document.addEventListener('visibilitychange', holdScreen)
+
+    return () => {
+      navigator.geolocation.clearWatch(id)
+      document.removeEventListener('visibilitychange', holdScreen)
+      lock?.release?.().catch(() => {})
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recording, trip?.id])
+
+  tripIdRef.current = trip?.id ?? null
+
+  // Every day of the trip gets planned, not just the one on screen — the
+  // rest used to stay empty until someone opened each one and asked. Runs
+  // when a trip (or, on a multi-family trip, a family) is loaded, for every
+  // day in its range that has never been planned. A day someone emptied on
+  // purpose still has its stored route, so it is left alone.
   useEffect(() => {
     if (!trip || !activeFamily || loading) return
     // Only for your own family. Tapping another family's pill just to look
     // at their plan used to have the agent write one into their days.
     if (activeFamily !== myFamily || !canEdit) return
-    // Not a day this family is there for.
-    const fam = families.find((f) => f.id === activeFamily)
-    if (fam && (trip.day < fam.arriveDay || (fam.departDay != null && trip.day > fam.departDay))) return
-    // Once per day per device. Someone who cleared the day on purpose found
-    // it planned again the next time the app opened.
-    const bucket = sharedDaySet.has(trip.day) ? 'shared' : activeFamily
-    const onceKey = `tripai.autoplanned.${trip.id}.${bucket}.${trip.day}`
-    try { if (localStorage.getItem(onceKey)) return } catch { /* storage blocked: plan anyway */ }
-    listRoutes(trip.id, bucket).then((routes) => {
+    let cancelled = false
+    Promise.all([listRoutes(trip.id, activeFamily), listRoutes(trip.id, 'shared')]).then(([own, shared]) => {
+      if (cancelled) return
       // null: could not read. Not the same as "nothing planned" — planning
-      // then would replace a plan that may well be there.
-      if (!routes || routes.some((r) => r.day === trip.day && r.stops?.length)) return
-      try { localStorage.setItem(onceKey, '1') } catch { /* fine */ }
-      plan(trip.day)
+      // then would replace plans that may well be there.
+      if (!own || !shared) return
+      const fam = families.find((f) => f.id === activeFamily)
+      const first = fam?.arriveDay ?? 1
+      const last = fam?.departDay ?? trip.totalDays
+      const range = Array.from({ length: Math.max(0, last - first + 1) }, (_, i) => first + i)
+      const routeFor = (d) => (sharedDaySet.has(d) ? shared : own).find((r) => r.day === d)
+      const missing = range.filter((d) => !routeFor(d))
+      if (missing.length === 0) return
+      // The day on screen first; the rest in order after it.
+      const order = missing.includes(trip.day) ? [trip.day, ...missing.filter((d) => d !== trip.day)] : missing
+      const taken = range
+        .filter((d) => !missing.includes(d))
+        .flatMap((d) => (routeFor(d)?.stops ?? []).map((st) => st.he || st.name))
+      planDays(order, { taken })
     })
+    return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trip?.id, activeFamily, loading])
 
-  const plan = async (day = activeDay, { instructions = '' } = {}) => {
-    if (planning || !trip || !activeFamily) return { ok: false, count: 0, warning: 'busy' }
-    if (readOnly()) return { ok: false, count: 0, warning: t('צפייה בלבד') }
+  /**
+   * Plans several days, one after another. One at a time on purpose: each
+   * day is told everything already planned — on the days left as they are
+   * and on the days this run just built — so a city's obvious top picks
+   * don't land on two days. Each day appears as soon as it's ready.
+   */
+  const planDays = async (dayNums, { instructions = '', taken: given } = {}) => {
+    if (planningRef.current || !trip || !activeFamily || dayNums.length === 0) {
+      return { ok: false, results: [], warning: 'busy' }
+    }
+    if (readOnly()) return { ok: false, results: [], warning: t('צפייה בלבד') }
+    planningRef.current = true
     setPlanning(true)
     setPlanWarning(null)
+    setPlanQueue(dayNums)
 
+    // Where this run belongs, and what each day held when it began: the new
+    // plan replaces that, and only that (see persist).
     const at = here()
-    const before = daysRef.current[day] ?? []
+    const before = Object.fromEntries(dayNums.map((d) => [d, daysRef.current[d] ?? []]))
     const planningFamily = families.find((f) => f.id === activeFamily)
-    // What this family already has on its OTHER days — without this, asking
-    // for several days in one go (the chat's "plan 4 days") generated each
-    // one blind to the rest, and a well-known city's "obvious" top picks
-    // landed on more than one day. Read through daysRef, since the chat
-    // plans several days one after another from a single render.
-    const already = Object.entries(daysRef.current)
-      .filter(([d]) => Number(d) !== day)
-      .flatMap(([, list]) => list.map((s) => s.he || s.name))
+    // Read through daysRef, since the chat plans from a single render.
+    const taken = given ?? Object.entries(daysRef.current)
+      .filter(([d]) => !dayNums.includes(Number(d)))
+      .flatMap(([, list]) => list.map((st) => st.he || st.name))
 
-    const { stops: fresh, warning } = await buildItinerary({
-      trip: { ...trip, day },
-      families: planningFamily ? [planningFamily] : families,
-      already,
-      instructions,
-      memory: trip.memory,
-    })
-
-    if (fresh.length > 0) {
-      if (moved(at)) {
-        // Switched trip or family while it was being built: saved where it
-        // was asked for, and nothing on this screen is touched.
-        persist(day, fresh, before, at)
+    const results = []
+    // A few days per model request — see buildItineraryDays — and each group
+    // shows up as soon as it is ready.
+    // The first day goes alone, so what's on screen appears in ~15s instead
+    // of waiting for a whole group; the rest follow DAYS_PER_REQUEST at a time.
+    const groups = dayNums.length > 1
+      ? [[dayNums[0]], ...Array.from({ length: Math.ceil((dayNums.length - 1) / DAYS_PER_REQUEST) }, (_, g) =>
+          dayNums.slice(1 + g * DAYS_PER_REQUEST, 1 + (g + 1) * DAYS_PER_REQUEST))]
+      : [dayNums]
+    for (const group of groups) {
+      // Switched to another trip or family: nothing more is asked of the
+      // model for a plan that is no longer on screen.
+      if (moved(at)) break
+      setPlanningDay(group[0])
+      const fams = planningFamily ? [planningFamily] : families
+      let byDay
+      let warning
+      if (group.length === 1) {
+        const r = await buildItinerary({ trip: { ...trip, day: group[0] }, families: fams, already: taken, instructions, memory: trip.memory })
+        byDay = { [group[0]]: r.stops }
+        warning = r.warning
       } else {
-        // Replaces what the day held when planning began. A stop someone
-        // added while it was being built is kept.
-        const now = daysRef.current[day] ?? []
-        const after = mergeList(now, before, fresh, stopKey)
-        noteChange(t('יום {day} נבנה מחדש', { day }), { [day]: { before: now, after } })
-        applyLocalDay(day, after)
-        persist(day, fresh, before, at)
+        const r = await buildItineraryDays({ trip, families: fams, dayNums: group, already: taken, instructions, memory: trip.memory })
+        byDay = r.days
+        warning = r.warning
+      }
+      // Switched while this group was being built: it is saved where it was
+      // asked for, and nothing on this screen is touched. (Writing it into
+      // the state on screen put one family's plan into another's days.)
+      const elsewhere = moved(at)
+      for (const day of group) {
+        const fresh = byDay[day] ?? []
+        if (fresh.length > 0) {
+          if (elsewhere) {
+            persist(day, fresh, before[day], at)
+          } else {
+            // A stop someone added while the day was being built is kept.
+            const now = daysRef.current[day] ?? []
+            const after = mergeList(now, before[day], fresh, stopKey)
+            noteChange(t('יום {day} נבנה מחדש', { day }), { [day]: { before: now, after } })
+            applyLocalDay(day, after)
+            persist(day, fresh, before[day], at)
+          }
+          taken.push(...fresh.map((st) => st.he || st.name))
+        }
+        results.push({ day, count: fresh.length, warning: warning ?? null })
+        setPlanQueue((q) => q.filter((d) => d !== day))
       }
     }
-    setPlanWarning(warning ?? null)
+
+    planningRef.current = false
     setPlanning(false)
-    return { ok: fresh.length > 0, count: fresh.length, warning: warning ?? null }
+    setPlanningDay(null)
+    setPlanQueue([])
+    const failed = results.filter((r) => r.count === 0).map((r) => r.day)
+    setPlanWarning(
+      failed.length > 0
+        ? t('לא הצלחתי לבנות את {days}. אפשר לנסות שוב במסך "מסלול".', {
+            days: failed.map((d) => t('יום {n}', { n: d })).join(', '),
+          })
+        : results.find((r) => r.warning)?.warning ?? null
+    )
+    return { ok: results.some((r) => r.count > 0), results }
+  }
+
+  /** One day — through the same path, so a single rebuild knows what the
+   *  other days already have. */
+  const plan = async (day = activeDay, opts = {}) => {
+    const r = await planDays([day], opts)
+    const one = r.results?.[0]
+    return { ok: (one?.count ?? 0) > 0, count: one?.count ?? 0, warning: r.warning ?? one?.warning ?? null }
   }
 
   /**
@@ -1416,6 +1575,7 @@ export function TripProvider({ children }) {
     setTrips((list) => [created, ...list.filter((x) => x.id !== id)])
     setSyncing(false)
     breadcrumb('lifecycle', `trip created: ${answers.destination}`)
+    hit(imported?.days?.length ? 'import' : 'trip')
     return true
   }
 
@@ -1661,7 +1821,7 @@ export function TripProvider({ children }) {
     sharedDaySet, toggleSharedDay, setMyFamily, addFamily,
     snack, runSnackAction, dismissSnack: () => setSnack(null),
     families, isReal, planning, planWarning,
-    plan, moveStop, addStop, removeStop, updateStop, moveStopToDay,
+    plan, planDays, planQueue, planningDay, moveStop, addStop, removeStop, updateStop, moveStopToDay,
     reservations, addReservation, removeReservation,
     profile: raw, completeOnboarding, switchTrip, updateTrip, saveTripEdit, startNewTrip, removeTrip,
     addNote, updateNote, removeNote,
@@ -1678,6 +1838,7 @@ export function TripProvider({ children }) {
     activity, unreadCount, notificationsOpen, openNotifications,
     closeNotifications: () => setNotificationsOpen(false),
     presence, sharingLocation, toggleLocationSharing,
+    recording, toggleRecording, trackPoints, trackError, clearRecordedTrack,
     chatMessages, chatDraft, setChatDraft, chatTyping, chatError,
     sendChatMessage, retryChatMessage, openChat, forgetMemory,
   }

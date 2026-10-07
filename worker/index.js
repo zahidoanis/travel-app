@@ -71,15 +71,15 @@ function corsHeaders(request, env) {
 
   return {
     ...(ok ? { 'Access-Control-Allow-Origin': origin } : {}),
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Max-Age': '86400',
     Vary: 'Origin',
   }
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const cors = corsHeaders(request, env)
 
     if (request.method === 'OPTIONS') {
@@ -109,7 +109,49 @@ export default {
       return json({ error: { code: 403, message: 'origin not allowed' } }, 403, cors)
     }
 
+    // App events for the admin page's daily counts — "opened the app",
+    // "created a trip". Fire-and-forget from the browser; nothing identifying,
+    // the cid is a random id the browser made up for itself.
+    if (request.method === 'GET' && url.pathname === '/hit') {
+      const ev = url.searchParams.get('ev') ?? ''
+      if (EVENTS.has(ev)) {
+        count(env, ctx, 'app.' + ev)
+        if (ev === 'open') seen(env, ctx, 'app', url.searchParams.get('cid'))
+      }
+      return new Response(null, { status: 204, headers: cors })
+    }
+
+    // The admin page's data. Behind a password (the STATS_TOKEN secret),
+    // since it's on the same public worker as everything else.
+    if (request.method === 'GET' && url.pathname === '/stats') {
+      if (!env.STATS || !env.STATS_TOKEN || request.headers.get('Authorization') !== `Bearer ${env.STATS_TOKEN}`) {
+        return json({ error: { message: 'unauthorized' } }, 401, cors)
+      }
+      const days = Math.min(400, Math.max(1, Number(url.searchParams.get('days')) || 30))
+      const from = statsDay(Date.now() - (days - 1) * 86400000)
+      const [metrics, unique] = await Promise.all([
+        env.STATS.prepare('SELECT day, metric, n FROM stats WHERE day >= ?1').bind(from).all(),
+        env.STATS.prepare('SELECT day, kind, COUNT(*) AS n FROM seen WHERE day >= ?1 GROUP BY day, kind').bind(from).all(),
+      ])
+      return json(
+        {
+          from,
+          today: statsDay(),
+          metrics: metrics.results,
+          unique: unique.results,
+          // For the page's "estimated daily AI ceiling": 20 free requests a
+          // day per key per model (see the comment above FALLBACK_MODELS).
+          keys: geminiKeys(env).length,
+          models: 1 + FALLBACK_MODELS.length,
+          perKeyModel: 20,
+        },
+        200,
+        { ...cors, 'Cache-Control': 'no-store' }
+      )
+    }
+
     if (request.method === 'GET' && url.pathname === '/geocode') {
+      count(env, ctx, 'geo')
       const q = url.searchParams.get('q')
       if (!q) return json({ error: { message: 'missing q' } }, 400, cors)
 
@@ -178,6 +220,7 @@ export default {
     // Google Maps import. The browser can't read Google's KML export itself
     // (no CORS), so this fetches it and hands back plain JSON.
     if (request.method === 'GET' && url.pathname === '/mymap') {
+      count(env, ctx, 'import.map')
       const result = await importGoogleMap(url.searchParams.get('url') ?? '')
       return json(result.body, result.status, {
         ...cors,
@@ -228,6 +271,17 @@ export default {
       return json({ error: { message: 'Invalid model name' } }, 400, cors)
     }
 
+    // Grounding with Google Maps: the model reads real Maps data (ratings,
+    // review counts, the place's Maps link) for this one request. Opt-in per
+    // request — only the restaurant list asks — and the only tool this proxy
+    // will ever attach; free-tier keys can't be billed for it, a spent quota
+    // just fails the request.
+    const grounded = body.grounding === 'maps'
+    const latLng =
+      grounded && Number.isFinite(body.latLng?.latitude) && Number.isFinite(body.latLng?.longitude)
+        ? { latitude: body.latLng.latitude, longitude: body.latLng.longitude }
+        : null
+
     const forwarded = {
       contents: Array.isArray(body.contents) ? body.contents.slice(-24) : [],
       systemInstruction: body.systemInstruction,
@@ -238,10 +292,43 @@ export default {
         maxOutputTokens: 2048,
         ...(body.generationConfig ?? {}),
       },
+      ...(grounded
+        ? {
+            tools: [{ googleMaps: {} }],
+            ...(latLng ? { toolConfig: { retrievalConfig: { latLng } } } : {}),
+          }
+        : {}),
     }
 
     if (forwarded.contents.length === 0) {
       return json({ error: { message: 'No contents supplied' } }, 400, cors)
+    }
+
+    // What this request was for (the app labels it: chat, plan, food…) and
+    // who asked — a random per-browser id, for "how many people used AI".
+    const kind = typeof body.kind === 'string' && /^[a-z]{2,12}$/.test(body.kind) ? body.kind : 'other'
+    count(env, ctx, 'ai.' + kind)
+    seen(env, ctx, 'ai', body.client)
+    if (grounded) count(env, ctx, 'ai.maps')
+
+    // Restaurant lists are the same for everyone who asks the same thing
+    // ("local food in Rome") and barely change within hours, so a good answer
+    // is kept for CACHE_MS and replayed — no model call, no quota. Only this
+    // one kind: a chat reply or a day plan is personal and always fresh.
+    const cacheable = kind === 'food' && Boolean(env.STATS)
+    const cacheK = cacheable ? await cacheKey(model, forwarded) : null
+    if (cacheK) {
+      const hit = await env.STATS
+        .prepare('SELECT body FROM cache WHERE k = ?1 AND at > ?2')
+        .bind(cacheK, Date.now() - CACHE_MS)
+        .first()
+        .catch(() => null)
+      if (hit?.body) {
+        count(env, ctx, 'ai.cache')
+        return new Response(hit.body, {
+          headers: { ...cors, 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache', 'X-Cache': 'hit' },
+        })
+      }
     }
 
     // A question that genuinely needs live info ("what's the price tonight",
@@ -301,7 +388,8 @@ export default {
                 'תוצאות אמיתיות מ-Viator (אטרקציות/סיורים אמיתיים שאפשר להזמין), רלוונטיות לשאלה האחרונה:\n' +
                 found +
                 '\n\nיש לך עכשיו גישה למידע הזה — אלה מקומות אמיתיים עם מחיר ודירוג אמיתיים, לא הצעות כלליות. ' +
-                'כשאתה מציע אחד מהם, כלול את הקישור (productUrl) בדיוק כפי שהוא, בלי לשנות אותו — זה קישור הזמנה אמיתי. ' +
+                'כשאתה מציע אחד מהם, כתוב אותו כקישור בפורמט [שם הסיור](productUrl) — עם הקישור בדיוק כפי שהוא, בלי לשנות אותו, זה קישור הזמנה אמיתי. ' +
+                'לעולם אל תכתוב את הכתובת חשופה בטקסט, ואל תכתוב סיור בתחביר [[...]] של מקומות — סיור הוא לא מקום על המפה. ' +
                 'אם אף תוצאה לא רלוונטית לשאלה (למשל שאלו על מסעדות), פשוט התעלם מהן וענה כרגיל — ' +
                 'ובשום מקרה אל תמציא סיור או מחיר שלא מופיעים כאן.',
             },
@@ -318,7 +406,7 @@ export default {
     // (quota), 503 (model overloaded) and 404 (model retired); any other
     // HTTP failure — a bad request — would fail the same way everywhere, so
     // it is returned straight away.
-    const RETRY = new Set([429, 503, 404])
+    const RETRY = grounded ? new Set([429, 503, 404, 400]) : new Set([429, 503, 404])
     const models = [model, ...FALLBACK_MODELS.filter((m) => m !== model)]
     const start = Math.floor(Math.random() * keys.length)
     let goodText = null // a validated, usable SSE response body, once found
@@ -343,7 +431,7 @@ export default {
           }
         )
 
-        if (upstream.status === 429) { spent.set(tag, Date.now() + SPENT_MS); continue }
+        if (upstream.status === 429) { spent.set(tag, Date.now() + SPENT_MS); count(env, ctx, 'ai.429'); count(env, ctx, `up.${idx}.${m}.429`); continue }
         if (RETRY.has(upstream.status)) { lastBadUpstream = upstream; break } // next model
         if (!upstream.ok) { lastBadUpstream = upstream; break outer } // a real bad request
 
@@ -358,12 +446,23 @@ export default {
         // buffers the whole reply client-side before showing anything, so
         // nothing is lost by buffering here too.
         const raw = await upstream.text()
-        if (hasUsableText(raw)) { goodText = raw; break outer }
+        if (hasUsableText(raw)) { goodText = raw; count(env, ctx, `up.${idx}.${m}.ok`); break outer }
         // 200 but nothing usable — try the next key/model instead.
       }
     }
 
     if (goodText) {
+      count(env, ctx, 'ai.ok')
+      // Only an answer that really used Maps is kept — the model sometimes
+      // answers from memory with no ratings, and that must not be replayed.
+      if (cacheK && (!grounded || goodText.includes('groundingChunks'))) {
+        ctx?.waitUntil?.(
+          env.STATS.batch([
+            env.STATS.prepare('INSERT OR REPLACE INTO cache (k, body, at) VALUES (?1, ?2, ?3)').bind(cacheK, goodText, Date.now()),
+            env.STATS.prepare('DELETE FROM cache WHERE at < ?1').bind(Date.now() - 24 * 3600000),
+          ]).catch(() => {})
+        )
+      }
       return new Response(goodText, {
         headers: {
           ...cors,
@@ -378,8 +477,9 @@ export default {
     // coming back with no usable text: last resort is Cloudflare's own
     // Workers AI on this same account — free daily allowance, no extra key.
     // Weaker Hebrew than Gemini, hence last.
-    const fallback = await viaWorkersAI(env, forwarded)
+    const fallback = grounded ? null : await viaWorkersAI(env, forwarded)
     if (fallback) {
+      count(env, ctx, 'ai.workersai')
       return new Response(fallback, {
         headers: {
           ...cors,
@@ -390,6 +490,7 @@ export default {
       })
     }
 
+    count(env, ctx, 'ai.fail')
     if (lastBadUpstream) {
       const text = await lastBadUpstream.text()
       return new Response(text, {
@@ -402,6 +503,46 @@ export default {
     // usable in it, and Workers AI had nothing either.
     return json({ error: { code: 502, message: 'no usable reply from any key, model, or fallback' } }, 502, cors)
   },
+}
+
+/* ---------- usage counters (D1, for the admin page) ---------- */
+
+/** The counting day, in Israel time — "today" means the same thing on the
+ *  admin page as it does to the person reading it. */
+const statsDay = (ms = Date.now()) => new Date(ms).toLocaleDateString('en-CA', { timeZone: 'Asia/Jerusalem' })
+
+/** Events the app may report on /hit; anything else is ignored. */
+const EVENTS = new Set(['open', 'trip', 'import', 'join'])
+
+/** +n to one counter for today. Never delays or fails the real request. */
+function count(env, ctx, metric, n = 1) {
+  if (!env.STATS) return
+  const done = env.STATS
+    .prepare('INSERT INTO stats (day, metric, n) VALUES (?1, ?2, ?3) ON CONFLICT(day, metric) DO UPDATE SET n = n + ?3')
+    .bind(statsDay(), metric, n)
+    .run()
+    .catch(() => {})
+  ctx?.waitUntil?.(done)
+}
+
+/** Remembers that this random browser id was seen today (for unique counts). */
+function seen(env, ctx, kind, cid) {
+  if (!env.STATS || typeof cid !== 'string' || !/^[a-z0-9-]{8,64}$/i.test(cid)) return
+  const done = env.STATS
+    .prepare('INSERT OR IGNORE INTO seen (day, kind, cid) VALUES (?1, ?2, ?3)')
+    .bind(statsDay(), kind, cid)
+    .run()
+    .catch(() => {})
+  ctx?.waitUntil?.(done)
+}
+
+const CACHE_MS = 6 * 3600000
+
+/** A stable key for "this exact request": model, prompt, system text, tools. */
+async function cacheKey(model, forwarded) {
+  const raw = JSON.stringify([model, forwarded.contents, forwarded.systemInstruction, forwarded.tools, forwarded.toolConfig])
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(raw))
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('')
 }
 
 /** GEMINI_API_KEY, then GEMINI_API_KEY_2 … _8 — whichever are set. */
@@ -555,7 +696,9 @@ async function viatorSearch(env, userText, cityContext) {
           price != null ? `החל מ-$${price}` : null,
           rating ? `דירוג ${rating.toFixed(1)}${reviewCount ? ` (${reviewCount} ביקורות)` : ''}` : null,
         ].filter(Boolean).join(' · ')
-        return `- ${p.title}${bits ? `: ${bits}` : ''} — ${p.productUrl}`
+        // Viator's URLs can carry raw spaces ("Must-See Landmarks"), which cut a
+        // link in half wherever it's rendered — encode them here, once.
+        return `- ${p.title}${bits ? `: ${bits}` : ''} — ${p.productUrl.trim().replace(/ /g, '%20')}`
       })
     return lines.length > 0 ? lines.join('\n') : null
   } catch {
@@ -704,7 +847,14 @@ async function fromPhoton(q, limit, cityOnly) {
 }
 
 /** Nominatim fallback. Requires the identifying User-Agent their policy asks for. */
+// Nominatim's policy is one request a second. The browser now asks the worker
+// faster than that (Photon answers almost everything, with no such limit), so
+// the worker spaces the calls that do fall through to Nominatim itself.
+let lastNominatim = 0
 async function fromNominatim(params, env) {
+  const wait = lastNominatim + 1100 - Date.now()
+  lastNominatim = Math.max(Date.now(), lastNominatim + 1100)
+  if (wait > 0) await new Promise((r) => setTimeout(r, wait))
   try {
     const res = await fetch(
       `https://nominatim.openstreetmap.org/search?${new URLSearchParams(params)}`,

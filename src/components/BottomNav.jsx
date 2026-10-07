@@ -1,4 +1,4 @@
-import { Calendar, MapIcon, AiSpark, Wallet, Route, Utensils, Plane, Bed, Layers, Printer, Ticket } from './Icons'
+import { HomeIcon, AiSpark, Wallet, Route, Utensils, Plane, Bed, Layers, Printer, Ticket, Images } from './Icons'
 import { t } from '../i18n'
 
 /** The desktop rail shows everything; the bottom bar keeps a subset.
@@ -9,17 +9,20 @@ export const RAIL_ONLY = [
   { id: 'food', label: t('מסעדות'), Icon: Utensils },
   { id: 'arrival', label: t('הגעה'), Icon: Plane },
   { id: 'hotels', label: t('מלונות'), Icon: Bed },
+  { id: 'journal', label: t('יומן הטיול'), Icon: Images },
   { id: 'summary', label: t('סיכום להדפסה'), Icon: Printer },
   { id: 'trips', label: t('הטיולים שלי'), Icon: Layers },
 ]
 
+// Five, not six: "home", "map" and "route" were three doors to the same
+// itinerary. The map now lives inside the route tab (a list/map switch on a
+// phone, side by side on a desktop), and the agent sits in the middle.
 export const TABS = [
-  { id: 'home', label: t('בית/לו"ז'), Icon: Calendar },
-  { id: 'map', label: t('מפה'), Icon: MapIcon },
-  { id: 'chat', label: t("צ'אט AI"), Icon: AiSpark },
+  { id: 'home', label: t('בית'), Icon: HomeIcon },
   { id: 'days', label: t('מסלול'), Icon: Route },
+  { id: 'chat', label: t("צ'אט AI"), Icon: AiSpark },
   { id: 'reservations', label: t('הזמנות'), Icon: Ticket },
-  { id: 'finance', label: t('פיננסים'), Icon: Wallet },
+  { id: 'finance', label: t('הוצאות'), Icon: Wallet },
 ]
 
 export default function BottomNav({ tab, onChange }) {

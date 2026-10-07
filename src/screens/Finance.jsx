@@ -241,12 +241,12 @@ export default function Finance() {
 
   return (
     <>
-      <div className="screen">
-        <TopBar variant="brand" />
+      <div className="screen has-fab">
+        <TopBar />
 
         <div className="pad between" style={{ alignItems: 'flex-start', marginTop: 6 }}>
           <div>
-            <h1 className="h1" style={{ fontSize: 25 }}>{t('פיננסים')}</h1>
+            <h1 className="h1" style={{ fontSize: 25 }}>{t('הוצאות')}</h1>
             <p className="tiny" style={{ marginTop: 4 }}>{t('מעקב הוצאות והמרת מטבע')}</p>
           </div>
           <div className="col" style={{ alignItems: 'flex-end' }}>
@@ -352,16 +352,13 @@ export default function Finance() {
             <span style={{ color: 'var(--lav)' }}><Users size={18} /></span>
             <h2 className="h2">{t('מי שילם על מה')}</h2>
           </div>
-          {canEdit && (
-            <button
-              onClick={() => setAddOpen(true)}
-              style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--lav)' }}
-            >
-              {t('הוסף הוצאה קבוצתית +')}
-            </button>
-          )}
         </div>
 
+        {MEMBERS.length <= 1 ? (
+          <div className="pad">
+            <p className="tiny">{t('חלוקת הוצאות מופיעה כשיש יותר מנוסע אחד. אפשר להוסיף נוסעים ב"מי מטייל" במסך הבית.')}</p>
+          </div>
+        ) : (
         <div className="pad">
           <div className="card">
             <div className="between" style={{ marginBottom: 14 }}>
@@ -426,6 +423,7 @@ export default function Finance() {
             )}
           </div>
         </div>
+        )}
 
         <div className="pad section-head">
           <h2 className="h2" style={{ fontSize: 16 }}>{t('הוצאות אחרונות')}</h2>
@@ -434,9 +432,12 @@ export default function Finance() {
         <div className="pad" style={{ paddingBottom: 30 }}>
           <div className="card" style={{ paddingBlock: 4 }}>
             {expenses.length === 0 && (
-              <p className="tiny" style={{ padding: 16, textAlign: 'center' }}>
-                {t('עדיין אין הוצאות רשומות')}
-              </p>
+              <div className="empty-state" style={{ padding: '22px 16px' }}>
+                <p className="tiny" style={{ margin: 0 }}>{t('עדיין אין הוצאות רשומות')}</p>
+                {canEdit && <button className="btn btn-ghost btn-sm" style={{ marginTop: 12 }} onClick={() => setAddOpen(true)}>
+                  <Plus size={15} /> {t('הוסף הוצאה ראשונה')}
+                </button>}
+              </div>
             )}
             {expenses.map((e) => {
               // Resolved the same way the balances resolve it, so the name
@@ -470,12 +471,10 @@ export default function Finance() {
         </div>
       </div>
 
-      {canEdit && (
-        <button className="fab" onClick={() => setAddOpen(true)}>
-          <Receipt size={17} />
-          {t('הוסף הוצאה')}
-        </button>
-      )}
+      {canEdit && expenses.length > 0 && <button className="fab" onClick={() => setAddOpen(true)}>
+        <Receipt size={17} />
+        {t('הוסף הוצאה')}
+      </button>}
 
       <Sheet
         open={addOpen}

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import TopBar from '../components/TopBar'
-import { Plane, Car, Sparkles, Info, Navigation, Clock } from '../components/Icons'
+import { Plane, Car, Sparkles, Info, Navigation, Clock, Plus } from '../components/Icons'
 import { useTrip } from '../TripProvider'
 import { hasAI, complete, parseRows } from '../lib/gemini'
 import { breadcrumb, watchdog } from '../lib/telemetry'
@@ -15,7 +15,7 @@ import { t } from '../i18n'
  * the flight card links straight to a real tracker instead of inventing them.
  */
 export default function Arrival() {
-  const { trip, profile } = useTrip()
+  const { trip, profile, openEdit } = useTrip()
 
   const [options, setOptions] = useState([])
   const [drivers, setDrivers] = useState([])
@@ -48,6 +48,7 @@ export default function Arrival() {
 
     try {
       const text = await complete({
+      kind: 'arrival',
         system:
           'אתה סוכן נסיעות מקומי. החזר אך ורק שורות בפורמט:\n' + // i18n-ignore — AI prompt; see gemini.js language override
           'אמצעי | זמן נסיעה משוער | טווח מחיר | משפט אחד עם טיפ מעשי\n' + // i18n-ignore
@@ -84,6 +85,7 @@ export default function Arrival() {
 
     try {
       const text = await complete({
+      kind: 'arrival',
         system:
           'אתה סוכן נסיעות מקומי. החזר אך ורק שורות בפורמט:\n' + // i18n-ignore
           'שם השירות | סוג | טווח מחיר להסעה משדה התעופה | משפט אחד למה מומלץ\n' + // i18n-ignore
@@ -201,10 +203,11 @@ export default function Arrival() {
             </div>
           </div>
         ) : (
-          <div className="card" style={{ textAlign: 'center' }}>
-            <p className="sub">
-              {t('לא הוזנו פרטי טיסה. אפשר להוסיף אותם בשאלון הפתיחה.')}
-            </p>
+          <div className="card empty-state">
+            <p className="sub" style={{ margin: 0 }}>{t('עוד לא הוספתם פרטי טיסה.')}</p>
+            <button className="btn btn-ghost btn-sm" style={{ marginTop: 12 }} onClick={() => openEdit('flight')}>
+              <Plus size={15} /> {t('הוסף פרטי טיסה')}
+            </button>
           </div>
         )}
       </div>

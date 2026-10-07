@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import TopBar from '../components/TopBar'
 import ShareSheet from '../components/ShareSheet'
 import {
-  ArrowLeft, Sparkles, Clock, Share, Users, RefreshCw, Route, Utensils, Cloud, Plane, Note, Layers, Bed, Printer,
+  ArrowLeft, Share, Images, Users, RefreshCw, Utensils, Cloud, Plane, Note, Layers, Bed, Printer, Plus,
 } from '../components/Icons'
 import { useTrip } from '../TripProvider'
 import PlacePhoto from '../components/PlacePhoto'
@@ -15,7 +15,8 @@ import NoteSheet from '../components/NoteSheet'
 import NotesList from '../components/NotesList'
 import { useConfirm } from '../components/Confirm'
 import { todayISO, nowHHMM } from '../lib/dates'
-import { t, tn, lang } from '../i18n'
+import { THEME } from '../theme'
+import { t, lang } from '../i18n'
 
 /** "מגיעים ב-25.8 בשעה 14:30 · עוזבים ב-28.8" — the tooltip on a family's
  *  pill, built from whichever of arriveAt/departAt were actually set. */
@@ -53,10 +54,10 @@ const TOD_TINT = {
 }
 
 
-export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood, onOpenArrival, onOpenHotels, onOpenSummary }) {
+export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood, onOpenArrival, onOpenHotels, onOpenSummary, onOpenJournal }) {
   const {
     trip: TRIP, stops: STOPS, families: FAMILIES, activeFamily, switchFamily,
-    planning, planWarning, plan, syncState, trips, activeDay, canEdit,
+    planning, planWarning, plan, syncState, planningDay, activeDay, canEdit,
     openAccount, openEdit, addNote, updateNote, removeNote,
   } = useTrip()
   const confirm = useConfirm()
@@ -153,9 +154,7 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
   const underWay = TRIP.from <= todayISO() && todayISO() <= TRIP.to && activeDay === TRIP.day
   const nextId = underWay ? STOPS.find((s) => String(s.time) >= nowHHMM())?.id ?? null : null
 
-  // `plan` takes the day as its first argument. Passed straight to onClick
-  // it received the click event instead: the agent ran, and its result was
-  // filed under a day called "[object Object]" where nothing ever read it.
+  // Rebuilding replaces the day, so a day that has stops asks first.
   const rebuild = async () => {
     if (STOPS.length > 0) {
       const ok = await confirm({
@@ -171,18 +170,51 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
   // Beyond Open-Meteo's forecast horizon, "today's weather at the
   // destination" is a real number that has nothing to do with the trip.
   const farOut = daysUntil(TRIP.from) > 7
-  const heroWeatherIcon = farOut && climate ? climate.icon : (forecast?.now.icon ?? '☀️')
+
+  // Where the trip is in time decides what the one button on the photo
+  // does. "התחל מסלול" (start route) made no sense seventeen days out.
+  const phase = daysUntil(TRIP.from) > 0 ? 'before' : TRIP.to && daysUntil(TRIP.to) < 0 ? 'after' : 'during'
+  const cta = {
+    before: { label: t('ראו את התכנון'), onClick: onOpenDays },
+    during: { label: t('נווטו לעצירה הבאה'), onClick: onStartRoute },
+    after: { label: t('סיכום הטיול'), onClick: onOpenSummary },
+  }[phase]
+
+  // The themes that set the city on the photo read "ערב טוב, / פריז." —
+  // a comma, not the "!" that ends the greeting when it stands alone.
+  const greet = forecast ? GREETING[forecast.now.period] : t('שלום!').replace(/!$/, '')
+  const cityOnPhoto = Boolean(heroPhoto) && (THEME === 'cream' || THEME === 'gold')
+
+  const travellerCount = FAMILIES.reduce((n, f) => n + f.members.length, 0)
+
+  // Details the first-run questionnaire no longer asks up front — offered
+  // here instead, one tap each, until they're filled in.
+  const missing = [
+    !TRIP.stays?.length && { id: 'stay', label: t('מלון'), Icon: Bed },
+    !(TRIP.flight?.number || TRIP.flight?.airline) && { id: 'flight', label: t('טיסה'), Icon: Plane },
+    (TRIP.cuisines.length === 0 || (TRIP.cuisines.length === 1 && TRIP.cuisines[0] === 'local')) &&
+      { id: 'food', label: t('העדפות אוכל'), Icon: Utensils },
+  ].filter(Boolean)
+
+  const shortcuts = [
+    { Icon: Utensils, label: t('מסעדות'), onClick: onOpenFood },
+    { Icon: Plane, label: t('הגעה'), onClick: onOpenArrival },
+    { Icon: Bed, label: t('מלונות'), onClick: onOpenHotels },
+    { Icon: Printer, label: t('סיכום להדפסה'), onClick: onOpenSummary },
+    { Icon: Images, label: t('יומן הטיול'), onClick: onOpenJournal },
+    { Icon: Layers, label: t('הטיולים שלי'), onClick: openAccount },
+  ]
 
   return (
     <div className="screen">
-      <TopBar variant="home" />
+      <TopBar />
 
       <div className="pad">
         {/* The night theme's masthead — greeting over a big city name, above
-            the photo card. Hidden in the classic theme (styles.css), which
-            keeps its greeting inside the card as before. */}
+            the photo card. Hidden in the other themes (styles.css), which
+            keep the greeting inside the card. */}
         <div className="home-masthead">
-          <p className="home-greet">{forecast ? `${GREETING[forecast.now.period]},` : t('שלום!')}</p>
+          <p className="home-greet">{greet},</p>
           <h1 className="home-city">{TRIP.city}<span className="home-dot">.</span></h1>
         </div>
         <section className={`hero ${heroPhoto ? 'has-photo' : ''}`}>
@@ -195,18 +227,18 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
               />
               {/* Warm at golden hour, cool and dim at night — the same
                   reading the temperature line already gives, painted onto
-                  the one card everyone sees first instead of left as a
-                  number to notice or skip. */}
+                  the one card everyone sees first. */}
               <div className="hero-scrim" style={{ '--tod-tint': TOD_TINT[forecast?.now.period ?? 'noon'] }} />
             </>
           )}
 
           {/* Its own layer, not part of the bottom-anchored text block below —
               with a photo the card grows tall enough that grouping these
-              with the title would strand them together at the bottom with
-              an awkward gap of empty photo above. */}
-          <div className="hero-top-row between" style={{ alignItems: 'flex-start' }}>
-            <div className="hero-icon" aria-hidden="true">{heroWeatherIcon}</div>
+              with the title would strand them at the bottom. */}
+          {/* Share only. The weather emoji that sat in the opposite corner was a
+              boxed icon that looked like a button and did nothing — the
+              weather line below the greeting already shows it. */}
+          <div className="hero-top-row" style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <button
               className="icon-btn boxed"
               onClick={() => setShareOpen(true)}
@@ -217,112 +249,71 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
           </div>
 
           <div className="hero-content">
-            {/* Neutral until the destination's real local time resolves — a
-                placeholder greeting is fine, a wrong one (guessed from the
-                visitor's own clock) is not. */}
             <h1 className="hero-title">
-              {forecast ? `${GREETING[forecast.now.period]}!` : t('שלום!')}
-              {/* Only the gold theme shows this — its greeting sits on the
-                  photo as "Good evening, / Baku." */}
+              {cityOnPhoto ? `${greet},` : `${greet}!`}
+              {/* Only the cream and gold themes show this — the greeting sits
+                  on the photo as "Good evening, / Paris." */}
               <span className="hero-city">{TRIP.city}.</span>
             </h1>
             {farOut ? (
               climate && (
-                <button
-                  className="tiny row"
-                  style={{ gap: 6, marginTop: 2, flexWrap: 'wrap' }}
-                  onClick={() => setForecastOpen(true)}
-                >
-                  <span
-                    className="badge"
-                    style={{ background: 'rgba(13,154,150,0.16)', color: 'var(--cyan)', padding: '2px 8px', fontSize: 10.5 }}
-                  >
-                    {t('ממוצע היסטורי')}
-                  </span>
+                <button className="hero-chip" onClick={() => setForecastOpen(true)}>
                   <span aria-hidden="true">{climate.icon}</span>
-                  <span style={{ textDecoration: 'underline', textUnderlineOffset: 3 }}>
-                    <span className="num" dir="ltr">{climate.tempMax}°/{climate.tempMin}°</span>
-                    {' '}{t('בתאריכי הטיול')} · <span className="num">{climate.rainChance}%</span> {t('סיכוי לגשם')}
-                  </span>
+                  <span className="num" dir="ltr">{climate.tempMax}°/{climate.tempMin}°</span>
+                  <span>· <span className="num">{climate.rainChance}%</span> {t('סיכוי לגשם')}</span>
+                  <span className="hero-chip-note">{t('ממוצע היסטורי')}</span>
                 </button>
               )
             ) : (
               forecast && (
-                <button
-                  className="tiny row"
-                  style={{ gap: 5, marginTop: 2, textDecoration: 'underline', textUnderlineOffset: 3 }}
-                  onClick={() => setForecastOpen(true)}
-                >
+                <button className="hero-chip" onClick={() => setForecastOpen(true)}>
                   <span aria-hidden="true">{forecast.now.icon}</span>
                   <span className="num">{forecast.now.tempC}°</span> {t('ב{city} עכשיו · תחזית', { city: TRIP.city })}
                 </button>
               )
             )}
-            <p className="sub" style={{ maxWidth: '92%', marginTop: forecast ? 8 : undefined }}>
+            <p className="sub" style={{ maxWidth: '92%', marginTop: 8 }}>
               {planning
-                ? t('הסוכן בונה עכשיו מסלול ל{city}...', { city: TRIP.city })
+                ? planningDay && TRIP.totalDays > 1
+                  ? t('הסוכן בונה את המסלול ל{city} — יום {day} מתוך {total}...', { city: TRIP.city, day: planningDay, total: TRIP.totalDays })
+                  : t('הסוכן בונה עכשיו מסלול ל{city}...', { city: TRIP.city })
                 : t('הנה התכנון ליום {day} ב{city}, מותאם לסגנון שבחרת.', { day: activeDay, city: TRIP.city })}
             </p>
-            <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={onStartRoute}>
-              {t('התחל מסלול')}
+            <button className="btn btn-primary" style={{ marginTop: 14 }} onClick={cta.onClick}>
+              {cta.label}
+              <ArrowLeft size={17} className="dir-flip" />
             </button>
           </div>
         </section>
       </div>
 
-      {/* General trip notes — a driver's name, a booking code, anything
-          that isn't tied to one stop on the map and so has no other home.
-          Kept visible here rather than a tap away, since this is exactly
-          the screen someone lands on when they need the reminder. */}
-      <div className="pad" style={{ marginTop: 20 }}>
-        <div className="section-head" style={{ marginBottom: 10 }}>
-          <div className="row" style={{ gap: 8 }}>
-            <span style={{ color: 'var(--lav)' }}><Note size={17} /></span>
-            <h2 className="h2" style={{ fontSize: 16 }}>{t('הערות')}</h2>
-          </div>
+      {/* The plan comes straight after the photo — it is what this screen
+          is for. It used to sit under notes and "who's traveling", below
+          the first screenful on a phone. */}
+      <div className="pad section-head">
+        <h2 className="h2">
+          {FAMILIES.length > 1 ? t('התכנון של {name}', { name: FAMILIES.find((f) => f.id === activeFamily)?.name ?? '' }) : activeDay === TRIP.day ? t('התכנון להיום') : t('התכנון ליום {day}', { day: activeDay })}
+        </h2>
+        <span className="row" style={{ gap: 4 }}>
+          <span className="tiny">
+            {t('יום')} <span className="num">{activeDay}</span> {t('מתוך')} <span className="num">{TRIP.totalDays}</span>
+          </span>
           {canEdit && (
             <button
-              onClick={() => setNoteEditing({ isNew: true })}
-              style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--lav)' }}
+              className="icon-btn"
+              onClick={rebuild}
+              disabled={planning}
+              aria-label={t('בנה מסלול מחדש')}
+              title={t('בנה מסלול מחדש')}
             >
-              {t('הוסף +')}
+              <RefreshCw size={16} />
             </button>
           )}
-        </div>
-
-        {TRIP.notes.length > 0 ? (
-          <NotesList notes={TRIP.notes} onEdit={canEdit ? (n) => setNoteEditing({ isNew: false, id: n.id, text: n.text }) : null} />
-        ) : (
-          <p className="tiny">{t('אין עדיין הערות. לדוגמה: פרטי נהג, קוד לדירה, מספר הזמנה.')}</p>
-        )}
-      </div>
-
-      {/* Split the day by travel party */}
-      <div className="pad section-head" style={{ marginBottom: 10 }}>
-        <div className="row" style={{ gap: 8 }}>
-          <span style={{ color: 'var(--lav)' }}><Users size={17} /></span>
-          <h2 className="h2" style={{ fontSize: 16 }}>{t('מי מטייל')}</h2>
-        </div>
-        <span className="row" style={{ gap: 14 }}>
-          {canEdit && (
-            <button
-              onClick={() => openEdit('who')}
-              style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--muted)' }}
-            >
-              {t('ערוך')}
-            </button>
-          )}
-          <button
-            onClick={() => setShareOpen(true)}
-            style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--lav)' }}
-          >
-            {t('הזמן חברים +')}
-          </button>
         </span>
       </div>
 
       {FAMILIES.length > 1 && (
-        <div className="hscroll chips" style={{ paddingBlock: 0 }}>
+        <div className="hscroll chips" style={{ paddingBlock: 0, marginBottom: 6 }}>
           {FAMILIES.map((f) => (
             <button
               key={f.id}
@@ -339,27 +330,6 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
           ))}
         </div>
       )}
-
-      <div className="pad section-head">
-        <h2 className="h2">
-          {FAMILIES.length > 1 ? t('התכנון של {name}', { name: FAMILIES.find((f) => f.id === activeFamily)?.name ?? '' }) : activeDay === TRIP.day ? t('התכנון להיום') : t('התכנון ליום {day}', { day: activeDay })}
-        </h2>
-        <span className="row" style={{ gap: 10 }}>
-          <span className="tiny">
-            {t('יום')} <span className="num">{activeDay}</span> {t('מתוך')} <span className="num">{TRIP.totalDays}</span>
-          </span>
-          <button
-            className="icon-btn"
-            style={{ width: 30, height: 30 }}
-            onClick={rebuild}
-            disabled={planning}
-            aria-label={t('בנה מסלול מחדש')}
-            title={t('בנה מסלול מחדש')}
-          >
-            <RefreshCw size={15} />
-          </button>
-        </span>
-      </div>
 
       {planWarning && (
         <div className="pad" style={{ marginBottom: 10 }}>
@@ -378,20 +348,27 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
                   <span className="num">{s.time}</span>
                   {isNext && ` ${t('(הבא)')}`}
                 </span>
-                
               </div>
 
-              <PlacePhoto name={s.name} cat={s.cat} title={s.name} />
+              <PlacePhoto name={s.name} cat={s.cat} title={s.he || s.name} />
 
               <p className="tiny" style={{ margin: 0 }}>{s.desc}</p>
             </button>
           )
         })}
 
-        {planning && STOPS.length === 0 && (
-          <div className="timeline-card" style={{ display: 'grid', placeItems: 'center', height: 180 }}>
-            <span className="typing"><i /><i /><i /></span>
+        {/* Shaped like the cards that are coming, not one empty box with
+            three dots — the wait reads as "loading the plan". */}
+        {planning && STOPS.length === 0 && [0, 1, 2].map((i) => (
+          <div key={i} className="timeline-card skeleton-card" aria-hidden="true">
+            <span className="skeleton" style={{ width: 64, height: 14 }} />
+            <span className="skeleton" style={{ height: 96, margin: '10px 0' }} />
+            <span className="skeleton" style={{ width: '85%', height: 10 }} />
+            <span className="skeleton" style={{ width: '60%', height: 10, marginTop: 6 }} />
           </div>
+        ))}
+        {planning && STOPS.length === 0 && (
+          <span className="sr-only" role="status">{t('הסוכן בונה את היום...')}</span>
         )}
 
         {!planning && STOPS.length === 0 && (
@@ -401,139 +378,88 @@ export default function Home({ onStartRoute, onOpenChat, onOpenDays, onOpenFood,
         )}
       </div>
 
-      {/* Not signed in: the trip lives on this device only, and that is worth
-          saying where the value is visible rather than at the door. */}
-      {syncState === 'device' && (
-        <div className="pad" style={{ marginTop: 18 }}>
-          <button className="save-prompt" onClick={openAccount}>
-            <span className="save-icon"><Cloud size={17} /></span>
-            <span className="grow col" style={{ gap: 3, textAlign: 'start' }}>
-              <strong>{t('שמור כדי לפתוח גם מהטלפון')}</strong>
-              <span className="tiny">{t('הטיול קיים כרגע על המכשיר הזה בלבד')}</span>
-            </span>
-            <ArrowLeft size={17} />
-          </button>
+      {/* The one "next step" for this trip, in place of the three separate
+          save prompts there used to be (top bar, card, rail). */}
+      {(syncState === 'device' || (canEdit && missing.length > 0)) && (
+        <div className="pad col" style={{ gap: 10, marginTop: 20 }}>
+          {syncState === 'device' && (
+            <button className="save-prompt" onClick={openAccount}>
+              <span className="save-icon"><Cloud size={17} /></span>
+              <span className="grow col" style={{ gap: 3, textAlign: 'start' }}>
+                <strong>{t('שמרו את הטיול בחשבון')}</strong>
+                <span className="tiny">{t('כרגע הוא שמור רק בדפדפן הזה. התחברות שומרת אותו לכל מכשיר.')}</span>
+              </span>
+              <ArrowLeft size={17} className="dir-flip" />
+            </button>
+          )}
+          {canEdit && missing.length > 0 && (
+            <div className="card complete-card">
+              <strong style={{ fontSize: 14.5 }}>{t('השלימו את הטיול')}</strong>
+              <span className="tiny" style={{ display: 'block', marginTop: 2 }}>
+                {t('כמה פרטים שיעזרו לסוכן לדייק את ההמלצות')}
+              </span>
+              <div className="pills" style={{ marginTop: 12 }}>
+                {missing.map(({ id, label, Icon }) => (
+                  <button key={id} className="pill" onClick={() => openEdit(id)}>
+                    <Icon size={14} style={{ marginInlineEnd: 6 }} />
+                    {label}
+                    <Plus size={13} style={{ marginInlineStart: 6 }} />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Every card below duplicates a destination the desktop rail already
-          shows permanently, so on a wide screen this whole block is just
-          the same navigation twice — home-shortcuts hides it there. On
-          mobile, with no rail, these cards are the only way in. */}
-      <div className="home-shortcuts">
-      {/* Recommendations come from the agent, which knows the real itinerary —
-          there is no canned list to fall back on. */}
-      <div className="pad" style={{ marginTop: 20 }}>
-        <button className="card between" style={{ width: "100%" }} onClick={onOpenChat}>
-          <span className="row">
-            <span className="fab-spark" style={{ width: 34, height: 34 }}>
-              <Sparkles size={17} />
-            </span>
-            <span className="col" style={{ gap: 2, textAlign: "start" }}>
-              <strong style={{ fontSize: 14, fontWeight: 600 }}>{t('שאל את הסוכן')}</strong>
-              <span className="tiny">{t('המלצות להמשך היום, לפי המסלול שלך')}</span>
-            </span>
-          </span>
-          <ArrowLeft size={18} />
-        </button>
-      </div>
-
-      {/* The rail carries these on desktop; on mobile this is the way in. */}
-      <div className="pad" style={{ marginTop: 20 }}>
-        <div className="col" style={{ gap: 10 }}>
-          <button className="card between" style={{ width: '100%' }} onClick={onOpenDays}>
-            <span className="row">
-              <span style={{ color: 'var(--lav)' }}><Route size={18} /></span>
-              <span className="col" style={{ gap: 2, textAlign: 'start' }}>
-                <strong style={{ fontSize: 14, fontWeight: 600 }}>{t('מסלול הטיול')}</strong>
-                <span className="tiny">
-                  <span className="num">{TRIP.totalDays}</span> {tn(TRIP.totalDays, 'יום אחד', 'ימים')} · {t('הוסף עצירות ושנה סדר')}
-                </span>
-              </span>
-            </span>
-            <ArrowLeft size={18} />
-          </button>
-
-          <button className="card between" style={{ width: '100%' }} onClick={onOpenFood}>
-            <span className="row">
-              <span style={{ color: 'var(--lav)' }}><Utensils size={18} /></span>
-              <span className="col" style={{ gap: 2, textAlign: 'start' }}>
-                <strong style={{ fontSize: 14, fontWeight: 600 }}>{t('איפה אוכלים')}</strong>
-                <span className="tiny">{t('המלצות מסעדות לפי ההעדפות שלכם')}</span>
-              </span>
-            </span>
-            <ArrowLeft size={18} />
-          </button>
-
-          <button className="card between" style={{ width: '100%' }} onClick={onOpenArrival}>
-            <span className="row">
-              <span style={{ color: 'var(--lav)' }}><Plane size={18} /></span>
-              <span className="col" style={{ gap: 2, textAlign: 'start' }}>
-                <strong style={{ fontSize: 14, fontWeight: 600 }}>{t('הגעה ליעד')}</strong>
-                <span className="tiny">{t('טיסה, שדה תעופה והדרך למלון')}</span>
-              </span>
-            </span>
-            <ArrowLeft size={18} />
-          </button>
-
-          <button className="card between" style={{ width: '100%' }} onClick={onOpenHotels}>
-            <span className="row">
-              <span style={{ color: 'var(--lav)' }}><Bed size={18} /></span>
-              <span className="col" style={{ gap: 2, textAlign: 'start' }}>
-                <strong style={{ fontSize: 14, fontWeight: 600 }}>{t('מלונות')}</strong>
-                <span className="tiny">
-                  {TRIP.stays?.length > 0
-                    ? tn(TRIP.stays.length, 'מקום לינה אחד', '{n} מקומות לינה')
-                    : t('עוד לא הוספתם מלון')}
-                </span>
-              </span>
-            </span>
-            <ArrowLeft size={18} />
-          </button>
-
-          <button className="card between" style={{ width: '100%' }} onClick={onOpenSummary}>
-            <span className="row">
-              <span style={{ color: 'var(--lav)' }}><Printer size={18} /></span>
-              <span className="col" style={{ gap: 2, textAlign: 'start' }}>
-                <strong style={{ fontSize: 14, fontWeight: 600 }}>{t('סיכום להדפסה')}</strong>
-                <span className="tiny">{t('כל הימים במסמך אחד, לשיתוף או הדפסה')}</span>
-              </span>
-            </span>
-            <ArrowLeft size={18} />
-          </button>
-
-          <button className="card between" style={{ width: '100%' }} onClick={onStartRoute}>
-            <span className="row">
-              <span style={{ color: 'var(--lav)' }}><Clock size={18} /></span>
-              <span className="col" style={{ gap: 2, textAlign: 'start' }}>
-                <strong style={{ fontSize: 14, fontWeight: 600 }}>{t('הלו"ז המלא של היום')}</strong>
-                <span className="tiny">
-                  <span className="num">{STOPS.length}</span> {tn(STOPS.length, 'עצירה', 'עצירות')} · {t('מסתיים ב-')}
-                  <span className="num">{STOPS[STOPS.length - 1]?.time ?? '—'}</span>
-                </span>
-              </span>
-            </span>
-            <ArrowLeft size={18} />
-          </button>
-
-          {/* The account icon up in the top bar already opens this same
-              list — it just turns out nobody finds it there. Last in this
-              list rather than first, since switching trips is rarer than
-              anything above it. */}
-          <button className="card between" style={{ width: '100%' }} onClick={openAccount}>
-            <span className="row">
-              <span style={{ color: 'var(--lav)' }}><Layers size={18} /></span>
-              <span className="col" style={{ gap: 2, textAlign: 'start' }}>
-                <strong style={{ fontSize: 14, fontWeight: 600 }}>{t('הטיולים שלי')}</strong>
-                <span className="tiny">
-                  {trips.length > 1 ? t('עבור בין {n} הטיולים שלך', { n: trips.length }) : t('שמור, שתף או תכנן טיול נוסף')}
-                </span>
-              </span>
-            </span>
-            <ArrowLeft size={18} />
-          </button>
+      {/* General trip notes — a driver's name, a booking code, anything
+          that isn't tied to one stop on the map and so has no other home. */}
+      <div className="pad section-head" style={{ marginBottom: 10 }}>
+        <div className="row" style={{ gap: 8 }}>
+          <span style={{ color: 'var(--lav)' }}><Note size={17} /></span>
+          <h2 className="h2" style={{ fontSize: 16 }}>{t('הערות')}</h2>
         </div>
+        {canEdit && (
+          <button className="text-btn" onClick={() => setNoteEditing({ isNew: true })}>
+            {t('הוסף +')}
+          </button>
+        )}
       </div>
+      <div className="pad">
+        {TRIP.notes.length > 0 ? (
+          <NotesList notes={TRIP.notes} onEdit={canEdit ? (n) => setNoteEditing({ isNew: false, id: n.id, text: n.text }) : null} />
+        ) : (
+          <p className="tiny">{t('אין עדיין הערות. לדוגמה: פרטי נהג, קוד לדירה, מספר הזמנה.')}</p>
+        )}
+      </div>
+
+      <div className="pad section-head" style={{ marginBottom: 10 }}>
+        <div className="row" style={{ gap: 8 }}>
+          <span style={{ color: 'var(--lav)' }}><Users size={17} /></span>
+          <h2 className="h2" style={{ fontSize: 16 }}>{t('מי מטייל')}</h2>
+          <span className="tiny">
+            · {travellerCount === 1 ? t('נוסע אחד') : t('{n} נוסעים', { n: travellerCount })}
+          </span>
+        </div>
+        <span className="row" style={{ gap: 4 }}>
+          {canEdit && <button className="text-btn muted" onClick={() => openEdit('who')}>{t('ערוך')}</button>}
+          <button className="text-btn" onClick={() => setShareOpen(true)}>{t('הזמן חברים +')}</button>
+        </span>
+      </div>
+
+      {/* Phones only — the desktop rail already lists every one of these.
+          The agent, the route and the full schedule are in the bottom bar,
+          so they're not repeated here. */}
+      <div className="pad home-shortcuts" style={{ marginTop: 22 }}>
+        <h2 className="h2" style={{ fontSize: 16, marginBottom: 12 }}>{t('עוד בטיול')}</h2>
+        <div className="shortcut-grid">
+          {shortcuts.map(({ Icon, label, onClick }) => (
+            <button key={label} className="shortcut" onClick={onClick}>
+              <span className="shortcut-icon"><Icon size={19} /></span>
+              <span>{label}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
       <ShareSheet open={shareOpen} stops={STOPS} onClose={() => setShareOpen(false)} />

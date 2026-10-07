@@ -5,15 +5,17 @@ import ErrorBoundary from './components/ErrorBoundary'
 import Welcome from './screens/Welcome'
 import Onboarding from './screens/Onboarding'
 import Home from './screens/Home'
-import MapScreen from './screens/MapScreen'
 import Chat from './screens/Chat'
 import Finance from './screens/Finance'
-import Days from './screens/Days'
+import Route from './screens/Route'
 import Reservations from './screens/Reservations'
 import Restaurants from './screens/Restaurants'
 import Arrival from './screens/Arrival'
 import Hotels from './screens/Hotels'
 import Summary from './screens/Summary'
+import Journal from './screens/Journal'
+import Admin from './screens/Admin'
+import { hitOpenOnce } from './lib/usage'
 import { TripProvider, useTrip } from './TripProvider'
 import { PARTY_COLORS } from './data'
 import AccountSheet from './components/AccountSheet'
@@ -34,6 +36,13 @@ import { t, dir } from './i18n'
 initTelemetry()
 
 export default function App() {
+  // The operator's usage page — outside TripProvider, so opening it creates
+  // no anonymous account and isn't counted as a visit.
+  if (location.pathname.replace(/\/+$/, '') === '/admin') return <Admin />
+  return <TripApp />
+}
+
+function TripApp() {
   const legalDoc = useLegalRoute()
 
   // Someone who lands straight on a legal page gets that page and nothing
@@ -122,6 +131,11 @@ function Shell() {
   useEffect(() => {
     setVisited((v) => (v.has(tab) ? v : new Set(v).add(tab)))
   }, [tab])
+  // One "opened the app" per browser session, for the admin page's counts.
+  useEffect(() => { hitOpenOnce() }, [])
+  // Which half of the route tab a phone shows — the list or the map. Kept
+  // here so Home can open straight onto the map ("navigate to the next stop").
+  const [routeView, setRouteView] = useState('list')
   const [started, setStarted] = useState(false)
   const [saveError, setSaveError] = useState(null)
   useEffect(() => {
@@ -131,6 +145,8 @@ function Shell() {
   }, [saveError])
 
   const go = (next) => {
+    // The old standalone map tab is now the map half of the route tab.
+    if (next === 'map') { setRouteView('map'); next = 'days' }
     if (next === tab) return
     breadcrumb('nav', `tab -> ${next}`)
     setTab(next)
@@ -256,17 +272,19 @@ function Shell() {
           <Home
             onStartRoute={() => go('map')}
             onOpenChat={() => go('chat')}
-            onOpenDays={() => go('days')}
+            onOpenDays={() => { setRouteView('list'); go('days') }}
             onOpenFood={() => go('food')}
             onOpenArrival={() => go('arrival')}
             onOpenHotels={() => go('hotels')}
             onOpenSummary={() => go('summary')}
+            onOpenJournal={() => go('journal')}
           />
         )
-      case 'map': return <MapScreen />
       case 'chat': return <Chat />
       case 'finance': return <Finance />
-      case 'days': return <Days />
+      // The list and the map of the itinerary, in one tab.
+      case 'days': return <Route view={routeView} onViewChange={setRouteView} />
+      case 'journal': return <Journal />
       case 'reservations': return <Reservations />
       case 'food': return <Restaurants />
       case 'arrival': return <Arrival />

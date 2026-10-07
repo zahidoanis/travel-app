@@ -284,6 +284,7 @@ async function enrich(flat) {
   if (!hasAI || flat.length === 0) return none
   try {
     const text = await complete({
+      kind: 'import',
       system:
         'אתה עוזר לסדר מסלול טיול שהמשתמש כבר תכנן. אל תוסיף, תמחק או תשנה סדר של מקומות. ' + // i18n-ignore — AI prompt; see gemini.js language override
         'לכל שורה בקלט החזר בדיוק שורה אחת בפורמט:\n' + // i18n-ignore

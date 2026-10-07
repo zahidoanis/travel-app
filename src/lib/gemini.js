@@ -15,6 +15,7 @@
  */
 
 import { t, lang } from '../i18n'
+import { clientId } from './usage'
 
 /**
  * The prompts in this file (and the other AI prompts in the app) are written
@@ -88,8 +89,32 @@ export const clean = (value, max = 300) =>
     .trim()
     .slice(0, max)
 
+/**
+ * Where the trip is in time, said plainly. "היום: יום 1 מתוך 5" alone read
+ * as "you're there now" — the opener wished a trip 17 days out a good first
+ * day.
+ */
+function tripPhase(trip) {
+  const day = (iso) => {
+    if (!iso) return null
+    const [y, m, d] = iso.split('-').map(Number)
+    return new Date(y, m - 1, d)
+  }
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const from = day(trip.from)
+  const to = day(trip.to)
+  if (!from) return `היום הפתוח בתכנון: יום ${trip.day} מתוך ${trip.totalDays}.`
+  const until = Math.round((from - today) / 86400000)
+  if (until > 0) {
+    return `הטיול עוד לא התחיל: הוא מתחיל בעוד ${until} ${until === 1 ? 'יום' : 'ימים'} (${trip.from}) ונמשך ${trip.totalDays} ימים. המשתמש מתכנן מראש — הוא עדיין לא שם, אז אל תדבר כאילו הוא כבר בטיול. היום הפתוח בתכנון: יום ${trip.day}.`
+  }
+  if (to && to < today) return `הטיול כבר הסתיים (${trip.from} עד ${trip.to}).`
+  return `הטיול מתרחש עכשיו. היום: יום ${trip.day} מתוך ${trip.totalDays}.`
+}
+
 /** Builds the agent's standing instructions, grounded in the actual trip. */
-export function systemPrompt({ trip, stops, days = {}, families, memory = [], weather }) {
+export function systemPrompt({ trip, stops, days = {}, families, memory = [], weather, userTime }) {
   const line = (s, i) => `${i + 1}. ${clean(s.time, 8)} — ${clean(s.he, 80)}${s.desc ? ` (${clean(s.desc, 200)})` : ''}`
   const itinerary = stops.map(line).join('\n') || 'ריק'
 
@@ -115,8 +140,9 @@ export function systemPrompt({ trip, stops, days = {}, families, memory = [], we
 
   return `אתה סוכן הנסיעות של TripAI. אתה עוזר לקבוצה שמטיילת ב${trip.city}, ${trip.country}.
 
-היום: יום ${trip.day} מתוך ${trip.totalDays}.
-
+${tripPhase(trip)}
+${userTime ? `השעה אצל המשתמש עכשיו: ${userTime} (לפי השעון במכשיר שלו). כשמברכים "בוקר טוב" / "ערב טוב" — לפי השעה הזו, לא לפי ניחוש.
+` : ''}
 הלו"ז של היום הפתוח:
 ${itinerary}
 
@@ -142,6 +168,9 @@ ${weatherBlock(weather)}
 
 מקומות — חובה:
 כל מקום ספציפי שאתה מזכיר (אתר, מסעדה, בית קפה, מוזיאון, פארק, שכונה, נקודת תצפית, חנות) כתוב בתחביר [[שם לתצוגה|Place, City, Country]]. החלק הראשון הוא השם שהמשתמש יראה, בשפת התשובה. החלק השני הוא השם באנגלית כפי שהוא מופיע במפות, עם העיר והמדינה — הוא משמש לאיתור המקום על המפה. למסעדות, בתי קפה, ברים וחנויות הוסף גם את שם הרחוב, כי לשם קצר יש לרוב כמה מקומות דומים: Place, Street, City, Country. האפליקציה הופכת את זה לקישור שפותח את המקום על מפה ומאפשר להוסיף אותו ליום. דוגמה: כדאי לקפוץ ל[[פסטייש דה בלם|Pastéis de Belém, Lisbon, Portugal]] אחרי המגדל. אל תשתמש בתחביר הזה בתוך שורות פעולה, ולא לדברים שאינם מקום מסוים (למשל "מסעדה טובה" או "העיר העתיקה" באופן כללי).
+
+קישורים — חובה:
+סיור, כרטיס או פעילות שאפשר להזמין (למשל מתוצאות Viator) הם לא מקום על המפה — לעולם אל תכתוב אותם בתחביר [[...]]. כתוב אותם כקישור בפורמט [שם הסיור](הקישור המלא), כשהקישור בלי רווחים. אף פעם אל תכתוב כתובת אינטרנט חשופה בתוך הטקסט — תמיד בפורמט [טקסט](קישור).
 
 שאלות המשך — חובה:
 בסוף כל תשובה רגילה (לא כשאתה כותב שורות פעולה), הוסף שורה אחרונה אחת בדיוק בפורמט:
@@ -180,7 +209,7 @@ REMEMBER: <עובדה קצרה, בגוף שלישי>
  */
 export const OPENER_PROMPT =
   '(הודעת מערכת, לא מהמשתמש: המשתמש פתח עכשיו את הצ\'אט. פתח אתה את השיחה. ' +
-  'ברכה קצרה שמתאימה לשעה המקומית ביעד אם היא ידועה לך, ואז התייחסות קונקרטית אחת למצב שלהם עכשיו — ' +
+  'ברכה קצרה שמתאימה לשעה אצל המשתמש (היא מופיעה בהוראות), ואז התייחסות קונקרטית אחת למצב שלהם עכשיו — ' +
   'מה מחכה היום או בעצירה הבאה, מזג האוויר אם הוא משנה משהו, או יום ריק שכדאי למלא — ' +
   'והצעה יזומה אחת או שאלה אחת. 2-3 משפטים, חם ואישי. אל תציג את עצמך ואל תפרט מה אתה יודע לעשות. ' +
   'בסוף שורת SUGGEST כרגיל.)'
@@ -199,16 +228,31 @@ const toContents = (messages) =>
  * Streams a reply. Calls `onChunk(text)` for each delta and resolves with the
  * full text. Throws with a message (in the UI's language) the UI can show as-is.
  */
-export async function streamReply({ messages, system, searchContext, search = true, signal, onChunk }) {
+export async function streamReply({ messages, system, searchContext, search = true, signal, onChunk, onFrame, fast = false, grounding = null, kind = 'other', maxTokens = 4096 }) {
   const body = {
     contents: toContents(messages),
     systemInstruction: { parts: [{ text: system + LANGUAGE_OVERRIDE }] },
-    // Thinking tokens count against maxOutputTokens, and Gemini 3 spends
-    // several hundred on a question like this — leave room for both.
-    // 4096, not 2048: with the thinking tokens taken out of the same budget,
-    // longer answers (a whole day, several places with links) ran out
-    // mid-sentence and stopped there.
-    generationConfig: { temperature: 0.7, maxOutputTokens: 4096 },
+    generationConfig: {
+      temperature: 0.7,
+      // Thinking tokens count against this budget. At 2048, Gemini 3's
+      // ~1,300-1,500 thinking tokens left so little room that answers came
+      // back cut off or empty — a day's plan "couldn't be parsed", an
+      // import's enrichment stopped after 13 of 24 stops.
+      maxOutputTokens: maxTokens,
+      // Structured jobs (a day's stops, hotel or restaurant rows) don't need
+      // the model to deliberate first: measured on a day of Rome, minimal
+      // thinking answered in ~5s with all 6 rows, vs 8-21s by default. The
+      // chat keeps full thinking — that's where the reasoning shows.
+      ...(fast ? { thinkingConfig: { thinkingLevel: 'minimal' } } : {}),
+    },
+    // Direct mode only — Google's API takes the tool itself. The proxy gets
+    // a plain flag instead (below) and attaches the tool on its side.
+    ...(grounding && !PROXY
+      ? {
+          tools: [{ googleMaps: {} }],
+          ...(grounding.latLng ? { toolConfig: { retrievalConfig: { latLng: grounding.latLng } } } : {}),
+        }
+      : {}),
   }
 
   const url = PROXY
@@ -224,7 +268,19 @@ export async function streamReply({ messages, system, searchContext, search = tr
       // API validates the request shape strictly and would 400 on either in
       // direct mode.
       body: JSON.stringify(
-        PROXY ? { ...body, model: MODEL, ...(searchContext ? { searchContext } : {}), ...(search ? {} : { search: false }) } : body
+        PROXY
+          ? {
+              ...body,
+              model: MODEL,
+              ...(searchContext ? { searchContext } : {}),
+              ...(search ? {} : { search: false }),
+              ...(grounding ? { grounding: 'maps', ...(grounding.latLng ? { latLng: grounding.latLng } : {}) } : {}),
+              // For the admin page's daily counts: what this request was for,
+              // and a random per-browser id (never a name or an email).
+              kind,
+              client: clientId(),
+            }
+          : body
       ),
       signal,
     })
@@ -233,6 +289,11 @@ export async function streamReply({ messages, system, searchContext, search = tr
     throw new Error(t('אין חיבור לשרת ה-AI. בדוק את החיבור לאינטרנט.'))
   }
 
+  // A model that doesn't take thinkingLevel (a fallback model, say) rejects
+  // the whole request — ask again the ordinary way rather than fail.
+  if (!res.ok && fast && res.status === 400) {
+    return streamReply({ messages, system, searchContext, signal, onChunk, onFrame, grounding, kind, maxTokens, fast: false })
+  }
   if (!res.ok) throw new Error(await describeError(res))
 
   const reader = res.body?.getReader()
@@ -244,8 +305,11 @@ export async function streamReply({ messages, system, searchContext, search = tr
 
   let cutOff = false
   const emit = (frame) => {
-    if (/"finishReason"\s*:\s*"MAX_TOKENS"/.test(frame)) cutOff = true
-    const text = textOf(frame)
+    const json = frameJson(frame)
+    if (!json) return
+    if (json.candidates?.[0]?.finishReason === 'MAX_TOKENS') cutOff = true
+    onFrame?.(json)
+    const text = textOf(json)
     if (!text) return
     full += text
     onChunk?.(text)
@@ -283,12 +347,73 @@ export async function streamReply({ messages, system, searchContext, search = tr
  * of streaming it. For places that need the full text before they can render,
  * like parsing a list of suggestions.
  */
-export function complete({ prompt, system, signal }) {
+export function complete({ prompt, system, signal, fast = true, kind = 'other', maxTokens }) {
   return streamReply({
     messages: [{ role: 'me', text: prompt }],
     system,
     signal,
+    fast,
+    kind,
+    maxTokens,
   })
+}
+
+const CURRENCY = { EUR: '€', USD: '$', GBP: '£', ILS: '₪', JPY: '¥' }
+
+/**
+ * Grounding with Google Maps: the model answers from real Maps data, and
+ * every place it used comes back in the response's groundingMetadata — with
+ * Google's own rating, review count, price range and address. Those are
+ * read from there, not from what the model wrote, so a number on screen is
+ * Google's, never the model's.
+ *
+ * Free: the proxy's keys are free-tier keys with no billing, so this can't
+ * be charged for — a spent quota fails the request (and the caller falls
+ * back to the ungrounded list, without ratings). Verified 2026-10-03 on a
+ * Paris restaurant list.
+ *
+ * @returns {Promise<{ text: string, places: Array<{ title, uri, placeId,
+ *   rating, reviews, price, address }> }>}
+ */
+export async function completeWithMaps({ prompt, system, latLng, signal, kind = 'food' }, attempt = 1) {
+  const frames = []
+  const text = await streamReply({
+    messages: [{ role: 'me', text: prompt }],
+    system,
+    signal,
+    grounding: { latLng },
+    kind,
+    onFrame: (j) => frames.push(j),
+  })
+
+  // Whether to actually look in Maps is the model's call, and about one
+  // answer in four came back from its own memory with no Maps data at all
+  // (measured on the free-tier model, 2026-10-03). One more try.
+  const used = frames.some((f) => f.candidates?.[0]?.groundingMetadata?.groundingChunks?.length)
+  if (!used && attempt < 2) return completeWithMaps({ prompt, system, latLng, signal, kind }, attempt + 1)
+
+  const places = []
+  for (const f of frames) {
+    for (const chunk of f.candidates?.[0]?.groundingMetadata?.groundingChunks ?? []) {
+      const m = chunk.maps
+      // "Review of X" chunks are single reviews of a place already listed.
+      if (!m?.title || /^review of /i.test(m.title)) continue
+      if (places.some((x) => (m.placeId && x.placeId === m.placeId) || x.uri === m.uri)) continue
+      const field = (name) => m.text?.match(new RegExp(`\\*\\*${name}:\\*\\*\\s*([^\\n]+)`))?.[1]?.trim() ?? null
+      const r = field('Rating')?.match(/([\d.]+)\s*\((\d[\d,]*)/)
+      const price = field('Price Range')?.replace(/^([A-Z]{3})_/, (_, c) => CURRENCY[c] ?? `${c} `).replace('-', '–') ?? null
+      places.push({
+        title: m.title.replace(/\s*-\s*Google Maps$/i, '').trim(),
+        uri: m.uri,
+        placeId: m.placeId ?? null,
+        rating: r ? Number(r[1]) : null,
+        reviews: r ? Number(r[2].replace(/,/g, '')) : null,
+        price,
+        address: field('Address'),
+      })
+    }
+  }
+  return { text, places }
 }
 
 /**
@@ -321,21 +446,21 @@ export function parseRows(text, columns) {
 
 const SEP = /\r?\n\r?\n/
 
-/** Pulls the visible text out of one SSE frame, dropping reasoning parts. */
-function textOf(frame) {
+/** One SSE frame's JSON, or null for a partial or non-data frame. */
+function frameJson(frame) {
   const line = frame.split(/\r?\n/).find((l) => l.startsWith('data:'))
-  if (!line) return ''
-
+  if (!line) return null
   const payload = line.slice(5).trim()
-  if (!payload || payload === '[DONE]') return ''
-
-  let json
+  if (!payload || payload === '[DONE]') return null
   try {
-    json = JSON.parse(payload)
+    return JSON.parse(payload)
   } catch {
-    return '' // partial frame; the next read completes it
+    return null // partial frame; the next read completes it
   }
+}
 
+/** Pulls the visible text out of one frame, dropping reasoning parts. */
+function textOf(json) {
   // Thinking models emit `thought` parts alongside the answer — those are
   // internal reasoning and must never reach the chat bubble.
   return (json?.candidates?.[0]?.content?.parts ?? [])

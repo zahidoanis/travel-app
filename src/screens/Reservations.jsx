@@ -63,19 +63,32 @@ export default function Reservations() {
             </h1>
             <p className="tiny" style={{ marginTop: 4 }}>{trip.city}</p>
           </div>
-          {canEdit && (
+          {canEdit && reservations.length > 0 && (
             <button
-              className="icon-btn boxed" style={{ width: 34, height: 34 }}
+              className="icon-btn boxed"
               onClick={() => setAddingTicket(true)}
               aria-label={t('הוסף כרטיס')}
-            ><Plus size={17} /></button>
+              title={t('הוסף כרטיס')}
+            ><Plus size={18} /></button>
           )}
         </div>
 
+        {/* An empty tab says what goes here and offers the one action, rather
+            than a paragraph pointing at a small + in the corner. */}
         {reservations.length === 0 && (
-          <p className="tiny" style={{ marginTop: 20 }}>
-            {t('אין עדיין כלום כאן. אפשר לשמור הזמנה דרך "הזמן" בעצירה במסלול, או ללחוץ על + כדי לצרף כרטיס שכבר יש לכם — טיסה, כניסה לאתר, כל דבר.')}
-          </p>
+          <div className="card empty-state" style={{ marginTop: 20 }}>
+            <span className="empty-icon"><Ticket size={22} /></span>
+            <strong style={{ fontSize: 15 }}>{t('עוד אין הזמנות')}</strong>
+            <p className="tiny" style={{ margin: '6px 0 16px', maxWidth: '34ch' }}>
+              {t('שמרו כאן כרטיסי טיסה, כניסות לאתרים והזמנות מסעדה — עם צילום של הכרטיס, כדי שיהיה בהישג יד ביום עצמו.')}
+            </p>
+            <button className="btn btn-primary btn-sm" onClick={() => setAddingTicket(true)}>
+              <Plus size={15} /> {t('הוסף כרטיס או הזמנה')}
+            </button>
+            <p className="tiny" style={{ marginTop: 12 }}>
+              {t('אפשר גם להזמין ישירות מעצירה במסלול: ⋯ ← הזמנת מקום או כרטיסים.')}
+            </p>
+          </div>
         )}
 
         {reservations.length > 0 && (
@@ -101,7 +114,7 @@ export default function Reservations() {
                 </span>
                 {r.phone && (
                   <a
-                    className="icon-btn" style={{ width: 30, height: 30 }}
+                    className="icon-btn"
                     href={`tel:${r.phone.replace(/\s/g, '')}`}
                     aria-label={t('התקשר ל{place}', { place: r.place })}
                   ><Phone size={14} /></a>
@@ -109,7 +122,7 @@ export default function Reservations() {
                 <TicketPhoto tripId={trip.id} ticketId={r.id} />
                 {canEdit && (
                   <button
-                    className="icon-btn" style={{ width: 30, height: 30 }}
+                    className="icon-btn"
                     onClick={() => cancel(r)}
                     aria-label={t('בטל את {place}', { place: r.place })}
                   ><X size={13} /></button>

@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import TopBar from '../components/TopBar'
 import {
-  Sparkles, Plus, X, ArrowUp, ArrowDown, RefreshCw, Clock, Ticket, MapPin, Users,
+  Sparkles, Plus, ArrowUp, ArrowDown, RefreshCw, Clock, Ticket, MapPin, Users, More, Trash, Calendar,
 } from '../components/Icons'
 import { CATEGORIES } from '../data'
 import BookingSheet from '../components/BookingSheet'
 import { useTrip } from '../TripProvider'
 import { hasAI, complete, parseRows } from '../lib/gemini'
+import { dayLegs, dayKm, fmtMinutes } from '../lib/travel'
 import { geocode, search, geocodeNear } from '../lib/geocode'
 import { breadcrumb, watchdog } from '../lib/telemetry'
 import { useConfirm } from '../components/Confirm'
@@ -38,12 +39,90 @@ const CAT_FROM_WORD = (w = '') => {
   return 'landmark'
 }
 
-export default function Days() {
+/**
+ * Everything you can do to one stop, behind one "⋯" button. These used to
+ * be four 26px icons on every card (↑ ↓ 🎫 ✕) plus a "move to day" select —
+ * below a comfortable tap size, unlabeled, and the ✕ deleted on the spot.
+ */
+function StopMenu({ stop, index, count, dayList, activeDay, onMove, onMoveToDay, onBook, onRemove }) {
+  const [open, setOpen] = useState(false)
+  const [daysOpen, setDaysOpen] = useState(false)
+  const box = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e) => { if (!box.current?.contains(e.target)) { setOpen(false); setDaysOpen(false) } }
+    const onKey = (e) => { if (e.key === 'Escape') { setOpen(false); setDaysOpen(false) } }
+    document.addEventListener('pointerdown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('pointerdown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  const act = (fn) => () => { setOpen(false); setDaysOpen(false); fn() }
+  const otherDays = dayList.filter((d) => d !== activeDay)
+
+  return (
+    <div className="stop-menu" ref={box}>
+      <button
+        className="icon-btn"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={t('פעולות על {place}', { place: stop.he })}
+        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o) }}
+      >
+        <More size={20} />
+      </button>
+      {open && (
+        <div className="menu" role="menu" onClick={(e) => e.stopPropagation()}>
+          <button role="menuitem" disabled={index === 0} onClick={act(() => onMove(-1))}>
+            <ArrowUp size={16} /> {t('הזז למעלה')}
+          </button>
+          <button role="menuitem" disabled={index === count - 1} onClick={act(() => onMove(1))}>
+            <ArrowDown size={16} /> {t('הזז למטה')}
+          </button>
+          {otherDays.length > 0 && (
+            <>
+              <button role="menuitem" aria-expanded={daysOpen} onClick={() => setDaysOpen((d) => !d)}>
+                <Calendar size={16} /> {t('העבר ליום אחר')}
+              </button>
+              {daysOpen && (
+                <div className="menu-days">
+                  {otherDays.map((d) => (
+                    <button key={d} className="pill" onClick={act(() => onMoveToDay(d))}>
+                      {t('יום {n}', { n: d })}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+          <button role="menuitem" onClick={act(onBook)}>
+            <Ticket size={16} /> {t('הזמנת מקום או כרטיסים')}
+          </button>
+          <button role="menuitem" className="danger" onClick={act(onRemove)}>
+            <Trash size={16} /> {t('הסר מהמסלול')}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * `embedded` — rendered inside the desktop route split, under its shared
+ * top bar; `focusId`/`onFocusStop` keep the list and the map pointing at
+ * the same stop there. `switcher` is the phone's "map" pill. `addSignal`
+ * changing scrolls to (and focuses) the add-a-stop form.
+ */
+export default function Days({ embedded = false, focusId = null, onFocusStop, addSignal = 0, switcher = null }) {
   const {
     trip, days, activeDay, setActiveDay, stops,
     families, activeFamily, switchFamily, toggleSharedDay,
     planning, planWarning, plan, moveStop, addStop, removeStop, updateStop,
-    moveStopToDay,
+    moveStopToDay, planDays, planQueue, planningDay,
   } = useTrip()
   const confirm = useConfirm()
 
@@ -63,6 +142,21 @@ export default function Days() {
     plan(activeDay)
   }
 
+  const addRef = useRef(null)
+  const addInput = useRef(null)
+  useEffect(() => {
+    if (!addSignal) return
+    addRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    const timer = setTimeout(() => addInput.current?.focus({ preventScroll: true }), 400)
+    return () => clearTimeout(timer)
+  }, [addSignal])
+
+  // A pin tapped on the map beside the list brings its stop into view.
+  useEffect(() => {
+    if (!focusId || !embedded) return
+    document.querySelector(`[data-stop-row="${focusId}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }, [focusId, embedded])
+
   /**
    * Finds a place from what someone typed. The geocoder barely understands
    * Hebrew, and "טירת קרלשטיין, פראג" (a Hebrew name plus a Hebrew city, for
@@ -81,6 +175,7 @@ export default function Days() {
     if (ai && hasAI && /[֐-׿]/.test(name)) { // i18n-ignore — detects a Hebrew place name
       try {
         const local = (await complete({
+          kind: 'lookup',
           system:
             'החזר אך ורק את שם המקום בשפה המקומית או באנגלית כפי שהוא מופיע ב-OpenStreetMap. ' + // i18n-ignore — AI prompt
             'שורה אחת, בלי הסברים, בלי מירכאות.', // i18n-ignore
@@ -141,6 +236,10 @@ export default function Days() {
   const rangeEnd = activeFamilyObj?.departDay ?? trip.totalDays
   const dayList = Array.from({ length: Math.max(0, rangeEnd - rangeStart + 1) }, (_, i) => rangeStart + i)
   const isSharedDay = (activeFamilyObj?.sharedDays ?? []).includes(activeDay)
+  const queued = planQueue.includes(activeDay)
+  const legs = dayLegs(stops)
+  const totalKm = dayKm(stops)
+  const emptyDays = dayList.filter((d) => !(days[d]?.length) && !planQueue.includes(d))
 
   /** Asks for stops that are not already in the day, so repeats are unlikely. */
   const suggest = async () => {
@@ -154,6 +253,7 @@ export default function Days() {
     try {
       const already = stops.map((s) => s.name).join(', ') || 'אין עדיין' // i18n-ignore — AI prompt
       const text = await complete({
+        kind: 'suggest',
         system:
           'אתה מתכנן מסלולי טיול. החזר אך ורק שורות בפורמט:\n' + // i18n-ignore — AI prompt; see gemini.js language override
           'שעה | כתובת מלאה באנגלית בפורמט "Place, City, Country" | שם בעברית | קטגוריה | תיאור קצר\n' + // i18n-ignore
@@ -264,9 +364,12 @@ export default function Days() {
     setSuggestions((s) => s.filter((x) => x.name !== row.name))
   }
 
+  // The undo for this is the message bar at the bottom (see Snack.jsx).
+  const remove = (s) => removeStop(activeDay, s.id)
+
   return (
-    <div className="screen">
-      <TopBar />
+    <div className={`screen ${switcher ? 'has-switch' : ''}`}>
+      {!embedded && <TopBar />}
 
       <div className="pad">
         <h1 className="h1" style={{ fontSize: 24 }}>{t('מסלול הטיול')}</h1>
@@ -309,8 +412,8 @@ export default function Days() {
                 {t('יום')} {d}
                 <span className="tiny">
                   {date
-                    ? <>{date}{count > 0 && <> · <span className="num">{count}</span> {tn(count, 'עצירה', 'עצירות')}</>}</>
-                    : count > 0 ? <><span className="num">{count}</span> {tn(count, 'עצירה', 'עצירות')}</> : t('ריק')}
+                    ? <>{date}{count > 0 && <> · <span className="num">{count}</span> {tn(count, 'עצירה', 'עצירות')}</>}{count === 0 && planQueue.includes(d) && <> · {t('בבנייה…')}</>}</>
+                    : count > 0 ? <><span className="num">{count}</span> {tn(count, 'עצירה', 'עצירות')}</> : planQueue.includes(d) ? t('בבנייה…') : t('ריק')}
                 </span>
               </span>
             </button>
@@ -318,11 +421,25 @@ export default function Days() {
         })}
       </div>
 
+      {!planning && emptyDays.length > 1 && (
+        <div className="pad" style={{ marginTop: 12 }}>
+          <button className="btn btn-ghost btn-sm btn-block" onClick={() => planDays(emptyDays)}>
+            <Sparkles size={15} />
+            {t('בנה את כל הימים הריקים ({n})', { n: emptyDays.length })}
+          </button>
+        </div>
+      )}
+
       <div className="pad section-head">
         <span className="col" style={{ gap: 2 }}>
           <h2 className="h2" style={{ fontSize: 16 }}>{t('יום')} {activeDay}</h2>
           {dateForDay(trip, activeDay) && (
             <span className="tiny">{dateForDay(trip, activeDay)}</span>
+          )}
+          {totalKm > 0.2 && (
+            <span className="tiny" title={t('הערכה לפי קו אווירי, לא מסלול מדויק')}>
+              {t('בין העצירות')}: ~<span className="num">{totalKm.toFixed(1)}</span> {t('ק"מ')}
+            </span>
           )}
         </span>
         <span className="row" style={{ gap: 8 }}>
@@ -341,14 +458,13 @@ export default function Days() {
             </button>
           )}
           <button
-            className="icon-btn"
-            style={{ width: 30, height: 30 }}
+            className="btn btn-ghost btn-sm"
             onClick={rebuild}
             disabled={planning}
-            aria-label={t('בנה את היום מחדש')}
             title={t('בנה את היום מחדש')}
           >
-            <RefreshCw size={15} />
+            <RefreshCw size={14} />
+            {t('בנה מחדש')}
           </button>
         </span>
       </div>
@@ -358,17 +474,27 @@ export default function Days() {
       )}
 
       <div className="pad">
-        {planning && stops.length === 0 && (
-          <div className="card" style={{ textAlign: 'center' }}>
-            <span className="typing"><i /><i /><i /></span>
-            <p className="tiny" style={{ marginTop: 10 }}>{t('הסוכן בונה את היום...')}</p>
+        {queued && stops.length === 0 && (
+          <div className="col" style={{ gap: 10 }}>
+            <p className="tiny" role="status">
+              {planningDay === activeDay
+                ? t('הסוכן בונה את היום...')
+                : t('בתור — הסוכן בונה עכשיו את יום {n}, ואחר כך יגיע ליום הזה.', { n: planningDay })}
+            </p>
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="card skeleton-card" aria-hidden="true">
+                <span className="skeleton" style={{ width: 90, height: 12 }} />
+                <span className="skeleton" style={{ width: '55%', height: 16, marginTop: 10 }} />
+                <span className="skeleton" style={{ width: '90%', height: 10, marginTop: 10 }} />
+              </div>
+            ))}
           </div>
         )}
 
-        {!planning && stops.length === 0 && (
+        {!queued && stops.length === 0 && (
           <div className="card" style={{ textAlign: 'center' }}>
             <p className="sub" style={{ marginBottom: 14 }}>{t('היום הזה עדיין ריק.')}</p>
-            <button className="btn btn-primary btn-sm" onClick={rebuild}>
+            <button className="btn btn-primary btn-sm" onClick={rebuild} disabled={planning}>
               <Sparkles size={15} />
               {t('בנה לי יום')}
             </button>
@@ -378,7 +504,12 @@ export default function Days() {
         {/* The itinerary itself */}
         <ol className="stop-list">
           {stops.map((s, i) => (
-            <li key={s.id} className="stop-item">
+            <li
+              key={s.id}
+              data-stop-row={s.id}
+              className={`stop-item ${focusId === s.id ? 'focused' : ''}`}
+              onClick={() => onFocusStop?.(s.id)}
+            >
               <span className="stop-rail" aria-hidden="true">
                 <i className="stop-bead" style={{ background: CATEGORIES[s.cat]?.color }} />
                 {i < stops.length - 1 && <i className="stop-line" />}
@@ -389,70 +520,50 @@ export default function Days() {
                   <span className="row" style={{ gap: 7 }}>
                     <Clock size={13} />
                     <strong className="num" style={{ fontSize: 13 }}>{s.time}</strong>
-                    <span className="badge" style={{ padding: '2px 8px', fontSize: 10 }}>
+                    <span className="badge" style={{ padding: '2px 8px', fontSize: 10.5 }}>
                       {CATEGORIES[s.cat]?.label}
                     </span>
                   </span>
 
-                  <span className="row" style={{ gap: 2 }}>
-                    <button
-                      className="icon-btn" style={{ width: 26, height: 26 }}
-                      onClick={() => moveStop(activeDay, s.id, -1)}
-                      disabled={i === 0}
-                      aria-label={t('הזז למעלה')}
-                    ><ArrowUp size={13} /></button>
-                    <button
-                      className="icon-btn" style={{ width: 26, height: 26 }}
-                      onClick={() => moveStop(activeDay, s.id, 1)}
-                      disabled={i === stops.length - 1}
-                      aria-label={t('הזז למטה')}
-                    ><ArrowDown size={13} /></button>
-                    <button
-                      className="icon-btn" style={{ width: 26, height: 26 }}
-                      onClick={() => setBooking(s)}
-                      aria-label={t('הזמן מקום ב{place}', { place: s.he })}
-                      title={t('הזמנת מקום או כרטיסים')}
-                    ><Ticket size={13} /></button>
-                    <button
-                      className="icon-btn" style={{ width: 26, height: 26 }}
-                      onClick={() => removeStop(activeDay, s.id)}
-                      aria-label={t('הסר את {name}', { name: s.he })}
-                    ><X size={13} /></button>
-                  </span>
+                  <StopMenu
+                    stop={s}
+                    index={i}
+                    count={stops.length}
+                    dayList={dayList}
+                    activeDay={activeDay}
+                    onMove={(delta) => moveStop(activeDay, s.id, delta)}
+                    onMoveToDay={(d) => moveStopToDay(activeDay, s.id, d)}
+                    onBook={() => setBooking(s)}
+                    onRemove={() => remove(s)}
+                  />
                 </div>
 
-                <h3 className="h3" style={{ marginTop: 6 }}>{s.he}</h3>
-                <p className="tiny" style={{ margin: '4px 0 8px' }}>{s.desc}</p>
+                <h3 className="h3" style={{ marginTop: 4 }}>{s.he}</h3>
+                <p className="tiny" style={{ margin: '4px 0 0' }}>{s.desc}</p>
 
-                <div className="row" style={{ gap: 8 }}>
-                  {s.lat == null && (
-                    <button
-                      className="tiny"
-                      style={{ color: 'var(--amber)', textDecoration: 'underline', textUnderlineOffset: 3 }}
-                      onClick={() => locateStop(s)}
-                      disabled={locatingId === s.id}
-                    >
-                      {locatingId === s.id ? t('מאתר…') : t('לא על המפה — אתר')}
-                    </button>
-                  )}
-                  {trip.totalDays > 1 && (
-                    <label className="row" style={{ gap: 6, marginInlineStart: 'auto' }}>
-                      <span className="tiny">{t('העבר ליום')}</span>
-                      <select
-                        className="day-move"
-                        value={activeDay}
-                        onChange={(e) => moveStopToDay(activeDay, s.id, Number(e.target.value))}
-                        aria-label={t('העבר את {place} ליום אחר', { place: s.he })}
-                      >
-                        {dayList.map((d) => (
-                          <option key={d} value={d}>
-                            {d === activeDay ? t('יום {n} (כאן)', { n: d }) : t('יום {n}', { n: d })}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  )}
-                </div>
+                {legs[i] && (
+                  <p className="stop-leg" aria-label={t('עד העצירה הבאה')}>
+                    <span aria-hidden="true">{legs[i].mode === 'walk' ? '🚶' : '🚕'}</span>
+                    {legs[i].km < 0.15 ? t('ממש בסמוך') : (
+                      <>
+                        {legs[i].mode === 'walk' ? t('כ-{n} דק\' הליכה', { n: fmtMinutes(legs[i].minutes) }) : t('כ-{n} דק\' נסיעה', { n: fmtMinutes(legs[i].minutes) })}
+                        <span className="stop-leg-km">· <span className="num">{legs[i].km.toFixed(1)}</span> {t('ק"מ')}</span>
+                      </>
+                    )}
+                  </p>
+                )}
+
+                {s.lat == null && (
+                  <button
+                    className="text-btn"
+                    style={{ color: 'var(--amber)', marginTop: 8 }}
+                    onClick={(e) => { e.stopPropagation(); locateStop(s) }}
+                    disabled={locatingId === s.id}
+                  >
+                    <MapPin size={13} />
+                    {locatingId === s.id ? t('מאתר…') : t('לא על המפה — אתר')}
+                  </button>
+                )}
               </div>
             </li>
           ))}
@@ -463,11 +574,12 @@ export default function Days() {
           <h2 className="h2" style={{ fontSize: 15 }}>{t('הוסף יעד בעצמך')}</h2>
         </div>
 
-        <div className="card" style={{ marginBottom: 20 }}>
+        <div className="card" style={{ marginBottom: 20 }} ref={addRef}>
           <div className="autocomplete">
             <div className="row field-row">
               <MapPin size={17} />
               <input
+                ref={addInput}
                 className="field-bare"
                 value={manualName}
                 onChange={(e) => { setManualName(e.target.value); lookupPlace(e.target.value) }}
@@ -598,6 +710,8 @@ export default function Days() {
         kind={booking?.cat === 'food' ? 'food' : 'attraction'}
         onClose={() => setBooking(null)}
       />
+
+      {switcher && <div className="view-switch-wrap">{switcher}</div>}
     </div>
   )
 }

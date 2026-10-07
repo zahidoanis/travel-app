@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from 'react'
 import TopBar from '../components/TopBar'
 import MapCanvas from '../components/MapCanvas'
 import Sheet from '../components/Sheet'
-import { Star, Info, Navigation, Clock, Locate, MapPin, Bed } from '../components/Icons'
+import { Star, Info, Navigation, Clock, Locate, Plus, MapPin, Bed, Route, Trash } from '../components/Icons'
 import { categoryOf } from '../data'
 import { distanceKm } from '../lib/geocode'
 import { useTrip } from '../TripProvider'
 import { navigateUrl } from '../lib/staticMap'
+import { trackKm } from '../lib/track'
 import { t, tn } from '../i18n'
 
 // A live dot older than this is more likely someone who closed the app
@@ -14,12 +15,23 @@ import { t, tn } from '../i18n'
 // there is no way to run code when a tab closes to mark it inactive itself.
 const PRESENCE_STALE_MS = 10 * 60 * 1000
 
-export default function MapScreen() {
+/**
+ * `embedded` — the map half of the desktop route split: no top bar or day
+ * strip of its own (the list beside it has both), and one card for the
+ * focused stop instead of the phone's swipeable deck. `focusId` /
+ * `onFocusStop` keep it pointed at the same stop as the list.
+ * `onAddStop` is the + button; `switcher` is the phone's "list" pill.
+ */
+export default function MapScreen({ embedded = false, focusId = null, onFocusStop, onAddStop, switcher = null }) {
   const {
-    stops: ALL_STOPS, days, activeDay, setActiveDay, planning, trip,
+    stops: ALL_STOPS, days, activeDay, setActiveDay, planQueue, trip,
     families, activeFamily, switchFamily,
     presence, sharingLocation, toggleLocationSharing,
+    recording, toggleRecording, trackPoints, trackError, clearRecordedTrack,
   } = useTrip()
+  const [trackOpen, setTrackOpen] = useState(false)
+  const km = trackKm(trackPoints)
+  const kmText = km < 10 ? km.toFixed(1) : String(Math.round(km))
   // A stop added by hand whose place couldn't be geocoded goes into the day
   // with lat/lng null (Days.jsx says so on purpose — still useful with just a
   // time and a name). It has no position to draw, navigate to or show
@@ -101,6 +113,14 @@ export default function MapScreen() {
   // scheme to stay collision-free.
   useEffect(() => { setActiveId(null) }, [activeDay])
 
+  // The list beside the map (desktop) picked a stop.
+  useEffect(() => { if (focusId != null) setActiveId(focusId) }, [focusId])
+
+  const pick = (id) => {
+    setActiveId(id)
+    onFocusStop?.(id)
+  }
+
   // The itinerary is regenerated per destination, so the active id has to
   // follow it rather than being captured once at mount.
   useEffect(() => {
@@ -111,12 +131,45 @@ export default function MapScreen() {
   }, [STOPS, activeId])
 
   // Keep the carousel and the map pin in sync in both directions.
+  // A pin tap (or the list beside the map) scrolls the carousel to its card;
+  // that scroll is ours, so the swipe handler below ignores it — otherwise a
+  // smooth scroll from card 1 to card 4 would "select" 2 and 3 on the way.
+  const programmatic = useRef(false)
   useEffect(() => {
     const deck = deckRef.current
     if (!deck || activeId == null) return
     const card = deck.querySelector(`[data-stop="${activeId}"]`)
-    card?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
+    if (!card) return
+    programmatic.current = true
+    card.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
+    const timer = setTimeout(() => { programmatic.current = false }, 700)
+    return () => clearTimeout(timer)
   }, [activeId])
+
+  // Swiping the carousel moves the map: whichever card settles in the middle
+  // becomes the active stop, and the map pans to it. Before, only a tap on a
+  // card did — swiping from stop to stop left the map where it was.
+  const settle = useRef(null)
+  useEffect(() => () => clearTimeout(settle.current), [])
+  const onDeckScroll = () => {
+    if (programmatic.current) return
+    clearTimeout(settle.current)
+    settle.current = setTimeout(() => {
+      const deck = deckRef.current
+      if (!deck || programmatic.current) return
+      const box = deck.getBoundingClientRect()
+      const middle = box.left + box.width / 2
+      let best = null
+      let gap = Infinity
+      for (const el of deck.querySelectorAll('[data-stop]')) {
+        const r = el.getBoundingClientRect()
+        const d = Math.abs(r.left + r.width / 2 - middle)
+        if (d < gap) { gap = d; best = el }
+      }
+      const stop = best && STOPS.find((x) => String(x.id) === best.dataset.stop)
+      if (stop && stop.id !== activeId) pick(stop.id)
+    }, 140)
+  }
 
   // Rendered in both branches below — a day with no stops still needs a way
   // out of itself. This used to live only in the branch below the empty-
@@ -166,15 +219,19 @@ export default function MapScreen() {
       <div className="map-screen">
         {/* A column like the full map: the top bar at the top, the message in
             the space left. It was a centred grid, which centred the top bar too. */}
-        <div style={{ position: 'relative', zIndex: 10 }}>
-          <TopBar floating />
-        </div>
-        <div className="map-overlay">
-          {familySwitcher}
-          {daySwitcher}
-        </div>
+        {!embedded && (
+          <>
+            <div style={{ position: 'relative', zIndex: 10 }}>
+              <TopBar floating />
+            </div>
+            <div className="map-overlay">
+              {familySwitcher}
+              {daySwitcher}
+            </div>
+          </>
+        )}
         <div className="card" style={{ textAlign: 'center', maxWidth: 300, margin: 'auto' }}>
-          {planning ? (
+          {planQueue.includes(activeDay) ? (
             <>
               <span className="typing"><i /><i /><i /></span>
               <p className="sub" style={{ marginTop: 12 }}>{t('הסוכן בונה את המסלול...')}</p>
@@ -183,10 +240,11 @@ export default function MapScreen() {
             <p className="sub">
               {unlocated > 0
                 ? t('העצירות ביום הזה עדיין בלי מיקום על המפה — אפשר לערוך אותן ולבחור מקום מהרשימה.')
-                : t('אין עדיין עצירות במסלול. חזור למסך הבית ובנה מסלול.')}
+                : t('אין עדיין עצירות ביום הזה.')}
             </p>
           )}
         </div>
+        {switcher && <div className="view-switch-wrap on-map">{switcher}</div>}
       </div>
     )
   }
@@ -196,29 +254,48 @@ export default function MapScreen() {
       <MapCanvas
         stops={STOPS}
         activeId={activeId}
-        onPinClick={setActiveId}
+        onPinClick={pick}
         provider={provider}
         hotels={locatedStays}
         people={livePeople}
         myLocation={myLoc}
         locateSignal={myLoc?.seq}
+        track={trackPoints}
       />
 
-      <div style={{ position: 'relative', zIndex: 10 }}>
-        <TopBar floating />
-      </div>
+      {!embedded && (
+        <div style={{ position: 'relative', zIndex: 10 }}>
+          <TopBar floating />
+        </div>
+      )}
 
       {/* One column under the top bar: families, days, then the tools.
           They used to be positioned separately, at fixed heights that
-          collided — the family buttons sat on the top bar itself. */}
-      <div className="map-overlay">
-      {familySwitcher}
-      {daySwitcher}
+          collided — the family buttons sat on the top bar itself. Embedded
+          beside the list there is no bar and no strips, only the tools. */}
+      <div className={`map-overlay ${embedded ? 'embedded' : ''}`}>
+      {!embedded && familySwitcher}
+      {!embedded && daySwitcher}
       {notice && <div className="map-notice" role="status">{notice}</div>}
 
       <div className="map-tools">
         <button className="map-tool" onClick={locateMe} aria-label={t('מרכז על המיקום שלי')}><Locate size={18} /></button>
-        
+        {/* Used to be a + with no handler at all — now it opens the list's
+            add-a-stop form. */}
+        {onAddStop && (
+          <button className="map-tool" onClick={onAddStop} aria-label={t('הוסף עצירה')} title={t('הוסף עצירה')}>
+            <Plus size={18} />
+          </button>
+        )}
+        {/* The route actually walked — recorded on this device, drawn under the plan. */}
+        <button
+          className={`map-tool ${recording ? 'on' : ''}`}
+          onClick={() => setTrackOpen(true)}
+          aria-label={t('המסלול שעשיתי')}
+          title={t('המסלול שעשיתי')}
+        >
+          <Route size={18} />
+        </button>
         <button
           className={`map-tool ${sharingLocation ? 'on' : ''}`}
           onClick={toggleLocationSharing}
@@ -231,9 +308,9 @@ export default function MapScreen() {
       </div>
       </div>
 
-      <div className="stop-deck">
-        <div className="hscroll" ref={deckRef}>
-          {STOPS.map((s) => {
+      <div className={`stop-deck ${embedded ? 'single' : ''}`}>
+        <div className="hscroll" ref={deckRef} onScroll={embedded ? undefined : onDeckScroll}>
+          {(embedded ? STOPS.filter((s) => s.id === activeId) : STOPS).map((s) => {
             const on = s.id === activeId
             const cat = categoryOf(s)
             return (
@@ -241,16 +318,14 @@ export default function MapScreen() {
                 key={s.id}
                 data-stop={s.id}
                 className={`stop-card glass ${on ? 'active' : ''}`}
-                onClick={() => setActiveId(s.id)}
+                onClick={() => pick(s.id)}
               >
                 <div className="between" style={{ marginBottom: 9 }}>
                   <span className="tiny row" style={{ gap: 5 }}>
                     <span className="num">{s.time}</span>
                     <Clock size={13} />
                   </span>
-                  {s.rating != null && (
-                    <span className="star"><span className="num">{s.rating}</span><Star size={13} /></span>
-                  )}
+                  {s.rating ? <span className="star"><span className="num">{s.rating}</span><Star size={13} /></span> : null}
                 </div>
 
                 <h3 className="h3" style={{ fontSize: 16, marginBottom: 6 }}>{s.he}</h3>
@@ -289,7 +364,7 @@ export default function MapScreen() {
           {/* The hotel is not one of today's stops — it doesn't belong to
               any one day — so it rides along at the end of every day's deck
               instead, reachable regardless of which stop you scrolled to. */}
-          {locatedStays.map((h) => (
+          {!embedded && locatedStays.map((h) => (
             <div key={h.label} className="stop-card glass">
               <div className="between" style={{ marginBottom: 9 }}>
                 <span className="tiny row" style={{ gap: 5 }}>
@@ -312,6 +387,57 @@ export default function MapScreen() {
         </div>
       </div>
 
+      {switcher && <div className="view-switch-wrap on-map">{switcher}</div>}
+
+      {(recording || trackPoints.length > 0) && (
+        <button className={`track-pill ${embedded ? 'embedded' : ''}`} onClick={() => setTrackOpen(true)}>
+          <span className={`track-dot ${recording ? 'live' : ''}`} aria-hidden="true" />
+          {recording ? t('מקליט') : t('המסלול שעשיתי')} · <span className="num">{kmText}</span> {t('ק"מ')}
+        </button>
+      )}
+
+      <Sheet open={trackOpen} title={t('המסלול שעשיתי')} onClose={() => setTrackOpen(false)}>
+        <p className="sub" style={{ marginTop: -6 }}>
+          {t('הקלטה של הדרך שבאמת עברתם לאורך הטיול, שמצוירת על המפה בכחול מתחת למסלול המתוכנן.')}
+        </p>
+
+        <div className="card row" style={{ gap: 14, margin: '14px 0' }}>
+          <span className={`track-dot ${recording ? 'live' : ''}`} aria-hidden="true" />
+          <span className="grow col" style={{ gap: 2 }}>
+            <strong style={{ fontSize: 15 }}>
+              {recording ? t('מקליט עכשיו') : trackPoints.length > 0 ? t('ההקלטה מושהית') : t('עוד לא הוקלט מסלול')}
+            </strong>
+            <span className="tiny">
+              <span className="num">{kmText}</span> {t('ק"מ')} · <span className="num">{trackPoints.length}</span> {t('נקודות')}
+            </span>
+          </span>
+        </div>
+
+        {trackError === 'denied' && (
+          <p className="tiny" style={{ color: 'var(--rose)', margin: '0 0 12px' }}>
+            {t('אין הרשאת מיקום. אפשר לאשר אותה בהגדרות הדפדפן ולנסות שוב.')}
+          </p>
+        )}
+
+        <button className={`btn btn-block ${recording ? 'btn-ghost' : 'btn-primary'}`} onClick={toggleRecording}>
+          {recording ? t('עצור הקלטה') : trackPoints.length > 0 ? t('המשך הקלטה') : t('התחל להקליט')}
+        </button>
+
+        <ul className="track-notes">
+          <li>{t('ההקלטה פועלת כשהאפליקציה פתוחה על המסך — כשהטלפון נועל, הדפדפן מפסיק לשלוח מיקום. בזמן הקלטה המסך נשאר דלוק, וזה מרוקן סוללה.')}</li>
+          <li>{t('המסלול נשמר רק במכשיר הזה. הוא לא נשלח לשרת ולא מוצג לאף אחד אחר.')}</li>
+        </ul>
+
+        {trackPoints.length > 0 && (
+          <button
+            className="btn btn-ghost btn-block danger-text"
+            onClick={() => { if (window.confirm(t('למחוק את המסלול שהוקלט? אי אפשר לשחזר.'))) clearRecordedTrack() }}
+          >
+            <Trash size={16} /> {t('מחק את המסלול')}
+          </button>
+        )}
+      </Sheet>
+
       <Sheet open={Boolean(details)} title={details?.he ?? ''} onClose={() => setDetails(null)}>
         {details && (
           <>
@@ -323,7 +449,7 @@ export default function MapScreen() {
               }}
             />
             <div className="between" style={{ marginBottom: 14 }}>
-              <span className="star"><Star size={14} /><span className="num">{details.rating}</span></span>
+              {details.rating ? <span className="star"><Star size={14} /><span className="num">{details.rating}</span></span> : <span />}
               <span className="badge">{categoryOf(details).label}</span>
             </div>
             <p className="sub" style={{ marginBottom: 16 }}>{details.desc}</p>
