@@ -8,7 +8,7 @@ import { trackKm } from '../lib/track'
 import {
   listEntries, saveEntry, deleteEntry, getPhoto, shrinkPhoto, newId,
 } from '../lib/journal'
-import { breadcrumb } from '../lib/telemetry'
+import { breadcrumb, record } from '../lib/telemetry'
 import { t, tn } from '../i18n'
 
 /** A stored photo, shown from its blob; the object URL is released on unmount. */
@@ -47,6 +47,7 @@ export default function Journal() {
   const [viewing, setViewing] = useState(null) // photo id
   const [viewUrl, setViewUrl] = useState(null)
   const fileRef = useRef(null)
+  const [shareNote, setShareNote] = useState(null)
 
   const reload = () => listEntries(trip.id).then((rows) => { setEntries(rows); setLoaded(true) }).catch(() => setLoaded(true))
   useEffect(() => { if (trip) { setLoaded(false); reload() } }, [trip?.id]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -121,22 +122,79 @@ export default function Journal() {
     await reload()
   }
 
-  /** The OS share sheet, with the entry's photos attached where the phone allows it. */
+  const fileOf = async (id) => {
+    const blob = await getPhoto(id)
+    return blob ? new File([blob], `tripai-${id.slice(0, 6)}.jpg`, { type: 'image/jpeg' }) : null
+  }
+
+  /**
+   * Shares photos through the phone's share sheet. Apps differ in what they
+   * accept — some drop a file when a caption comes with it, some take one
+   * file only — so it tries the richest form first and steps down. When it
+   * can't send photos at all it says so: it used to fall back to the caption
+   * alone in silence, and the person on the other end got a message with no
+   * photos in it.
+   *
+   * @returns {Promise<boolean>} whether something was handed to the share sheet
+   */
+  const sharePhotos = async (files, text) => {
+    const attempts = [
+      { files, text },
+      { files },
+      ...(files.length > 1 ? files.map((f) => ({ files: [f] })).slice(0, 1) : []),
+    ]
+    for (const data of attempts) {
+      if (!navigator.canShare?.(data)) continue
+      try {
+        await navigator.share(data)
+        return true
+      } catch (err) {
+        if (err?.name === 'AbortError') return true // the person closed the sheet
+        record({ kind: 'share', level: 'warn', message: `share failed: ${err?.name}: ${err?.message}` })
+      }
+    }
+    return false
+  }
+
   const share = async (entry) => {
+    setShareNote(null)
     const text = [
       `${trip.city} · ${t('יום {n}', { n: entry.day })}${entry.stopName ? ` · ${entry.stopName}` : ''}`,
       entry.note,
     ].filter(Boolean).join('\n')
     try {
-      const files = []
-      for (const id of entry.photoIds ?? []) {
-        const blob = await getPhoto(id)
-        if (blob) files.push(new File([blob], `tripai-${id.slice(0, 6)}.jpg`, { type: 'image/jpeg' }))
+      const files = (await Promise.all((entry.photoIds ?? []).map(fileOf))).filter(Boolean)
+      if (files.length > 0) {
+        if (!(await sharePhotos(files, text))) {
+          setShareNote(t('הטלפון או האפליקציה לא קיבלו את התמונות. פתחו תמונה ושמרו אותה למכשיר, או שלחו אותה אחת-אחת.'))
+        }
+        return
       }
-      if (files.length > 0 && navigator.canShare?.({ files })) await navigator.share({ text, files })
-      else if (navigator.share) await navigator.share({ text })
+      if (navigator.share) await navigator.share({ text })
       else await navigator.clipboard?.writeText(text)
-    } catch { /* cancelled, or not supported — nothing to report */ }
+    } catch (err) {
+      if (err?.name !== 'AbortError') setShareNote(t('השיתוף נכשל.'))
+    }
+  }
+
+  /** One photo, on its own — the form every share target accepts. */
+  const shareOne = async (id) => {
+    setShareNote(null)
+    const f = await fileOf(id)
+    if (f && !(await sharePhotos([f], ''))) setShareNote(t('השיתוף נכשל. אפשר לשמור את התמונה למכשיר.'))
+  }
+
+  const saveOne = async (id) => {
+    const blob = await getPhoto(id)
+    if (!blob) return
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `tripai-${id.slice(0, 6)}.jpg`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 10000)
   }
 
   const shareSummary = async () => {
@@ -168,6 +226,10 @@ export default function Journal() {
             </button>
           )}
         </div>
+
+        {shareNote && !viewing && (
+          <p className="alert-card tiny" style={{ marginTop: 14, padding: 12, borderRadius: 14 }} role="alert">{shareNote}</p>
+        )}
 
         {entries.length > 0 && (
           <div className="card journal-summary">
@@ -294,6 +356,13 @@ export default function Journal() {
 
       <Sheet open={Boolean(viewing)} title={t('תמונה')} onClose={() => setViewing(null)}>
         {viewUrl && <img className="journal-big" src={viewUrl} alt="" />}
+        {viewing && (
+          <div className="row" style={{ gap: 8, marginTop: 14 }}>
+            <button className="btn btn-primary grow" onClick={() => shareOne(viewing)}><Share size={16} /> {t('שתף תמונה')}</button>
+            <button className="btn btn-ghost grow" onClick={() => saveOne(viewing)}>{t('שמור במכשיר')}</button>
+          </div>
+        )}
+        {shareNote && <p className="tiny" style={{ color: 'var(--rose)', margin: '10px 0 0' }}>{shareNote}</p>}
       </Sheet>
     </div>
   )

@@ -691,6 +691,12 @@ export default {
   "תמונה אחת": "1 photo",
   "{n} תמונות": "{n} photos",
 
+  "הטלפון או האפליקציה לא קיבלו את התמונות. פתחו תמונה ושמרו אותה למכשיר, או שלחו אותה אחת-אחת.": "The phone or the app didn't accept the photos. Open a photo and save it to the device, or send them one by one.",
+  "השיתוף נכשל.": "Sharing failed.",
+  "השיתוף נכשל. אפשר לשמור את התמונה למכשיר.": "Sharing failed. You can save the photo to the device instead.",
+  "שתף תמונה": "Share photo",
+  "שמור במכשיר": "Save to device",
+
   // Travel between stops
   "עד העצירה הבאה": "To the next stop",
   "כ-{n} דק' הליכה": "~{n} min walk",
