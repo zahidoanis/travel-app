@@ -7,6 +7,7 @@ import { CATEGORIES } from '../data'
 import BookingSheet from '../components/BookingSheet'
 import { useTrip } from '../TripProvider'
 import { hasAI, complete, parseRows } from '../lib/gemini'
+import { dayLegs, dayKm, fmtMinutes } from '../lib/travel'
 import { geocode, search } from '../lib/geocode'
 import { breadcrumb, watchdog } from '../lib/telemetry'
 import { t, tn, locale } from '../i18n'
@@ -214,6 +215,8 @@ export default function Days({ embedded = false, focusId = null, onFocusStop, ad
   const dayList = Array.from({ length: Math.max(0, rangeEnd - rangeStart + 1) }, (_, i) => rangeStart + i)
   const isSharedDay = (activeFamilyObj?.sharedDays ?? []).includes(activeDay)
   const queued = planQueue.includes(activeDay)
+  const legs = dayLegs(stops)
+  const totalKm = dayKm(stops)
   const emptyDays = dayList.filter((d) => !(days[d]?.length) && !planQueue.includes(d))
 
   /** Asks for stops that are not already in the day, so repeats are unlikely. */
@@ -413,6 +416,11 @@ export default function Days({ embedded = false, focusId = null, onFocusStop, ad
           {dateForDay(trip, activeDay) && (
             <span className="tiny">{dateForDay(trip, activeDay)}</span>
           )}
+          {totalKm > 0.2 && (
+            <span className="tiny" title={t('הערכה לפי קו אווירי, לא מסלול מדויק')}>
+              {t('בין העצירות')}: ~<span className="num">{totalKm.toFixed(1)}</span> {t('ק"מ')}
+            </span>
+          )}
         </span>
         <span className="row" style={{ gap: 8 }}>
           {/* Any family that marks the same day "together" lands on the
@@ -512,6 +520,18 @@ export default function Days({ embedded = false, focusId = null, onFocusStop, ad
 
                 <h3 className="h3" style={{ marginTop: 4 }}>{s.he}</h3>
                 <p className="tiny" style={{ margin: '4px 0 0' }}>{s.desc}</p>
+
+                {legs[i] && (
+                  <p className="stop-leg" aria-label={t('עד העצירה הבאה')}>
+                    <span aria-hidden="true">{legs[i].mode === 'walk' ? '🚶' : '🚕'}</span>
+                    {legs[i].km < 0.15 ? t('ממש בסמוך') : (
+                      <>
+                        {legs[i].mode === 'walk' ? t('כ-{n} דק\' הליכה', { n: fmtMinutes(legs[i].minutes) }) : t('כ-{n} דק\' נסיעה', { n: fmtMinutes(legs[i].minutes) })}
+                        <span className="stop-leg-km">· <span className="num">{legs[i].km.toFixed(1)}</span> {t('ק"מ')}</span>
+                      </>
+                    )}
+                  </p>
+                )}
 
                 {s.lat == null && (
                   <button

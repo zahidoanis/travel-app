@@ -2218,3 +2218,11 @@ a.contact-row:hover { background: var(--tint-2); color: var(--text); }
 @keyframes track-pulse { 50% { opacity: 0.35; } }
 @media (prefers-reduced-motion: reduce) { .track-dot.live { animation: none; } }
 .track-notes { margin: 16px 0; padding-inline-start: 18px; display: grid; gap: 8px; font-size: 12.5px; color: var(--text-2); line-height: 1.6; }
+
+/* Getting from one stop to the next — an estimate, shown quietly. */
+.stop-leg {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  margin: 10px 0 0; padding-top: 9px; border-top: 1px dashed var(--border-strong);
+  font-size: 12.5px; color: var(--text-2);
+}
+.stop-leg-km { color: var(--muted); }

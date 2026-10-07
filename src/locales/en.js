@@ -655,6 +655,14 @@ export default {
   "הזמנה ב-Viator": "Book on Viator",
   "קישור": "Link",
 
+  // Travel between stops
+  "עד העצירה הבאה": "To the next stop",
+  "כ-{n} דק' הליכה": "~{n} min walk",
+  "כ-{n} דק' נסיעה": "~{n} min ride",
+  "בין העצירות": "Between stops",
+  "ממש בסמוך": "Right next door",
+  "הערכה לפי קו אווירי, לא מסלול מדויק": "An estimate from the straight line, not an exact route",
+
   // The route actually walked
   "המסלול שעשיתי": "The route I walked",
   "מקליט": "Recording",
