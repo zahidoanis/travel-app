@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import TopBar from '../components/TopBar'
 import MapCanvas from '../components/MapCanvas'
 import Sheet from '../components/Sheet'
-import { Star, Info, Navigation, Clock, Locate, Plus, MapPin, Bed } from '../components/Icons'
+import { Star, Info, Navigation, Clock, Locate, Plus, MapPin, Bed, Route, Trash } from '../components/Icons'
 import { CATEGORIES } from '../data'
 import { useTrip } from '../TripProvider'
 import { navigateUrl } from '../lib/staticMap'
+import { trackKm } from '../lib/track'
 import { t, tn } from '../i18n'
 
 // A live dot older than this is more likely someone who closed the app
@@ -25,7 +26,11 @@ export default function MapScreen({ embedded = false, focusId = null, onFocusSto
     stops: ALL_STOPS, days, activeDay, setActiveDay, planQueue, trip,
     families, activeFamily, switchFamily,
     presence, sharingLocation, toggleLocationSharing,
+    recording, toggleRecording, trackPoints, trackError, clearRecordedTrack,
   } = useTrip()
+  const [trackOpen, setTrackOpen] = useState(false)
+  const km = trackKm(trackPoints)
+  const kmText = km < 10 ? km.toFixed(1) : String(Math.round(km))
   // A stop added by hand whose place couldn't be geocoded goes into the day
   // with lat/lng null (Days.jsx says so on purpose — still useful with just a
   // time and a name). It has no position to draw, navigate to or show
@@ -220,6 +225,7 @@ export default function MapScreen({ embedded = false, focusId = null, onFocusSto
         people={livePeople}
         myLocation={myLoc}
         locateSignal={myLoc?.seq}
+        track={trackPoints}
       />
 
       {!embedded && (
@@ -241,6 +247,15 @@ export default function MapScreen({ embedded = false, focusId = null, onFocusSto
             <Plus size={18} />
           </button>
         )}
+        {/* The route actually walked — recorded on this device, drawn under the plan. */}
+        <button
+          className={`map-tool ${recording ? 'on' : ''}`}
+          onClick={() => setTrackOpen(true)}
+          aria-label={t('המסלול שעשיתי')}
+          title={t('המסלול שעשיתי')}
+        >
+          <Route size={18} />
+        </button>
         <button
           className={`map-tool ${sharingLocation ? 'on' : ''}`}
           onClick={toggleLocationSharing}
@@ -332,6 +347,55 @@ export default function MapScreen({ embedded = false, focusId = null, onFocusSto
       </div>
 
       {switcher && <div className="view-switch-wrap on-map">{switcher}</div>}
+
+      {(recording || trackPoints.length > 0) && (
+        <button className={`track-pill ${embedded ? 'embedded' : ''}`} onClick={() => setTrackOpen(true)}>
+          <span className={`track-dot ${recording ? 'live' : ''}`} aria-hidden="true" />
+          {recording ? t('מקליט') : t('המסלול שעשיתי')} · <span className="num">{kmText}</span> {t('ק"מ')}
+        </button>
+      )}
+
+      <Sheet open={trackOpen} title={t('המסלול שעשיתי')} onClose={() => setTrackOpen(false)}>
+        <p className="sub" style={{ marginTop: -6 }}>
+          {t('הקלטה של הדרך שבאמת עברתם לאורך הטיול, שמצוירת על המפה בכחול מתחת למסלול המתוכנן.')}
+        </p>
+
+        <div className="card row" style={{ gap: 14, margin: '14px 0' }}>
+          <span className={`track-dot ${recording ? 'live' : ''}`} aria-hidden="true" />
+          <span className="grow col" style={{ gap: 2 }}>
+            <strong style={{ fontSize: 15 }}>
+              {recording ? t('מקליט עכשיו') : trackPoints.length > 0 ? t('ההקלטה מושהית') : t('עוד לא הוקלט מסלול')}
+            </strong>
+            <span className="tiny">
+              <span className="num">{kmText}</span> {t('ק"מ')} · <span className="num">{trackPoints.length}</span> {t('נקודות')}
+            </span>
+          </span>
+        </div>
+
+        {trackError === 'denied' && (
+          <p className="tiny" style={{ color: 'var(--rose)', margin: '0 0 12px' }}>
+            {t('אין הרשאת מיקום. אפשר לאשר אותה בהגדרות הדפדפן ולנסות שוב.')}
+          </p>
+        )}
+
+        <button className={`btn btn-block ${recording ? 'btn-ghost' : 'btn-primary'}`} onClick={toggleRecording}>
+          {recording ? t('עצור הקלטה') : trackPoints.length > 0 ? t('המשך הקלטה') : t('התחל להקליט')}
+        </button>
+
+        <ul className="track-notes">
+          <li>{t('ההקלטה פועלת כשהאפליקציה פתוחה על המסך — כשהטלפון נועל, הדפדפן מפסיק לשלוח מיקום. בזמן הקלטה המסך נשאר דלוק, וזה מרוקן סוללה.')}</li>
+          <li>{t('המסלול נשמר רק במכשיר הזה. הוא לא נשלח לשרת ולא מוצג לאף אחד אחר.')}</li>
+        </ul>
+
+        {trackPoints.length > 0 && (
+          <button
+            className="btn btn-ghost btn-block danger-text"
+            onClick={() => { if (window.confirm(t('למחוק את המסלול שהוקלט? אי אפשר לשחזר.'))) clearRecordedTrack() }}
+          >
+            <Trash size={16} /> {t('מחק את המסלול')}
+          </button>
+        )}
+      </Sheet>
 
       <Sheet open={Boolean(details)} title={details?.he ?? ''} onClose={() => setDetails(null)}>
         {details && (

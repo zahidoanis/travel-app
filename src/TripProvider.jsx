@@ -11,6 +11,7 @@ import { invitedTripId } from './lib/share'
 import { geocode } from './lib/geocode'
 import { importedStops, importSpan } from './lib/mapImport'
 import { hit } from './lib/usage'
+import { loadTrack, saveTrack, clearTrack, appendFix } from './lib/track'
 import { hasAI, systemPrompt, streamReply, OPENER_PROMPT } from './lib/gemini'
 import { fetchForecast, fetchClimateAverage } from './lib/weather'
 import { CITIES } from './cities'
@@ -852,6 +853,85 @@ export function TripProvider({ children }) {
     return () => navigator.geolocation.clearWatch(id)
   }, [sharingLocation, trip?.id, user?.uid])
 
+  /* ---- the route actually walked (GPS), kept on this device only ---- */
+  const recordKey = trip ? `tripai.recordTrack.${trip.id}` : null
+  const [recording, setRecording] = useState(false)
+  const [trackPoints, setTrackPoints] = useState([])
+  const [trackError, setTrackError] = useState(null)
+  const trackRef = useRef([])
+
+  useEffect(() => {
+    const pts = trip ? loadTrack(trip.id) : []
+    trackRef.current = pts
+    setTrackPoints(pts)
+    setRecording(recordKey ? localStorage.getItem(recordKey) === '1' : false)
+    setTrackError(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trip?.id])
+
+  const toggleRecording = () => {
+    if (!trip || !recordKey) return
+    const next = !recording
+    setRecording(next)
+    setTrackError(null)
+    localStorage.setItem(recordKey, next ? '1' : '0')
+    breadcrumb('action', next ? 'track: start recording' : 'track: stop recording')
+  }
+
+  const clearRecordedTrack = () => {
+    if (!trip) return
+    clearTrack(trip.id)
+    trackRef.current = []
+    setTrackPoints([])
+  }
+
+  useEffect(() => {
+    if (!recording || !trip || typeof navigator === 'undefined' || !navigator.geolocation) return
+    const tripId = trip.id
+
+    const id = navigator.geolocation.watchPosition(
+      (pos) => {
+        const next = appendFix(trackRef.current, {
+          lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy,
+        })
+        if (next === trackRef.current) return
+        trackRef.current = next
+        saveTrack(tripId, next)
+        setTrackPoints(next)
+      },
+      (err) => {
+        // 1 = the person (or the browser) said no — say so; anything else is
+        // usually a momentary loss of signal and the watch carries on.
+        if (err.code === 1) {
+          setTrackError('denied')
+          setRecording(false)
+          if (recordKey) localStorage.setItem(recordKey, '0')
+        }
+        record({ kind: 'geo', level: 'warn', message: `track geolocation: ${err.message}` })
+      },
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 30000 }
+    )
+
+    // A phone sleeps its screen — and stops delivering fixes to a web page.
+    // Asking the screen to stay on is the only way a web app can keep
+    // recording; released as soon as recording stops or the tab is hidden.
+    let lock = null
+    const holdScreen = async () => {
+      try {
+        if (document.visibilityState === 'visible') lock = await navigator.wakeLock?.request('screen')
+      } catch { /* not allowed, or low battery — recording still runs while visible */ }
+    }
+    holdScreen()
+    document.addEventListener('visibilitychange', holdScreen)
+
+    return () => {
+      navigator.geolocation.clearWatch(id)
+      document.removeEventListener('visibilitychange', holdScreen)
+      lock?.release?.().catch(() => {})
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recording, trip?.id])
+
   tripIdRef.current = trip?.id ?? null
 
   // Every day of the trip gets planned, not just the one on screen — the
@@ -1296,6 +1376,7 @@ export function TripProvider({ children }) {
     activity, unreadCount, notificationsOpen, openNotifications,
     closeNotifications: () => setNotificationsOpen(false),
     presence, sharingLocation, toggleLocationSharing,
+    recording, toggleRecording, trackPoints, trackError, clearRecordedTrack,
     chatMessages, chatDraft, setChatDraft, chatTyping, chatError,
     sendChatMessage, retryChatMessage, openChat, forgetMemory,
   }

@@ -655,6 +655,23 @@ export default {
   "הזמנה ב-Viator": "Book on Viator",
   "קישור": "Link",
 
+  // The route actually walked
+  "המסלול שעשיתי": "The route I walked",
+  "מקליט": "Recording",
+  "ק\"מ": "km",
+  "הקלטה של הדרך שבאמת עברתם לאורך הטיול, שמצוירת על המפה בכחול מתחת למסלול המתוכנן.": "A recording of the way you actually went during the trip, drawn on the map in blue beneath the planned route.",
+  "מקליט עכשיו": "Recording now",
+  "ההקלטה מושהית": "Recording paused",
+  "עוד לא הוקלט מסלול": "No route recorded yet",
+  "נקודות": "points",
+  "אין הרשאת מיקום. אפשר לאשר אותה בהגדרות הדפדפן ולנסות שוב.": "Location permission was denied. You can allow it in the browser settings and try again.",
+  "המשך הקלטה": "Resume recording",
+  "התחל להקליט": "Start recording",
+  "ההקלטה פועלת כשהאפליקציה פתוחה על המסך — כשהטלפון נועל, הדפדפן מפסיק לשלוח מיקום. בזמן הקלטה המסך נשאר דלוק, וזה מרוקן סוללה.": "Recording works while the app is open on screen — when the phone locks, the browser stops sending location. The screen stays on while recording, which drains the battery.",
+  "המסלול נשמר רק במכשיר הזה. הוא לא נשלח לשרת ולא מוצג לאף אחד אחר.": "The route is kept only on this device. It isn't sent to a server or shown to anyone else.",
+  "למחוק את המסלול שהוקלט? אי אפשר לשחזר.": "Delete the recorded route? This can't be undone.",
+  "מחק את המסלול": "Delete the route",
+
   // Planning every day of the trip
   "בבנייה…": "Building…",
   "בנה את כל הימים הריקים ({n})": "Build all empty days ({n})",

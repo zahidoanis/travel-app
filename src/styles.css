@@ -2203,3 +2203,18 @@ a.contact-row:hover { background: var(--tint-2); color: var(--text); }
 .admin-chart svg { direction: ltr; }
 .admin-tiles { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
 .admin-tile strong { font-size: 28px; }
+
+/* ---------- The route actually walked ---------- */
+.track-pill {
+  position: absolute; z-index: 11; inset-block-start: 170px; inset-inline-start: 14px;
+  display: inline-flex; align-items: center; gap: 7px;
+  min-height: 40px; padding: 0 14px; border-radius: var(--r-pill);
+  font-size: 13px; font-weight: 600; color: var(--text);
+  background: var(--card); border: 1px solid var(--border-strong); box-shadow: var(--shadow);
+}
+.track-pill.embedded { inset-block-start: 16px; }
+.track-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; background: #0D7C86; box-shadow: 0 0 0 2px #fff; }
+.track-dot.live { background: #D93A5B; animation: track-pulse 1.6s ease-in-out infinite; }
+@keyframes track-pulse { 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) { .track-dot.live { animation: none; } }
+.track-notes { margin: 16px 0; padding-inline-start: 18px; display: grid; gap: 8px; font-size: 12.5px; color: var(--text-2); line-height: 1.6; }
