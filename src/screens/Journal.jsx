@@ -8,6 +8,7 @@ import { trackKm } from '../lib/track'
 import {
   listEntries, saveEntry, deleteEntry, getPhoto, shrinkPhoto, newId,
 } from '../lib/journal'
+import { makeVideo, writeCaptions, pickMusic, canMakeVideo, MAX_PHOTOS } from '../lib/video'
 import { breadcrumb, record } from '../lib/telemetry'
 import { t, tn } from '../i18n'
 
@@ -48,6 +49,9 @@ export default function Journal() {
   const [viewUrl, setViewUrl] = useState(null)
   const fileRef = useRef(null)
   const [shareNote, setShareNote] = useState(null)
+  // The slideshow video: null | { step: 'captions'|'recording'|'done'|'error', progress, url?, file? }
+  const [video, setVideo] = useState(null)
+  const abortRef = useRef(null)
 
   const reload = () => listEntries(trip.id).then((rows) => { setEntries(rows); setLoaded(true) }).catch(() => setLoaded(true))
   useEffect(() => { if (trip) { setLoaded(false); reload() } }, [trip?.id]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -210,6 +214,76 @@ export default function Journal() {
 
   const dayStops = days[form?.day] ?? []
 
+  const closeVideo = () => {
+    abortRef.current?.abort()
+    if (video?.url) URL.revokeObjectURL(video.url)
+    setVideo(null)
+  }
+
+  /** Photos in trip order, each with the stop and note of its entry. */
+  const makeSlideshow = async () => {
+    const ordered = [...entries].sort((a, b) => a.day - b.day || a.at - b.at)
+    const items = []
+    for (const e of ordered) {
+      for (const [i, id] of (e.photoIds ?? []).entries()) {
+        items.push({ id, stopName: i === 0 ? e.stopName : null, note: i === 0 ? e.note : '' })
+      }
+    }
+    // Spread the cap across the whole trip rather than cutting off the end.
+    const step = items.length / MAX_PHOTOS
+    const picked = items.length > MAX_PHOTOS ? Array.from({ length: MAX_PHOTOS }, (_, i) => items[Math.floor(i * step)]) : items
+    const ctl = new AbortController()
+    abortRef.current = ctl
+    setVideo({ step: 'captions', progress: 0 })
+    try {
+      const [captions, music, blobs] = await Promise.all([
+        writeCaptions(picked, trip.city),
+        pickMusic(trip.city, trip.country),
+        Promise.all(picked.map((p) => getPhoto(p.id))),
+      ])
+      const photos = picked.map((p, i) => ({ blob: blobs[i], caption: captions[i] })).filter((p) => p.blob)
+      if (ctl.signal.aborted) return
+      setVideo({ step: 'recording', progress: 0 })
+      let lock = null
+      try { lock = await navigator.wakeLock?.request('screen') } catch { /* optional */ }
+      const out = await makeVideo({
+        photos,
+        music,
+        title: trip.city,
+        subtitle: [t('{n} ימים', { n: trip.totalDays }), km > 0.1 ? `${km.toFixed(1)} ${t('ק"מ ברגל')}` : null].filter(Boolean).join(' · '),
+        endLine: t('עד הטיול הבא'),
+        signal: ctl.signal,
+        onProgress: (progress) => setVideo((v) => (v?.step === 'recording' ? { ...v, progress } : v)),
+      })
+      lock?.release?.()
+      const file = new File([out.blob], `tripai-${trip.city}.${out.ext}`.replace(/s+/g, '-'), { type: out.mime })
+      setVideo({ step: 'done', progress: 1, url: URL.createObjectURL(file), file, ext: out.ext })
+      breadcrumb('action', `journal: video made (${photos.length} photos, ${out.ext})`)
+    } catch (err) {
+      if (err?.name === 'AbortError') return
+      record({ kind: 'video', level: 'error', message: `video failed: ${err?.name}: ${err?.message}` })
+      setVideo({ step: 'error', progress: 0 })
+    }
+  }
+
+  const shareVideo = async () => {
+    const data = { files: [video.file], title: trip.city }
+    if (navigator.canShare?.(data)) {
+      try { await navigator.share(data) } catch (err) { if (err?.name !== 'AbortError') setShareNote(t('השיתוף נכשל. אפשר לשמור את הסרטון למכשיר.')) }
+    } else {
+      saveVideo()
+    }
+  }
+
+  const saveVideo = () => {
+    const a = document.createElement('a')
+    a.href = video.url
+    a.download = video.file.name
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+  }
+
   return (
     <div className="screen">
       <TopBar />
@@ -239,9 +313,16 @@ export default function Journal() {
               <span><strong className="num">{km > 0.1 ? km.toFixed(1) : '—'}</strong> {t('ק"מ ברגל')}</span>
               <span><strong className="num">{photoCount}</strong> {tn(photoCount, 'צילום', 'תמונות')}</span>
             </div>
-            <button className="btn btn-ghost btn-sm" onClick={shareSummary}>
-              <Share size={14} /> {t('שתפו סיכום')}
-            </button>
+            <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+              {photoCount >= 2 && canMakeVideo() && (
+                <button className="btn btn-primary btn-sm" onClick={makeSlideshow}>
+                  <Images size={14} /> {t('צרו סרטון')}
+                </button>
+              )}
+              <button className="btn btn-ghost btn-sm" onClick={shareSummary}>
+                <Share size={14} /> {t('שתפו סיכום')}
+              </button>
+            </div>
           </div>
         )}
 
@@ -350,6 +431,40 @@ export default function Journal() {
             <button className="btn btn-primary btn-block" style={{ marginTop: 16 }} onClick={save} disabled={saving}>
               {saving ? <span className="typing"><i /><i /><i /></span> : t('שמור ביומן')}
             </button>
+          </>
+        )}
+      </Sheet>
+
+      <Sheet open={Boolean(video)} title={t('סרטון הטיול')} onClose={() => (video?.step === 'recording' ? null : closeVideo())}>
+        {video?.step === 'captions' && (
+          <p className="tiny" style={{ textAlign: 'center', padding: '24px 0' }}>
+            <span className="typing"><i /><i /><i /></span><br />{t('ה-AI כותב כיתובים לתמונות…')}
+          </p>
+        )}
+        {video?.step === 'recording' && (
+          <div style={{ padding: '18px 0' }}>
+            <div className="video-bar"><span style={{ width: `${Math.round(video.progress * 100)}%` }} /></div>
+            <p className="tiny" style={{ textAlign: 'center', marginTop: 12 }}>
+              {t('מקליט את הסרטון. השאירו את המסך דלוק ואת האפליקציה פתוחה.')}
+            </p>
+            <button className="btn btn-ghost btn-block" style={{ marginTop: 12 }} onClick={closeVideo}>{t('ביטול')}</button>
+          </div>
+        )}
+        {video?.step === 'error' && (
+          <>
+            <p className="tiny" style={{ color: 'var(--rose)' }}>{t('יצירת הסרטון נכשלה. נסו שוב, או פחות תמונות.')}</p>
+            <button className="btn btn-primary btn-block" style={{ marginTop: 12 }} onClick={makeSlideshow}>{t('נסו שוב')}</button>
+          </>
+        )}
+        {video?.step === 'done' && (
+          <>
+            <video className="video-preview" src={video.url} controls playsInline />
+            {video.ext !== 'mp4' && <p className="tiny" style={{ marginTop: 8 }}>{t('הסרטון נשמר בפורמט WebM. ייתכן שחלק מהאפליקציות (כמו iPhone) לא ינגנו אותו.')}</p>}
+            <div className="row" style={{ gap: 8, marginTop: 14 }}>
+              <button className="btn btn-primary grow" onClick={shareVideo}><Share size={16} /> {t('שתף סרטון')}</button>
+              <button className="btn btn-ghost grow" onClick={saveVideo}>{t('שמור במכשיר')}</button>
+            </div>
+            {shareNote && <p className="tiny" style={{ color: 'var(--rose)', margin: '10px 0 0' }}>{shareNote}</p>}
           </>
         )}
       </Sheet>
