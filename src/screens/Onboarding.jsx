@@ -331,11 +331,27 @@ export default function Onboarding({ onDone, initial, startAt, editMode = false,
       }),
     })
 
+  // The kids are counted within the family's travellers, so the "+" used to
+  // stop dead at the traveller count — a family that typed 2 travellers
+  // could never add a third child, with no hint why. Adding a child now
+  // grows the headcount when it has to (always leaving one adult).
   const setKidsCount = (id, n) =>
     set({
-      parties: answers.parties.map((p) =>
-        p.id === id ? { ...p, kidsCount: Math.max(0, Math.min(p.members.length, n)) } : p
-      ),
+      parties: answers.parties.map((p) => {
+        if (p.id !== id) return p
+        const was = p.kidsCount ?? 0
+        const kids = Math.max(0, Math.min(19, n))
+        // Each child is a traveller, so the headcount moves with them, both
+        // ways. A child's age lives in the first `kids` member slots, so a
+        // child is added and removed there — not at the end, where it would
+        // drop an adult and leave the removed child's age behind.
+        const blanks = (k) => Array.from({ length: k }, () => ({ name: '', age: '' }))
+        const members =
+          kids > was
+            ? [...p.members.slice(0, was), ...blanks(kids - was), ...p.members.slice(was)]
+            : [...p.members.slice(0, kids), ...p.members.slice(was)]
+        return { ...p, members: members.length ? members : blanks(1), kidsCount: kids }
+      }),
     })
 
   const addParty = () =>

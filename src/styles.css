@@ -2516,3 +2516,8 @@ html, body { overscroll-behavior-y: contain; }
   background: var(--gold-soft); border: 1.5px dashed rgba(201, 164, 92, 0.6);
 }
 .journal-big { width: 100%; max-height: 70dvh; object-fit: contain; border-radius: var(--r-md); display: block; }
+
+/* ---- Journal slideshow video ---- */
+.video-bar { height: 8px; border-radius: 99px; background: var(--line, rgba(0,0,0,.1)); overflow: hidden; }
+.video-bar span { display: block; height: 100%; background: var(--accent); transition: width .25s linear; }
+.video-preview { width: 100%; max-height: 60vh; border-radius: 14px; background: #000; display: block; }
